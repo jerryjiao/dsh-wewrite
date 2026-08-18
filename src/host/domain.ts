@@ -130,13 +130,23 @@ export const GlobalStateSchema = z.strictObject({
 export type GlobalState = z.infer<typeof GlobalStateSchema>;
 
 // ── domain spec（F15：defineDomain({name, version, global?, tables}) + domainTable(zod)）──
+// 平台 global 槽契约（dsh-storage-domain 源码 358 行实证）：键名是 `schema` + `initial`，
+// 非 tables 的 `valueSchema`；且 schema 必须拒绝 null（null 是介质「从未写入」哨兵，平台 65 行显式校验）。
+// 写错键名的症状：首启 global=null 走 initial 分支不报错，二次启动读到已写入的 global
+// 走 `globalSpec.schema.parse` → undefined.parse → DomainError invalid-record（2026-08-19 实测踩中）。
+
+export const INITIAL_GLOBAL: GlobalState = {
+  v: 1,
+  settings: SettingsRecordSchema.parse({}),
+  claimedOccurrences: [],
+};
 
 export const domainSpec = {
   // 存储单元名受平台 UNIT_NAME_RE（/^[a-z][a-z0-9_]*$/）约束，连字符非法——
   // 用下划线形态，与 cordis 插件名（dsh-wewrite）区分。
   name: 'dsh_wewrite',
   version: 1,
-  global: { valueSchema: GlobalStateSchema },
+  global: { schema: GlobalStateSchema, initial: INITIAL_GLOBAL },
   tables: {
     articles: { valueSchema: ArticleRecordSchema },
     runs: { valueSchema: RunRecordSchema },

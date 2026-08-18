@@ -225,11 +225,12 @@ export declare const GlobalStateSchema: z.ZodObject<{
     claimedOccurrences: z.ZodDefault<z.ZodArray<z.ZodString>>;
 }, z.core.$strict>;
 export type GlobalState = z.infer<typeof GlobalStateSchema>;
+export declare const INITIAL_GLOBAL: GlobalState;
 export declare const domainSpec: {
     readonly name: "dsh_wewrite";
     readonly version: 1;
     readonly global: {
-        readonly valueSchema: z.ZodObject<{
+        readonly schema: z.ZodObject<{
             v: z.ZodLiteral<1>;
             settings: z.ZodObject<{
                 wechatAppId: z.ZodDefault<z.ZodString>;
@@ -269,6 +270,30 @@ export declare const domainSpec: {
             }, z.core.$strict>;
             claimedOccurrences: z.ZodDefault<z.ZodArray<z.ZodString>>;
         }, z.core.$strict>;
+        readonly initial: {
+            v: 1;
+            settings: {
+                wechatAppId: string;
+                wechatApiBaseUrl: string;
+                wechatAuthor: string;
+                defaultTheme: string;
+                defaultImageSize: "1024x1024" | "1024x1536" | "1536x1024" | "1344x768" | "768x1344";
+                llmDefault: {
+                    provider?: string | undefined;
+                    model?: string | undefined;
+                };
+                imageProviders: {
+                    providerId: "openai" | "doubao" | "dashscope" | "jimeng" | "minimax" | "azure_openai" | "gemini" | "openrouter" | "replicate";
+                    credentialRef: string;
+                    model?: string | undefined;
+                    baseUrl?: string | undefined;
+                }[];
+                agentToolsEnabled: boolean;
+                runHistoryLimit: number;
+                hotspotAggregatorUrl: string;
+            };
+            claimedOccurrences: string[];
+        };
     };
     readonly tables: {
         readonly articles: {

@@ -86,6 +86,21 @@ describe('domainSpec（单一 domain dsh_wewrite v1，ADR-0005）', () => {
   it('表集合精确为 articles/runs/schedules/images 四表（无增无减）', () => {
     expect(Object.keys(domainSpec.tables).sort()).toEqual(['articles', 'images', 'runs', 'schedules']);
   });
+
+  it('global 槽用平台契约键 schema+initial（valueSchema 键会被平台忽略→二启崩溃，2026-08-19 实测）', () => {
+    expect(domainSpec.global).toBeDefined();
+    expect(Object.keys(domainSpec.global as object).sort()).toEqual(['initial', 'schema']);
+  });
+
+  it('global schema 拒绝 null（null 是介质「从未写入」哨兵，平台 open 时显式校验）', () => {
+    const g = domainSpec.global as unknown as { schema: { safeParse: (v: unknown) => { success: boolean } } };
+    expect(g.schema.safeParse(null).success).toBe(false);
+  });
+
+  it('global initial 过自身 schema（保证首启兜底值合法）', () => {
+    const g = domainSpec.global as unknown as { schema: { parse: (v: unknown) => unknown }; initial: unknown };
+    expect(() => g.schema.parse(g.initial)).not.toThrow();
+  });
 });
 
 describe('SettingsRecord（global，非机密项；AC-5/架构 §8）', () => {
