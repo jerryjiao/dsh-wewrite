@@ -1,0 +1,57 @@
+---
+import Icon from './Icon.astro';
+import { REPO_URL } from '../site-data';
+
+// sync: README.md「架构」节 —— 本图与 README 同源，改架构必须同步两处（方向文档 §9.5）
+const archDiagram = `DSH Web UI（React 18，http://127.0.0.1:3080）
+  └─ wewrite 工作台 tab
+       │  选题 │ 编辑器 │ 微信预览 │ 运行历史 │ 定时计划 │ 设置
+       │  connection.rpc（仅 loopback 回环，authority 校验）
+       ▼
+DSH Host（Node + Cordis）
+  └─ dsh-wewrite 宿主插件：WeWriteService（唯一写权威，操作串行化）
+       ├─ pipeline/   六步引擎：选题→大纲→成稿→门禁→渲染→配图
+       │               文本步调 ctx.llm，确定性步骤纯代码执行
+       ├─ scheduler/  RRULE 归一化 → durable occurrence claim → 派发 run
+       ├─ wechat/     token / uploadimg / material / draft
+       │               apiBaseUrl 可配 = 代理缝（全部调用统一走该地址）
+       └─ providers/  9 家图片供应商 + fallback 编排
+  凭据：ctx.credentials（~/.dsh 本地）   数据：storageDomain（~/.dsh 本地）`;
+---
+
+<section id="architecture" class="section section-sunken">
+  <div class="container">
+    <h2 class="section-title">架构</h2>
+    <p class="section-intro">单包双端（host + client），DSH Cordis 插件形态：文本步调宿主模型，确定性步骤纯代码执行。</p>
+    <pre class="arch-pre">{archDiagram}</pre>
+    <p class="arch-link-row">
+      <a class="text-link" href={`${REPO_URL}/blob/main/docs/tech-architecture.md`}>
+        设计细节与 ADR 见 docs/tech-architecture.md <Icon name="external-link" size={16} />
+      </a>
+    </p>
+  </div>
+</section>
+
+<style>
+  .arch-pre {
+    margin-top: 32px;
+    background: var(--site-code-bg);
+    border: 1px solid var(--site-border);
+    border-radius: 8px;
+    padding: 24px;
+    font-family: var(--site-font-mono);
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .arch-link-row {
+    margin-top: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+</style>

@@ -1,0 +1,65 @@
+---
+import '../styles/site.css';
+
+const base = import.meta.env.BASE_URL; // '/dsh-wewrite/'（GitHub Pages 项目站子路径）
+const siteUrl = import.meta.env.SITE; // 'https://jerryjiao.github.io'
+const title = 'dsh-wewrite — 30+ 篇文章验证的公众号写作管线，一条命令装进 DSH';
+const description =
+  'DeepSeek Harness（DSH）微信公众号写作插件：选题、大纲、成稿、质量门禁、排版、配图、草稿箱一条管线跑完，模型与凭据全走你自己的账号，数据只落本地，默认无遥测。';
+const ogImage = `${siteUrl}${base}mark-1024.png`;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" type="image/png" href={`${base}favicon.png`} />
+    <link rel="apple-touch-icon" href={`${base}mark-1024.png`} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="dsh-wewrite" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={`${siteUrl}${base}`} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+  </head>
+  <body>
+    <slot />
+    <script is:inline>
+/* 复制按钮——全站唯一 JS（<1KB，零依赖）；copy->check 图标切换 + aria-live「已复制」，1.5s 复位 */
+(function () {
+'use strict';
+function m(b) {
+b.classList.add('is-copied');
+var l = b.querySelector('.copy-status');
+if (l) l.textContent = '已复制';
+clearTimeout(b._t);
+b._t = setTimeout(function () { b.classList.remove('is-copied'); if (l) l.textContent = ''; }, 1500);
+}
+function f(t, b) {
+var a = document.createElement('textarea');
+a.value = t; a.setAttribute('readonly', '');
+a.style.position = 'fixed'; a.style.opacity = '0';
+document.body.appendChild(a); a.select();
+try { document.execCommand('copy'); m(b); } catch (e) {}
+document.body.removeChild(a);
+}
+document.querySelectorAll('[data-copy]').forEach(function (b) {
+b.addEventListener('click', function () {
+var t = b.getAttribute('data-copy');
+if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function () { m(b); }, function () { f(t, b); });
+else f(t, b);
+});
+});
+})();
+    </script>
+  </body>
+</html>

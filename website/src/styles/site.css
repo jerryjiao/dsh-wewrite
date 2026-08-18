@@ -1,0 +1,266 @@
+/*
+ * dsh-wewrite 官网全局样式
+ * Token 真源：docs/website-direction.md §4（--site-* 与插件 light 值同源，见 docs/DESIGN.md §2.2）
+ * 纪律：:root 之外零裸 hex / 零 rgb 字面量，组件一律 var(--site-*)；零 gradient、零阴影、零 backdrop-filter。
+ */
+
+/* ===== JetBrains Mono 自托管（latin 子集，不引 Google Fonts CDN） ===== */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/JetBrainsMono-400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../assets/fonts/JetBrainsMono-500.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ===== Token（全站唯一允许出现颜色字面量的层） ===== */
+:root {
+  /* 颜色（值 = docs/DESIGN.md light 列，官网只有浅色主题） */
+  --site-bg: #ffffff;
+  --site-bg-sunken: #f9fafb;
+  --site-surface: #ffffff;
+  --site-fg: #0f1115;
+  --site-fg-secondary: #61666b;
+  --site-accent: #4176e6;
+  --site-accent-hover: #679efe;
+  --site-accent-active: #4868b2;
+  --site-accent-on: #ffffff;
+  --site-accent-subtle: #edf3fe;
+  --site-focus-ring: 0 0 0 3px rgba(65, 118, 230, 0.32);
+  --site-border: rgba(0, 0, 0, 0.1);
+  --site-border-strong: rgba(0, 0, 0, 0.2);
+  --site-divider: rgba(0, 0, 0, 0.04);
+  --site-code-bg: #ebeef2;
+  --site-success: #22c55e;
+  --site-warn: #f59e0b;
+  --site-danger: #ec1313;
+  /* 字体 */
+  --site-font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --site-font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace;
+  /* 字号（H1 单列；其余 12/13/14/16/18/20/24/32 在组件内取值） */
+  --site-text-hero: 40px;
+  /* 布局与动效 */
+  --site-container-max: 1080px;
+  --site-motion-fast: 150ms;
+  --site-motion-base: 200ms;
+  --site-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ===== 基础 ===== */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--site-bg);
+  color: var(--site-fg);
+  font-family: var(--site-font-body);
+  font-size: 16px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+img { display: block; max-width: 100%; height: auto; }
+svg { vertical-align: middle; }
+
+:where(a, button, summary):focus-visible {
+  outline: none;
+  box-shadow: var(--site-focus-ring);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ===== 布局基类 ===== */
+.container {
+  max-width: var(--site-container-max);
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+.section { padding-block: 80px; scroll-margin-top: 16px; }
+.section-sunken { background: var(--site-bg-sunken); }
+
+.section-title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.section-intro {
+  margin-top: 12px;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--site-fg-secondary);
+  max-width: 72ch;
+}
+
+/* 文字链接（accent 只用于交互元素） */
+.text-link { color: var(--site-accent); text-decoration: none; }
+.text-link:hover {
+  color: var(--site-accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ===== 按钮 ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  /* 默认边框色取 accent（primary 上与填充同色不可见）；outline 变体覆写 */
+  border: 1px solid var(--site-accent);
+  border-radius: 6px;
+  font-family: var(--site-font-body);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--site-motion-fast) var(--site-ease), border-color var(--site-motion-fast) var(--site-ease), color var(--site-motion-fast) var(--site-ease);
+}
+
+.btn-primary { background: var(--site-accent); color: var(--site-accent-on); }
+.btn-primary:hover { background: var(--site-accent-hover); }
+.btn-primary:active { background: var(--site-accent-active); }
+
+.btn-outline {
+  background: var(--site-bg);
+  color: var(--site-fg);
+  border-color: var(--site-border-strong);
+}
+.btn-outline:hover {
+  background: var(--site-bg-sunken);
+  border-color: var(--site-fg-secondary);
+}
+
+.btn-sm { height: 32px; padding: 0 12px; font-size: 13px; }
+
+/* ===== 安装命令块（Hero 右栏） ===== */
+.codeblock {
+  background: var(--site-bg-sunken);
+  border: 1px solid var(--site-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.codeblock-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--site-code-bg);
+  border-bottom: 1px solid var(--site-border);
+}
+
+.codeblock-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--site-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--site-fg-secondary);
+}
+
+.codeblock-body { padding: 16px; display: grid; gap: 4px; }
+
+.cmd {
+  font-family: var(--site-font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.cmd-out {
+  font-family: var(--site-font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--site-fg-secondary);
+}
+
+.prompt { color: var(--site-fg-secondary); }
+
+/* ===== 复制按钮（copy -> check 切换 + aria-live，纯 CSS 态） ===== */
+.copy-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--site-fg-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* 触摸命中区扩到 44px（视觉 32px） */
+.copy-btn::after { content: ''; position: absolute; inset: -6px; }
+
+.copy-btn:hover { background: var(--site-accent-subtle); color: var(--site-fg); }
+.copy-btn .icon-check { display: none; }
+.copy-btn.is-copied .icon-copy { display: none; }
+.copy-btn.is-copied .icon-check { display: block; color: var(--site-success); }
+
+/* ===== 行内命令（快速上手第 1 步） ===== */
+.inline-cmd {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--site-code-bg);
+  border-radius: 6px;
+  padding: 8px 8px 8px 12px;
+  margin-top: 12px;
+}
+
+.inline-cmd code {
+  flex: 1;
+  font-family: var(--site-font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* ===== 响应式（单断点 900px，见方向文档 §7.1） ===== */
+@media (max-width: 899px) {
+  .container { padding-inline: 16px; }
+  .section { padding-block: 48px; }
+  .btn { height: 44px; }
+  .btn-sm { height: 36px; }
+  :root { --site-text-hero: 32px; }
+}
+
+/* ===== reduced-motion（照搬 DESIGN.md §8 口径） ===== */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

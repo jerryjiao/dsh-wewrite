@@ -1,0 +1,71 @@
+---
+import Icon from './Icon.astro';
+import { REPO_URL } from '../site-data';
+
+// 锚点 ≤5（认知负荷），非 sticky；<900px 隐藏锚点行（零菜单方案，方向文档 §7.2）
+const links = [
+  { href: '#problem', label: '解决什么' },
+  { href: '#quickstart', label: '快速上手' },
+  { href: '#features', label: '功能' },
+  { href: '#safety', label: '安全默认' },
+  { href: '#faq', label: 'FAQ' },
+];
+---
+
+<header class="nav">
+  <div class="container nav-inner">
+    <a class="wordmark" href="#top">dsh-wewrite</a>
+    <nav class="nav-links" aria-label="页面导航">
+      {links.map((l) => <a href={l.href}>{l.label}</a>)}
+    </nav>
+    <a class="btn btn-outline btn-sm nav-gh" href={REPO_URL}>
+      <Icon name="star" size={16} /> GitHub
+    </a>
+  </div>
+</header>
+
+<style>
+  .nav {
+    background: var(--site-bg);
+    border-bottom: 1px solid var(--site-divider);
+  }
+
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    height: 56px;
+  }
+
+  .wordmark {
+    font-family: var(--site-font-mono);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--site-fg);
+    text-decoration: none;
+  }
+
+  .nav-links {
+    margin-left: auto;
+    display: flex;
+    gap: 24px;
+  }
+
+  .nav-links a {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--site-fg-secondary);
+    text-decoration: none;
+    transition: color var(--site-motion-fast) var(--site-ease);
+  }
+
+  .nav-links a:hover {
+    color: var(--site-fg);
+  }
+
+  @media (max-width: 899px) {
+    .nav-links {
+      display: none;
+    }
+  }
+</style>

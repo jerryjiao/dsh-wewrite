@@ -1,0 +1,125 @@
+---
+import Icon from './Icon.astro';
+import GithubMark from './GithubMark.astro';
+import { REPO_URL } from '../site-data';
+
+const base = import.meta.env.BASE_URL;
+
+const links = [
+  { href: REPO_URL, label: 'GitHub 仓库', mark: true },
+  { href: `${REPO_URL}/tree/main/docs`, label: '文档' },
+  { href: `${REPO_URL}/issues`, label: 'Issues' },
+  { href: `${REPO_URL}/blob/main/LICENSE`, label: 'MIT License' },
+];
+---
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="brand-row">
+          <img
+            class="brand-mark"
+            src={`${base}mark-1024.png`}
+            alt="dsh-wewrite 标识"
+            width="24"
+            height="24"
+          />
+          <span class="brand-word">dsh-wewrite</span>
+        </div>
+        <p class="footer-tagline">DeepSeek Harness 微信公众号写作插件</p>
+        <p class="footer-copy">© 2026 Jerry Jiao</p>
+      </div>
+      <nav class="footer-links" aria-label="页脚链接">
+        {
+          links.map((l) => (
+            <a href={l.href}>
+              {l.mark ? <GithubMark size={16} /> : <Icon name="external-link" size={16} />}
+              {l.label}
+            </a>
+          ))
+        }
+      </nav>
+    </div>
+    <p class="footer-meta">默认只进草稿箱 · 凭据只落本地 · 无遥测</p>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    background: var(--site-bg-sunken);
+    border-top: 1px solid var(--site-divider);
+    padding-block: 48px;
+  }
+
+  .footer-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 48px;
+    flex-wrap: wrap;
+  }
+
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .brand-mark {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+  }
+
+  .brand-word {
+    font-family: var(--site-font-mono);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  .footer-tagline {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--site-fg-secondary);
+  }
+
+  .footer-copy {
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--site-fg-secondary);
+  }
+
+  .footer-links {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .footer-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--site-fg-secondary);
+    text-decoration: none;
+    transition: color var(--site-motion-fast) var(--site-ease);
+  }
+
+  .footer-links a:hover {
+    color: var(--site-fg);
+  }
+
+  /* 底行价值观短句与 Hero meta 行首尾呼应 */
+  .footer-meta {
+    margin-top: 32px;
+    font-family: var(--site-font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--site-fg-secondary);
+  }
+</style>

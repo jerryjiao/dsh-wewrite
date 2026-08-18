@@ -1,0 +1,103 @@
+---
+import Icon from './Icon.astro';
+
+// 三段痛点（PRD §1 四条并为三段，文案真源 = 方向文档 §5.2，逐字照抄）
+const items = [
+  {
+    icon: 'scissors',
+    title: '工具链是断的',
+    body: '排版工具只有排版。Markdown 编辑器把稿子变成微信图文，但选题、写作、配图、推送还是人肉串联，最后一公里是复制粘贴进公众号后台。',
+  },
+  {
+    icon: 'lock',
+    title: 'SaaS 是黑盒',
+    body: '闭源写作工具按年订阅，模型不是你自己的，风格不可控，内容数据要经过第三方服务器。',
+  },
+  {
+    icon: 'wrench',
+    title: '开源管线门槛高',
+    body: '命令行工具环境折腾，微信 IP 白名单和凭据配置劝退大部分人；而且几乎没有方案能定时跑完自动进草稿箱。',
+  },
+];
+---
+
+<section id="problem" class="section section-sunken">
+  <div class="container">
+    <h2 class="section-title">它解决什么</h2>
+    <p class="section-intro">想用 AI 持续产出公众号文章，现有方案各断一截：</p>
+    <div class="prob-grid">
+      {
+        items.map((item) => (
+          <div class="prob-col">
+            <Icon name={item.icon} size={20} class="prob-icon" />
+            <h3>{item.title}</h3>
+            <p>{item.body}</p>
+          </div>
+        ))
+      }
+    </div>
+    <p class="prob-turn"><span class="turn-arrow">→</span> dsh-wewrite 把一条真实运营中的管线装进 DSH：装完即用，默认只进草稿箱。</p>
+  </div>
+</section>
+
+<style>
+  .prob-grid {
+    margin-top: 48px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    column-gap: 48px;
+  }
+
+  /* 列间 1px 中性 divider（非彩色侧边条），无卡片盒 */
+  .prob-col + .prob-col {
+    border-left: 1px solid var(--site-divider);
+    padding-left: 48px;
+  }
+
+  .prob-icon {
+    color: var(--site-fg-secondary);
+    margin-bottom: 16px;
+  }
+
+  .prob-col h3 {
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+
+  .prob-col p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--site-fg-secondary);
+  }
+
+  .prob-turn {
+    margin-top: 48px;
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  .turn-arrow {
+    font-family: var(--site-font-mono);
+    margin-right: 8px;
+  }
+
+  @media (max-width: 899px) {
+    .prob-grid {
+      grid-template-columns: 1fr;
+      row-gap: 24px;
+    }
+
+    .prob-col + .prob-col {
+      border-left: none;
+      padding-left: 0;
+      border-top: 1px solid var(--site-divider);
+      padding-top: 24px;
+    }
+
+    .prob-turn {
+      margin-top: 32px;
+    }
+  }
+</style>

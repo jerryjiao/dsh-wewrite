@@ -1,0 +1,102 @@
+---
+import Icon from './Icon.astro';
+import { REPO_URL } from '../site-data';
+
+const relayDocUrl = `${REPO_URL}/blob/main/tools/wechat-relay/README.md`;
+---
+
+<section id="faq" class="section">
+  <div class="container">
+    <h2 class="section-title">FAQ</h2>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>
+          <span>推送报 errcode 40164（不在 IP 白名单）怎么办？</span>
+          <Icon name="chevron-down" size={16} class="faq-chev" />
+        </summary>
+        <div class="faq-answer">
+          <p>
+            这是微信侧约束：调用服务端接口的出口 IP 必须在公众号白名单里。先在设置页点连接测试，诊断会显示当前出口 IP。两条出路：①
+            出口 IP 固定，就把它加进公众平台 IP 白名单（家宽 IP 会变，此路不稳）；②
+            不固定，就在任意有固定公网 IP 的服务器上反向代理
+            api.weixin.qq.com——<a class="text-link" href={relayDocUrl}>文档里有 Caddy 一行配置的最小示例</a
+            >——把服务器 IP 加白一次，再把设置里的微信 API 地址指向它。本插件不提供也不销售代理服务。
+          </p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          <span>群发功能在哪？</span>
+          <Icon name="chevron-down" size={16} class="faq-chev" />
+        </summary>
+        <div class="faq-answer">
+          <p>
+            v0.1 没有，这是有意的安全默认：推送面只到草稿箱，群发调用路径在类型层不可达。Roadmap 的
+            v0.2 会以显式 opt-in（默认关闭、逐次确认）的形式评估提供。
+          </p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          <span>管线失败会留下半成品草稿吗？</span>
+          <Icon name="chevron-down" size={16} class="faq-chev" />
+        </summary>
+        <div class="faq-answer">
+          <p>不会。推送是原子操作，任一环节失败即中止，草稿箱不会出现残稿。已完成的文章产物保留在本地，改好可重推。</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq-list {
+    margin-top: 32px;
+    border-top: 1px solid var(--site-divider);
+  }
+
+  .faq-item {
+    border-bottom: 1px solid var(--site-divider);
+  }
+
+  summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-block: 20px;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.5;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* details 原生键盘可达；chevron 旋转是零 JS 纯 CSS */
+  .faq-chev {
+    color: var(--site-fg-secondary);
+    flex-shrink: 0;
+    transition: transform var(--site-motion-base) var(--site-ease);
+  }
+
+  details[open] .faq-chev {
+    transform: rotate(180deg);
+  }
+
+  .faq-answer {
+    padding-bottom: 20px;
+    max-width: 75ch;
+  }
+
+  .faq-answer p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--site-fg-secondary);
+  }
+</style>

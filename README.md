@@ -1,7 +1,13 @@
+<p align="center"><img src="assets/logo/mark-1024.png" width="120" alt="dsh-wewrite logo"></p>
+
 # dsh-wewrite
+
+[![CI](https://github.com/jerryjiao/dsh-wewrite/actions/workflows/ci.yml/badge.svg)](https://github.com/jerryjiao/dsh-wewrite/actions/workflows/ci.yml)
+[![Website](https://github.com/jerryjiao/dsh-wewrite/actions/workflows/website.yml/badge.svg)](https://github.com/jerryjiao/dsh-wewrite/actions/workflows/website.yml)
 
 一个 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 插件：把一条经过 30+ 篇真实文章验证的微信公众号 AI 写作管线（选题 → 大纲 → 成稿 → 质量门禁 → 排版渲染 → 配图 → 草稿箱）产品化。任何 DSH 用户一条命令安装，在本地 Web UI 里完成从选题到草稿箱的全流程。模型与凭据全部走你自己的账号，数据只落本地。
 
+- 官网：https://jerryjiao.github.io/dsh-wewrite/
 - 版本：v0.1.0
 - License：MIT
 - 适用 DSH：v0.1.x developer preview（见下方[版本兼容表](#版本兼容表)）
@@ -166,6 +172,18 @@ npm run build        # 产出 lib/（提交前必跑，产物入库）
 ```
 
 项目文档在 `docs/`（PRD / Spec / 技术架构 / QA 测试计划），测试即契约（Spec EARS 验收标准的可执行形态）。
+
+## CI 与发版
+
+三条 GitHub Actions 流水线，全绿是合入与发版的前置：
+
+| Workflow | 触发 | 做什么 |
+|---|---|---|
+| [`ci.yml`](.github/workflows/ci.yml) | push / PR 到 main | 插件门禁：lint → typecheck → 全量测试 → P0 视觉扫描 → build → `lib/client.js` 加载契约标记校验 + dist-committed 一致性（rebuild 须与提交的 `lib/` 字节一致，防「改源码忘 build」）；另跑官网构建校验（base 前缀验证） |
+| [`website.yml`](.github/workflows/website.yml) | push main（`website/**` / logo 变更）+ 手动 | 构建官网并自动部署到 GitHub Pages：https://jerryjiao.github.io/dsh-wewrite/ |
+| [`release.yml`](.github/workflows/release.yml) | push tag `v*` | 复用同一套插件门禁 → build → 打包 `lib/` + `cordis.patch.yml` + README/LICENSE 为 zip → 创建 GitHub Release（自动生成 notes）并附产物 |
+
+发版流程（workflow 不改版本号，bump 属本地动作）：改 `package.json` version → 同步 README 安装命令与官网的版本 pin → commit → `git tag vX.Y.Z` → `git push origin main --tags`，`release.yml` 接管门禁与 Release 产物。
 
 ## English
 

@@ -15,3 +15,7 @@ coverage/
 
 # 注意：lib/ 有意提交（dist-committed）——DSH git 安装不跑 build 脚本，
 # 预构建产物随仓库分发是 no-build 安装路径的既定决策，勿加入忽略。
+
+# 官网构建产物与缓存（产物不入 git，Pages 由 Actions 现场构建）
+website/dist/
+website/.astro/

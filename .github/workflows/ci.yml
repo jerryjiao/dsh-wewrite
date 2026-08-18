@@ -1,0 +1,83 @@
+# CI：push / PR 到 main 时跑插件门禁 + 官网构建校验。
+# release.yml 通过 workflow_call 复用本文件的 plugin-gate job。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plugin-gate:
+    name: 插件门禁 (lint/typecheck/test/p0/build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci --legacy-peer-deps
+
+      - name: 门禁（lint → typecheck → test → P0 → build）
+        run: |
+          npm run lint
+          npx tsc --noEmit
+          npm test
+          npm run check:p0
+          npm run build
+
+      - name: 验证构建产物契约
+        run: |
+          test -f lib/client.js
+          grep -q '__ModuleLoader__' lib/client.js
+          echo "lib/client.js 存在且含 __ModuleLoader__ 加载契约标记"
+
+      # lib/ 是 dist-committed（仓库有意提交预构建产物）：rebuild 后必须与提交版
+      # 字节一致，防止「改了源码忘跑 build」导致安装侧拿到陈旧产物。
+      - name: dist-committed 一致性校验
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git diff --exit-code -- lib/
+          echo "lib/ 与源码构建产物一致"
+
+  website-build:
+    name: 官网构建校验
+    # workflow_call 复用时（release.yml）只跑插件门禁，不重复构建官网
+    if: github.event_name != 'workflow_call'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: P0 视觉门禁（website 机械子集：src 内 ts/css，astro 组件走评审）
+        run: node scripts/checks/scan-p0.mjs --paths website/src
+
+      - name: 构建官网
+        working-directory: website
+        run: |
+          npm ci
+          npm run build
+
+      - name: 验证 Pages base 前缀
+        run: |
+          test -f website/dist/index.html
+          grep -q '/dsh-wewrite/' website/dist/index.html
+          echo "website/dist/index.html 存在且资源引用带 /dsh-wewrite/ 前缀"

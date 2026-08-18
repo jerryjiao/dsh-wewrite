@@ -1,0 +1,67 @@
+# 发版流水线：push tag v* 时跑完整插件门禁（复用 ci.yml），通过后打包并建 Release。
+# 版本号 bump 属本地发版动作（改 package.json → commit → tag → push），workflow 不改版本。
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: 插件门禁（复用 CI）
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  release:
+    name: 打包并发布 Release
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖并构建
+        run: |
+          npm ci --legacy-peer-deps
+          npm run build
+
+      - name: 验证构建产物契约
+        run: |
+          test -f lib/client.js
+          grep -q '__ModuleLoader__' lib/client.js
+
+      - name: 组装产物包
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          STAGE="dist-release/dsh-wewrite-${TAG}"
+          mkdir -p "${STAGE}"
+          cp -r lib "${STAGE}/lib"
+          cp cordis.patch.yml README.md LICENSE "${STAGE}/"
+          cd dist-release
+          zip -qr "dsh-wewrite-${TAG}.zip" "dsh-wewrite-${TAG}"
+
+      - name: 上传 workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-wewrite-${{ github.ref_name }}
+          path: dist-release/*.zip
+          if-no-files-found: error
+
+      - name: 创建 GitHub Release（自动生成 notes）
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "dsh-wewrite ${GITHUB_REF_NAME}" \
+            --generate-notes \
+            dist-release/*.zip

@@ -1,0 +1,84 @@
+---
+import Icon from './Icon.astro';
+
+// 四条价值观「编表」呈现：列顶 fg 色 2px 线，无盒无底色（线框分层，零卡片）
+const items = [
+  {
+    icon: 'shield',
+    title: '默认只到草稿箱',
+    body: 'v0.1 的推送面只有 draft/add。freepublish 群发调用路径在类型层不可达，群发永远由你在公众平台后台人工执行。',
+  },
+  {
+    icon: 'hard-drive',
+    title: '凭据只落本地',
+    body: 'AppSecret 与各 API Key 经 DSH 凭据服务存进 ~/.dsh 本地目录，不进 git，不离开你的机器。',
+  },
+  {
+    icon: 'eye-off',
+    title: '日志全脱敏',
+    body: 'secret / access_token / API key 在日志、报错与运行历史中一律掩码。',
+  },
+  {
+    icon: 'wifi-off',
+    title: '无遥测',
+    body: '不收集、不上报任何使用数据。这个官网也不引第三方统计脚本。',
+  },
+];
+---
+
+<section id="safety" class="section">
+  <div class="container">
+    <h2 class="section-title">安全默认</h2>
+    <p class="section-intro">这不是附加项，是产品价值观——公众号是你积累多年的资产，推出去的每个字都该由你过目。</p>
+    <div class="safety-grid">
+      {
+        items.map((item) => (
+          <div class="safety-col">
+            <Icon name={item.icon} size={20} class="safety-icon" />
+            <h3>{item.title}</h3>
+            <p>{item.body}</p>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .safety-grid {
+    margin-top: 48px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    column-gap: 48px;
+  }
+
+  .safety-col {
+    border-top: 2px solid var(--site-fg);
+    padding-top: 16px;
+  }
+
+  .safety-icon {
+    color: var(--site-fg);
+    margin-bottom: 12px;
+  }
+
+  .safety-col h3 {
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.5;
+    margin-bottom: 4px;
+  }
+
+  .safety-col p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--site-fg-secondary);
+  }
+
+  @media (max-width: 899px) {
+    .safety-grid {
+      grid-template-columns: 1fr;
+      row-gap: 24px;
+    }
+  }
+</style>

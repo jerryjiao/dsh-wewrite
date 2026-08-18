@@ -1,0 +1,189 @@
+---
+import Icon from './Icon.astro';
+
+// 管线全宽块 + 5 小项 3+2 分数网格（有意非均质，不做第 6 张凑数卡）
+const smallFeatures = [
+  {
+    icon: 'flame',
+    title: '热榜选题',
+    body: '内置 Hacker News（官方 API，无需 key），可配 DailyHotApi 兼容的自建聚合源。单源失败只标记该源，不清空面板。',
+    wide: false,
+  },
+  {
+    icon: 'file-pen',
+    title: '编辑器与微信预览',
+    body: 'CodeMirror 改稿，右侧 375px 微信预览，预览 HTML 与推送载荷字节一致——所见即所推。三套排版主题可换。',
+    wide: false,
+  },
+  {
+    icon: 'calendar-clock',
+    title: '定时进草稿箱',
+    body: 'RRULE 定时跑管线（如每个工作日 04:00），产物恒定进草稿箱，运行历史完整可审计。DSH 离线错过的时刻不补偿，下次启动提示错过了几个。',
+    wide: false,
+  },
+  {
+    icon: 'image-plus',
+    title: '九家图片供应商',
+    body: 'gpt-image-2 优先，openai → doubao → dashscope → jimeng → minimax → azure_openai → gemini → openrouter → replicate 依次降级。全部失败就无图推进，不卡成稿。',
+    wide: true,
+  },
+  {
+    icon: 'cpu',
+    title: '模型原生复用',
+    body: '不另建模型账号体系。管线文本步直接用 DSH 配置的模型，单次运行可覆盖 provider / model。',
+    wide: true,
+  },
+];
+
+const flowSteps = ['选题', '大纲', '成稿', '门禁', '渲染', '配图'];
+---
+
+<section id="features" class="section section-sunken">
+  <div class="container">
+    <h2 class="section-title">它做什么</h2>
+
+    <div class="pipe-card">
+      <div class="pipe-head">
+        <Icon name="list-checks" size={20} class="pipe-icon" />
+        <div>
+          <h3>六步管线</h3>
+          <p>一次运行产出全部产物：Markdown 原稿、微信内联样式 HTML、门禁报告、配图。</p>
+        </div>
+      </div>
+      <p class="pipe-flow">
+        {
+          flowSteps.map((step, i) => (
+            <>
+              {i > 0 && <span class="flow-arrow">→</span>}
+              <span class={step === '门禁' ? 'flow-step gate-step' : 'flow-step'}>{step}</span>
+            </>
+          ))
+        }
+      </p>
+      <p class="pipe-note">质量门禁未过会拦下默认推送路径：改稿重过，或显式覆盖。</p>
+    </div>
+
+    <div class="feat-grid">
+      {
+        smallFeatures.map((f) => (
+          <div class={f.wide ? 'feat-item wide' : 'feat-item'}>
+            <Icon name={f.icon} size={20} class="feat-icon" />
+            <h3>{f.title}</h3>
+            <p>{f.body}</p>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .pipe-card {
+    margin-top: 48px;
+    background: var(--site-surface);
+    border: 1px solid var(--site-border);
+    border-radius: 8px;
+    padding: 24px;
+  }
+
+  .pipe-head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .pipe-icon {
+    color: var(--site-fg);
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  .pipe-head h3 {
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  .pipe-head p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--site-fg-secondary);
+  }
+
+  .pipe-flow {
+    margin-top: 20px;
+    font-family: var(--site-font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .flow-arrow {
+    color: var(--site-fg-secondary);
+  }
+
+  /* 门禁步用 success 语义色下划线（拦截语义是信息不是装饰，不计 accent 限额） */
+  .gate-step {
+    text-decoration: underline;
+    text-decoration-color: var(--site-success);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+  }
+
+  .pipe-note {
+    margin-top: 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--site-fg-secondary);
+  }
+
+  /* 6 列分数网格：第 1 行三项各 span 2，第 2 行两项各 span 3 */
+  .feat-grid {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    column-gap: 24px;
+    row-gap: 24px;
+  }
+
+  .feat-item {
+    grid-column: span 2;
+    border-top: 1px solid var(--site-border);
+    padding-top: 16px;
+  }
+
+  .feat-item.wide {
+    grid-column: span 3;
+  }
+
+  .feat-icon {
+    color: var(--site-fg);
+    margin-bottom: 12px;
+  }
+
+  .feat-item h3 {
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.5;
+    margin-bottom: 4px;
+  }
+
+  .feat-item p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--site-fg-secondary);
+  }
+
+  @media (max-width: 899px) {
+    .feat-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .feat-item,
+    .feat-item.wide {
+      grid-column: auto;
+    }
+  }
+</style>
