@@ -7,7 +7,7 @@
 import { z } from 'zod';
 export * from './schema-base';
 export * from './view-schemas';
-export declare const RPC_CHANNEL = "dsh-wewrite";
+export declare const RPC_CHANNEL = "/dsh-wewrite";
 export declare const RPC_AUTHORITY = "loopback";
 export declare const CONTRACT_VERSION = 1;
 export declare const RPC_ENDPOINTS: readonly ["snapshot", "hotspots/fetch", "article/list", "article/get", "article/save", "article/delete", "article/preview", "run/start", "run/cancel", "schedule/save", "schedule/delete", "schedule/toggle", "schedule/runNow", "config/get", "config/set", "credentials/set", "credentials/describe", "llm/options", "wechat/pushDraft", "wechat/diagnose"];

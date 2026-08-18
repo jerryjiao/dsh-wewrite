@@ -77,8 +77,15 @@ export function createRpc(ctx: ClientContext): WewriteRpc {
     async call<T>(endpoint: string, payload: unknown = {}, signal?: AbortSignal): Promise<T> {
       try {
         const raw = await ctx.connection.rpc.call(RPC_CHANNEL, endpoint, payload, signal);
+        // 平台信封：{result:{ok:true,value}} / {ok:false,error}（host rpc.ts 对端同契约）
+        const envelope = (raw as { result?: { ok?: boolean; value?: unknown; error?: { code?: string; message?: string } } }).result ?? (raw as { ok?: boolean; value?: unknown; error?: { code?: string; message?: string } });
+        if (envelope && envelope.ok === true) return envelope.value as T;
+        if (envelope && envelope.ok === false) {
+          throw new WewriteRpcError(endpoint, `${envelope.error?.code ? `[${envelope.error.code}] ` : ''}${envelope.error?.message ?? `调用 ${endpoint} 失败`}`);
+        }
         return raw as T;
       } catch (cause) {
+        if (cause instanceof WewriteRpcError) throw cause;
         const structured = extractStructured(cause);
         throw new WewriteRpcError(endpoint, structured.message ?? `调用 ${endpoint} 失败`, {
           errcode: structured.errcode,

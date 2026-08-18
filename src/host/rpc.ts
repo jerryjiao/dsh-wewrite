@@ -106,6 +106,8 @@ export function registerWewriteRpc(
     logger?.warn('dsh-wewrite: connection.rpc 服务缺失，Web 面板不可用（Agent 工具仍可用）');
     return Promise.resolve(() => undefined);
   }
+  const truncate = (text: string): string => (text.length > 500 ? `${text.slice(0, 500)}…` : text);
+
   const registered = rpc.handle(
     RPC_CHANNEL,
     async (endpoint: string, payload: unknown) => {
@@ -116,13 +118,25 @@ export function registerWewriteRpc(
         const issues = parsedRequest.error?.issues ?? [];
         throw new Error(`请求校验失败（${endpoint}）：${issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ')}`);
       }
-      const result = await dispatch(service, endpoint as RpcEndpoint, parsedRequest.data as RpcPayload);
-      const checked = entry.response.safeParse(result);
-      if (!checked.success || checked.data === undefined) {
-        const issues = checked.error?.issues ?? [];
-        throw new Error(`响应形状漂移（${endpoint}）：${issues[0] ? `${issues[0].path.join('.')}: ${issues[0].message}` : '未知问题'}`);
+      // 平台 RPC 信封契约（dsh-automation 真身）：handler 返回 {ok:true,value} /
+      // {ok:false,error:{code,message}}——裸值会在客户端 result 联合校验处炸（2026-08-19 实测）。
+      try {
+        const result = await dispatch(service, endpoint as RpcEndpoint, parsedRequest.data as RpcPayload);
+        const checked = entry.response.safeParse(result);
+        if (!checked.success || checked.data === undefined) {
+          const issues = checked.error?.issues ?? [];
+          throw new Error(`响应形状漂移（${endpoint}）：${issues[0] ? `${issues[0].path.join('.')}: ${issues[0].message}` : '未知问题'}`);
+        }
+        return { ok: true as const, value: checked.data };
+      } catch (error) {
+        return {
+          ok: false as const,
+          error: {
+            code: error instanceof Error && 'code' in error ? String((error as { code?: unknown }).code) : 'rpc-failed',
+            message: truncate(error instanceof Error ? error.message : String(error)),
+          },
+        };
       }
-      return checked.data;
     },
     { authority: RPC_AUTHORITY },
   );

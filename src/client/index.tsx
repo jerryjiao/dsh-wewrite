@@ -34,8 +34,10 @@ export function apply(ctx: ClientContext): void {
 
   const rpc = createRpc(ctx);
 
-  function View(props: WewriteViewProps) {
-    return <WewriteApp rpc={rpc} t={props.t ?? fallbackT} />;
+  function View(_props: WewriteViewProps) {
+    // 宿主 props.t 绑定的是 common 命名空间（查不到我们的键会回显裸键）——
+    // 面板一律用本插件命名空间的 fallbackT（2026-08-19 实测：tab.home 等裸键回显根因）。
+    return <WewriteApp rpc={rpc} t={fallbackT} />;
   }
 
   let disposeSlot: (() => void) | undefined;

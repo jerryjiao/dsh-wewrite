@@ -122,7 +122,9 @@ const EXPECTED_ENDPOINTS = [
 
 describe('RPC 通道常量（Spec §5 头部 + 架构 F13）', () => {
   it('通道名锁定为 dsh-wewrite', () => {
-    expect(RPC_CHANNEL).toBe('dsh-wewrite');
+    // 平台 RPC 目标串契约：前导斜杠形态（dsh-automation 真身 "/dsh-automation" 同款；
+    // 无斜杠 → invalid RPC target，2026-08-19 实测）
+    expect(RPC_CHANNEL).toBe('/dsh-wewrite');
   });
 
   it('authority 锁定为 loopback（控制无人值守写面仅本机回环）', () => {
