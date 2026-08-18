@@ -83,8 +83,10 @@ for (const out of clientResult.outputFiles) {
   // write:false 无 outfile 时 esbuild 输出名是字面量 '<stdout>'（.map 为 '<stdout>.map'）。
   if (out.path === '<stdout>' || out.path.endsWith('.js')) {
     // 包 __ModuleLoader__.load 外壳：factory(require) 提供 CJS 依赖环境（宿主页面契约）。
+    // module/exports 必须在 factory 内声明（dsh-automation 真身同款）——esbuild CJS 产物
+    // 引用裸 module.exports，缺声明即浏览器端 "module is not defined"（2026-08-19 实拍踩中）。
     const body = out.text;
-    const wrapped = `window.__ModuleLoader__.load({ id: "dsh-wewrite", factory: (require) => {\n${body}\nreturn module.exports; } });\n`;
+    const wrapped = `window.__ModuleLoader__.load({ id: "dsh-wewrite", factory: (require) => {\nvar module = { exports: {} }; var exports = module.exports;\n${body}\nreturn module.exports; } });\n`;
     writeFileSync(join(lib, 'client.js'), wrapped, 'utf8');
   }
 }
