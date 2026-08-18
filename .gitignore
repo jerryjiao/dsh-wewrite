@@ -1,0 +1,17 @@
+# 依赖
+node_modules/
+
+# 测试覆盖率
+coverage/
+
+# 日志
+*.log
+
+# macOS
+.DS_Store
+
+# 本地临时目录
+/tmp
+
+# 注意：lib/ 有意提交（dist-committed）——DSH git 安装不跑 build 脚本，
+# 预构建产物随仓库分发是 no-build 安装路径的既定决策，勿加入忽略。

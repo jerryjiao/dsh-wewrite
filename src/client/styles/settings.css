@@ -1,0 +1,172 @@
+/*
+ * 设置页样式：5 组竖导航 / 表单字段 / 徽标 / 提示条 / 供应商链。颜色一律 var(--ww-*)。
+ */
+
+/* ---------- 设置 ---------- */
+
+.ww-settings { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: var(--ww-space-6); align-items: start; }
+.ww-settings--narrow { grid-template-columns: minmax(0, 1fr); }
+
+.ww-settings__nav { display: flex; flex-direction: column; gap: var(--ww-space-1); position: sticky; top: var(--ww-space-2); }
+
+.ww-settings__nav--row { position: static; flex-direction: row; flex-wrap: wrap; }
+
+.ww-settings__nav-item {
+  appearance: none;
+  font: inherit;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: var(--ww-space-2);
+  padding: var(--ww-space-3);
+  border: none;
+  border-radius: var(--ww-radius-md);
+  background: none;
+  color: var(--ww-fg);
+  cursor: pointer;
+  transition: background var(--ww-motion-fast) var(--ww-ease);
+}
+
+.ww-settings__nav-item:hover { background: var(--ww-interactive-hover); }
+
+.ww-settings__nav-item--active { background: var(--ww-accent-subtle); }
+
+.ww-settings__nav-item--active .ww-settings__nav-label { font-weight: var(--ww-weight-medium); }
+
+.ww-settings__nav-item svg { grid-row: 1 / span 2; color: var(--ww-fg-secondary); align-self: center; }
+
+.ww-settings__nav-label { font-size: var(--ww-text-base); }
+.ww-settings__nav-hint { grid-column: 2; font-size: var(--ww-text-xs); color: var(--ww-fg-caption); }
+
+.ww-settings__chip {
+  appearance: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-1);
+  padding: var(--ww-space-2) var(--ww-space-3);
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-full);
+  background: none;
+  color: var(--ww-fg-secondary);
+  cursor: pointer;
+}
+
+.ww-settings__chip--active { background: var(--ww-accent-subtle); border-color: var(--ww-accent); color: var(--ww-fg); }
+
+.ww-settings__content { min-width: 0; }
+.ww-settings__section { display: flex; flex-direction: column; gap: var(--ww-space-4); max-width: 640px; }
+.ww-settings__h { margin: 0; font-size: var(--ww-text-md); font-weight: var(--ww-weight-medium); }
+.ww-settings__row { display: flex; align-items: center; gap: var(--ww-space-3); flex-wrap: wrap; }
+.ww-settings__save { font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); }
+.ww-settings__save--error { color: var(--ww-danger); }
+
+/* ---------- 表单字段 ---------- */
+
+.ww-field { display: flex; flex-direction: column; gap: var(--ww-space-1); min-width: 0; }
+.ww-field__label { font-size: var(--ww-text-sm); color: var(--ww-fg-secondary); display: flex; gap: var(--ww-space-2); align-items: baseline; flex-wrap: wrap; }
+.ww-field__hint { font-size: var(--ww-text-xs); color: var(--ww-fg-caption); font-weight: var(--ww-weight-regular); }
+.ww-field__error { font-size: var(--ww-text-xs); color: var(--ww-danger); }
+.ww-field__note { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-fg-secondary); }
+.ww-field-row { display: flex; gap: var(--ww-space-3); flex-wrap: wrap; }
+.ww-field--time { flex-direction: row; align-items: center; gap: var(--ww-space-2); }
+.ww-field--time .ww-field__label { flex: none; }
+.ww-field__colon { color: var(--ww-fg-tertiary); }
+.ww-field__pills { display: flex; gap: var(--ww-space-2); flex-wrap: wrap; }
+
+.ww-input-error { border-color: var(--ww-danger); }
+
+.ww-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-1);
+  font-size: var(--ww-text-xs);
+  color: var(--ww-fg-tertiary);
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-full);
+  padding: 0 var(--ww-space-2);
+  align-self: flex-start;
+}
+
+.ww-badge--ok { color: var(--ww-success); border-color: var(--ww-success); background: var(--ww-success-subtle); }
+
+.ww-callout { display: flex; flex-direction: column; gap: var(--ww-space-1); padding: var(--ww-space-3) var(--ww-space-4); border-radius: var(--ww-radius-md); font-size: var(--ww-text-sm); }
+.ww-callout--ok { background: var(--ww-success-subtle); color: var(--ww-fg); }
+.ww-callout--fail { background: var(--ww-danger-subtle); }
+.ww-callout__title { margin: 0; display: flex; align-items: center; gap: var(--ww-space-2); font-weight: var(--ww-weight-medium); }
+.ww-callout__hint { margin: 0; color: var(--ww-fg-secondary); }
+
+.ww-locked {
+  display: flex;
+  gap: var(--ww-space-3);
+  align-items: flex-start;
+  padding: var(--ww-space-4);
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-lg);
+  background: var(--ww-surface-sunken);
+}
+
+.ww-locked__dot { width: 10px; height: 10px; border-radius: var(--ww-radius-full); background: var(--ww-fg-caption); margin-top: 6px; flex: none; }
+.ww-locked__title { margin: 0 0 var(--ww-space-1); font-weight: var(--ww-weight-medium); }
+.ww-locked__note { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-fg-secondary); }
+.ww-locked > div { flex: 1; min-width: 0; }
+
+/* ---------- 图片供应商链 ---------- */
+
+.ww-provider-chain { list-style: none; margin: 0; padding: 0; border: var(--ww-border-width) solid var(--ww-border); border-radius: var(--ww-radius-lg); overflow: hidden; }
+
+.ww-provider {
+  display: flex;
+  align-items: center;
+  gap: var(--ww-space-3);
+  min-height: var(--ww-row-h);
+  padding: 0 var(--ww-space-3);
+  border-bottom: var(--ww-border-width) solid var(--ww-divider);
+  background: var(--ww-surface);
+  font-size: var(--ww-text-sm);
+}
+
+.ww-provider:last-child { border-bottom: none; }
+
+.ww-provider__order { font-family: var(--ww-font-code); color: var(--ww-fg-tertiary); min-width: 1.5em; }
+.ww-provider__model { color: var(--ww-fg-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ww-provider__ops { display: flex; gap: var(--ww-space-1); }
+
+.ww-icon-btn {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--ww-fg-secondary);
+  width: var(--ww-row-h);
+  height: var(--ww-row-h);
+  min-width: var(--ww-row-h);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ww-radius-sm);
+  cursor: pointer;
+}
+
+.ww-icon-btn:hover:not(:disabled) { background: var(--ww-interactive-hover); color: var(--ww-fg); }
+.ww-icon-btn:disabled { color: var(--ww-fg-caption); cursor: default; }
+/*
+ * 弹层内表单（定时弹层）——字段与 RRULE 预览。颜色一律 var(--ww-*)。
+ */
+
+/* ---------- 定时弹层 ---------- */
+
+.ww-schedule-form { display: flex; flex-direction: column; gap: var(--ww-space-4); }
+
+.ww-rrule-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--ww-space-3);
+  flex-wrap: wrap;
+  background: var(--ww-surface-sunken);
+  border-radius: var(--ww-radius-md);
+  padding: var(--ww-space-2) var(--ww-space-3);
+}
+
+.ww-rrule-preview__label { display: inline-flex; align-items: center; gap: var(--ww-space-2); font-size: var(--ww-text-sm); color: var(--ww-fg-secondary); }

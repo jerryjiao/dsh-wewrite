@@ -1,0 +1,7 @@
+# 一行安装组合包（F2/F4）：宿主服务 + Web client。config 全量写在 patch 行（patch 层整体替换不深合并）。
+- insert:
+    - id: wewrite
+      name: dsh-wewrite
+      config:
+        agentToolsEnabled: false
+        schedulerTickSeconds: 30

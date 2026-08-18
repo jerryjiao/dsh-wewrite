@@ -1,0 +1,421 @@
+{
+  "$comment": "dsh-wewrite Design Token（Phase 2 产出）。CSS 实现见 src/client/styles/tokens.css，二者一一对应。所有 --ww-* 语义 token 默认指向宿主 --dsw-*（DSH web UI 三层 token 体系：--dsw-static-* → --dsw-alias-* → --dsw-specific-*，浅色挂 body、深色挂 body[data-ds-dark-theme]），宿主缺位处（间距/圆角/阴影/画布）用自有 primitive。light/dark 字段是核对用解析值（来源：@deepseek-ai/dsh-client-ui-theme v0.1.0-rc.6 本机实装源码逐条核实，2026-08-18），运行时真实值永远以宿主 token 解析为准——宿主换肤时本表不追改。",
+  "meta": {
+    "name": "dsh-wewrite",
+    "version": "1.0.0",
+    "date": "2026-08-18",
+    "author": "颜好看（MVP 开发专家团设计师）",
+    "inputs": ["docs/FACTS.md", "docs/spec.md §7/§8（锁定契约）", "docs/uiux-direction.md（Phase 1 方向）"],
+    "cssScope": ".dsh-wewrite-panel（面板容器作用域；深色跟随 body[data-ds-dark-theme]，仅自有值 token 需要 dark 覆写，宿主引用型 token 自动翻转）",
+    "guarantees": [
+      "零 gradient token：本文件与 tokens.css 均不含任何 linear-gradient/radial-gradient 定义（P0-2 构造保证）",
+      "紫粉四色 #7C3AED / #A855F7 / #EC4899 / #6366F1 不出现在任何 token 值",
+      "组件代码只允许引用 --ww-*，禁止裸 hex（唯一例外域：微信预览画布内的 UGC 排版主题 CSS）",
+      "图标唯一库 lucide-react，16px 行内 / 20px 按钮内两档，颜色 currentColor"
+    ],
+    "verifiedAgainst": {
+      "hostThemePkg": "@deepseek-ai/dsh-client-ui-theme@0.1.0-rc.6",
+      "icons": "lucide-react（本机 sitemap-generator/node_modules/lucide-react 图标文件逐名核验）"
+    }
+  },
+
+  "color": {
+    "$comment": "命名按用途不按色相；每项含 host 引用与 light/dark 双解析值。每屏 accent 可见使用 ≤2 处（主 CTA + 单一选中态）。",
+
+    "accent": {
+      "css": "var(--dsw-alias-button-info-fill)",
+      "host": "--dsw-alias-button-info-fill",
+      "light": "#4176E6",
+      "dark": "#679EFE",
+      "type": "color",
+      "usage": "主操作色（开始写作/推草稿箱等主 CTA、当前选中 Tab）。宿主 deepseek-500/400 纯色平涂，零渐变"
+    },
+    "accent-hover": {
+      "css": "var(--dsw-alias-button-info-hover)",
+      "host": "--dsw-alias-button-info-hover",
+      "light": "#679EFE",
+      "dark": "#4176E6",
+      "type": "color",
+      "usage": "accent 悬停态（宿主深浅主题下 hover 明暗方向相反，本 token 自动跟随）"
+    },
+    "accent-active": {
+      "css": "var(--dsw-static-deepseek-600)",
+      "host": "--dsw-static-deepseek-600",
+      "light": "#4868B2",
+      "dark": "#4868B2",
+      "type": "color",
+      "usage": "accent 按下态（static 值不随主题翻转）"
+    },
+    "accent-on": {
+      "css": "var(--dsw-static-neutral-bluish-00)",
+      "host": "--dsw-static-neutral-bluish-00",
+      "light": "#FFFFFF",
+      "dark": "#FFFFFF",
+      "type": "color",
+      "usage": "accent 背景上的前景文字（经宿主 static 白，不裸写 #fff）"
+    },
+    "accent-subtle": {
+      "css": "var(--dsw-static-deepseek-50)",
+      "host": "--dsw-static-deepseek-50",
+      "light": "#EDF3FE",
+      "dark": "#EDF3FE",
+      "type": "color",
+      "usage": "选中行底色/关键词命中标签底/焦点环底等大面积浅 accent 场景"
+    },
+    "accent-ring": {
+      "css": "rgba(65, 118, 230, 0.32)",
+      "host": null,
+      "light": "rgba(65, 118, 230, 0.32)",
+      "dark": "rgba(103, 158, 254, 0.40)",
+      "type": "color",
+      "usage": "focus ring 色（自有值，深色下换 deepseek-400 基调提亮）；由 --ww-focus-ring 组装为 3px 环",
+      "darkOverride": true
+    },
+
+    "bg": {
+      "css": "var(--dsw-alias-bg-base)",
+      "host": "--dsw-alias-bg-base",
+      "light": "#FFFFFF",
+      "dark": "#151517",
+      "type": "color",
+      "usage": "面板页面基底"
+    },
+    "surface": {
+      "css": "var(--dsw-alias-bg-layer-2)",
+      "host": "--dsw-alias-bg-layer-2",
+      "light": "#FFFFFF",
+      "dark": "#2C2C2E",
+      "type": "color",
+      "usage": "卡片/表格容器/输入框底"
+    },
+    "surface-raised": {
+      "css": "var(--dsw-alias-bg-layer-3)",
+      "host": "--dsw-alias-bg-layer-3",
+      "light": "#FFFFFF",
+      "dark": "#353638",
+      "type": "color",
+      "usage": "浮层表面（下拉菜单/悬浮卡片，宿主 --dsw-specific-menu 即指向它）"
+    },
+    "surface-sunken": {
+      "css": "var(--dsw-specific-sidebar-fill)",
+      "host": "--dsw-specific-sidebar-fill",
+      "light": "#F9FAFB",
+      "dark": "#1B1B1C",
+      "type": "color",
+      "usage": "嵌套凹区：预览画布外圈、表格表头、生成中阶段视图底（与宿主侧栏同源的冷灰）"
+    },
+    "skeleton": {
+      "css": "var(--dsw-alias-bg-skeleton)",
+      "host": "--dsw-alias-bg-skeleton",
+      "light": "rgba(0, 0, 0, 0.04)",
+      "dark": "rgba(255, 255, 255, 0.08)",
+      "type": "color",
+      "usage": "骨架屏占位底色"
+    },
+
+    "fg": {
+      "css": "var(--dsw-alias-label-primary)",
+      "host": "--dsw-alias-label-primary",
+      "light": "#0F1115",
+      "dark": "#F9FAFB",
+      "type": "color",
+      "usage": "主文字（对比度 light 下约 17:1）"
+    },
+    "fg-secondary": {
+      "css": "var(--dsw-alias-label-secondary)",
+      "host": "--dsw-alias-label-secondary",
+      "light": "#61666B",
+      "dark": "#CFD3D6",
+      "type": "color",
+      "usage": "次级文字：来源、摘要、表头（light 下对比度约 4.9:1）"
+    },
+    "fg-tertiary": {
+      "css": "var(--dsw-alias-label-tertiary)",
+      "host": "--dsw-alias-label-tertiary",
+      "light": "#81858C",
+      "dark": "#ADB2B8",
+      "type": "color",
+      "usage": "三级文字：时间戳、字数统计等元信息"
+    },
+    "fg-caption": {
+      "css": "var(--dsw-alias-label-caption)",
+      "host": "--dsw-alias-label-caption",
+      "light": "#ADB2B8",
+      "dark": "#81858C",
+      "type": "color",
+      "usage": "最小档元信息：门禁规则内部 ID、版本号（仅 ≥12px 且非关键信息，不做正文）"
+    },
+
+    "border": {
+      "css": "var(--dsw-alias-border-l2)",
+      "host": "--dsw-alias-border-l2",
+      "light": "rgba(0, 0, 0, 0.10)",
+      "dark": "rgba(255, 255, 255, 0.12)",
+      "type": "color",
+      "usage": "默认边框：卡片、输入框、表格外框、画布框"
+    },
+    "border-strong": {
+      "css": "var(--dsw-alias-border-l3)",
+      "host": "--dsw-alias-border-l3",
+      "light": "rgba(0, 0, 0, 0.12)",
+      "dark": "rgba(255, 255, 255, 0.16)",
+      "type": "color",
+      "usage": "强调边框：输入框 focus 边、表头下沿、面板顶栏下沿"
+    },
+    "divider": {
+      "css": "var(--dsw-alias-border-l1)",
+      "host": "--dsw-alias-border-l1",
+      "light": "rgba(0, 0, 0, 0.04)",
+      "dark": "rgba(255, 255, 255, 0.06)",
+      "type": "color",
+      "usage": "内部分隔线：列表行间、设置分组内部"
+    },
+
+    "interactive-hover": {
+      "css": "var(--dsw-alias-interactive-bg-hover)",
+      "host": "--dsw-alias-interactive-bg-hover",
+      "light": "rgba(38, 49, 72, 0.06)",
+      "dark": "rgba(255, 255, 255, 0.08)",
+      "type": "color",
+      "usage": "列表行/菜单项悬停底色"
+    },
+    "interactive-active": {
+      "css": "var(--dsw-alias-interactive-bg-active)",
+      "host": "--dsw-alias-interactive-bg-active",
+      "light": "rgba(38, 49, 72, 0.10)",
+      "dark": "rgba(255, 255, 255, 0.14)",
+      "type": "color",
+      "usage": "列表行/菜单项按下底色"
+    },
+
+    "success": {
+      "css": "var(--dsw-alias-state-success-primary)",
+      "host": "--dsw-alias-state-success-primary",
+      "light": "#22C55E",
+      "dark": "#22C55E",
+      "type": "color",
+      "usage": "成功态：门禁通过、已进草稿箱、连接测试通过（StateDot state=done）"
+    },
+    "success-subtle": {
+      "css": "var(--dsw-alias-state-success-tertiary)",
+      "host": "--dsw-alias-state-success-tertiary",
+      "light": "#E6FAED",
+      "dark": "#233C2C",
+      "type": "color",
+      "usage": "成功提示条底色（Toast/内联提示）"
+    },
+    "warn": {
+      "css": "var(--dsw-alias-state-warn-primary)",
+      "host": "--dsw-alias-state-warn-primary",
+      "light": "#F59E0B",
+      "dark": "#F59E0B",
+      "type": "color",
+      "usage": "警示态：门禁未过、定时拦停、重试中（StateDot state=warning）"
+    },
+    "warn-subtle": {
+      "css": "var(--dsw-alias-state-warn-tertiary)",
+      "host": "--dsw-alias-state-warn-tertiary",
+      "light": "#FEF5E7",
+      "dark": "#27241F",
+      "type": "color",
+      "usage": "警示提示条底色"
+    },
+    "danger": {
+      "css": "var(--dsw-alias-state-error-primary)",
+      "host": "--dsw-alias-state-error-primary",
+      "light": "#EC1313",
+      "dark": "#F25A5A",
+      "type": "color",
+      "usage": "失败态：推送失败、管线错误、删除确认（StateDot state=error）"
+    },
+    "danger-subtle": {
+      "css": "var(--dsw-alias-interactive-bg-hover-danger)",
+      "host": "--dsw-alias-interactive-bg-hover-danger",
+      "light": "rgba(236, 19, 19, 0.05)",
+      "dark": "rgba(242, 90, 90, 0.15)",
+      "type": "color",
+      "usage": "危险操作悬停底/失败提示条底"
+    },
+    "info": {
+      "css": "var(--dsw-alias-state-business-primary)",
+      "host": "--dsw-alias-state-business-primary",
+      "light": "#4176E6",
+      "dark": "#679EFE",
+      "type": "color",
+      "usage": "信息态（与 accent 同源但语义独立命名：状态归 info、操作归 accent，日后可分叉）"
+    },
+
+    "code-bg": {
+      "css": "var(--dsw-alias-markdown-inline-code)",
+      "host": "--dsw-alias-markdown-inline-code",
+      "light": "#EBEEF2",
+      "dark": "#2C2C2E",
+      "type": "color",
+      "usage": "等宽信息带底色：slug、模型名、RRULE 原文、门禁规则 ID、cron 表达式"
+    },
+
+    "canvas-bg": {
+      "css": "#FFFFFF",
+      "host": null,
+      "light": "#FFFFFF",
+      "dark": "#FFFFFF",
+      "type": "color",
+      "usage": "微信预览画布底（固定浅色：公众号文章永远浅底，画布内是 UGC 排版主题的域，不随宿主主题翻转）"
+    },
+    "canvas-frame": {
+      "css": "var(--dsw-alias-border-l2)",
+      "host": "--dsw-alias-border-l2",
+      "light": "rgba(0, 0, 0, 0.10)",
+      "dark": "rgba(255, 255, 255, 0.12)",
+      "type": "color",
+      "usage": "预览画布外框（深色主题下画布外圈留 --ww-surface-sunken 凹区）"
+    }
+  },
+
+  "font": {
+    "$comment": "零网络字体：UI 跟宿主系统中文栈，等宽跟宿主代码栈（官方注释明确不带裸 monospace 尾巴，防 Windows CJK 回落宋体）。",
+
+    "family": {
+      "ui": {
+        "css": "var(--dsw-font-family)",
+        "host": "--dsw-font-family",
+        "value": "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+        "type": "fontFamily",
+        "usage": "全部界面文字"
+      },
+      "code": {
+        "css": "var(--ds-font-family-code)",
+        "host": "--ds-font-family-code",
+        "value": "'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, 'Liberation Mono', Menlo, Courier, 'PingFang SC', 'Microsoft YaHei'",
+        "type": "fontFamily",
+        "usage": "slug/模型名/时间戳/RRULE 原文/门禁规则 ID/流式输出预览/状态栏信息带"
+      },
+      "canvas": {
+        "css": "-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+        "host": null,
+        "value": "-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+        "type": "fontFamily",
+        "usage": "预览画布默认字体（文章实际字体由排版主题 CSS 接管，作用域限定画布容器内）"
+      }
+    },
+
+    "size": {
+      "$comment": "8 级字号，正文基准 14px（面板级工具界面，密度 6）；画布内文章字号由排版主题控制，不在此列。",
+      "xs":  { "value": "12px", "type": "dimension", "usage": "最小元信息/规则 ID/徽标" },
+      "sm":  { "value": "13px", "type": "dimension", "usage": "辅助说明、表格次要列" },
+      "base":{ "value": "14px", "type": "dimension", "usage": "正文基准（列表主列、表单、按钮）" },
+      "md":  { "value": "16px", "type": "dimension", "usage": "区块标题、输入框主字段" },
+      "lg":  { "value": "18px", "type": "dimension", "usage": "页面标题（面板内层级，不与宿主一级标题竞争）" },
+      "xl":  { "value": "20px", "type": "dimension", "usage": "弹层标题、生成中大数字" },
+      "2xl": { "value": "24px", "type": "dimension", "usage": "门禁分数、空状态主文案（少用）" },
+      "3xl": { "value": "32px", "type": "dimension", "usage": "门禁报告分数（唯一场景，全屏一处的层级锚）" }
+    },
+
+    "lineHeight": {
+      "ui":      { "value": 1.5, "type": "number", "usage": "界面文本默认" },
+      "body":    { "value": 1.7, "type": "number", "usage": "中文阅读文本（预览摘要/门禁报告正文），每行 ≤34 字" },
+      "heading": { "value": 1.3, "type": "number", "usage": "标题" }
+    },
+
+    "weight": {
+      "$comment": "宿主约束：Figma 510 一律渲染 CSS 500（官方注释），故可用字重仅 400/500/700，禁用 510/590 幻想值。",
+      "regular": { "value": 400, "type": "fontWeight", "usage": "正文、描述" },
+      "medium":  { "value": 500, "type": "fontWeight", "usage": "小标题、表头、按钮、Tab 激活态" },
+      "bold":    { "value": 700, "type": "fontWeight", "usage": "门禁分数、关键强调（少用）" }
+    },
+
+    "letterSpacing": {
+      "none":    { "value": "0",        "type": "letterSpacing", "usage": "中文正文默认（禁给中文加字距）" },
+      "caps":    { "value": "0.06em",   "type": "letterSpacing", "usage": "全大写拉丁标签（如 RRULE 关键字 FREQ=DAILY 的标签行、版本号 vX.Y.Z）" },
+      "heading": { "value": "-0.01em",  "type": "letterSpacing", "usage": "≥24px 标题/门禁分数" }
+    }
+  },
+
+  "space": {
+    "$comment": "4px 网格 8 级；禁 5/7/13/15/22/30 等非标值。列表行高另见 layout.row-h（44px 触摸底线）。",
+    "1":  { "value": "4px",  "type": "dimension", "usage": "图标与文字间距" },
+    "2":  { "value": "8px",  "type": "dimension", "usage": "同组元素紧凑间距" },
+    "3":  { "value": "12px", "type": "dimension", "usage": "表单元素间/列表行内列距" },
+    "4":  { "value": "16px", "type": "dimension", "usage": "卡片内边距、区块间" },
+    "5":  { "value": "20px", "type": "dimension", "usage": "编辑器内边距（CodeMirror 与画布统一 20）" },
+    "6":  { "value": "24px", "type": "dimension", "usage": "页面内容区左右内边距、区块间距" },
+    "8":  { "value": "32px", "type": "dimension", "usage": "大区块间距（写作台三段之间）" },
+    "12": { "value": "48px", "type": "dimension", "usage": "空状态留白、全屏提示区" }
+  },
+
+  "radius": {
+    "$comment": "圆角上限 8px（工程编辑风，杜绝 ≥24px 过度圆滑）。",
+    "sm":   { "value": "4px",   "type": "dimension", "usage": "Badge/标签/输入框/表格单元格元素" },
+    "md":   { "value": "6px",   "type": "dimension", "usage": "按钮/菜单项/Pill" },
+    "lg":   { "value": "8px",   "type": "dimension", "usage": "卡片/画布/弹层（上限）" },
+    "full": { "value": "9999px","type": "dimension", "usage": "状态点/圆形按钮/胶囊" }
+  },
+
+  "border": {
+    "width": { "value": "1px", "type": "dimension", "usage": "全部边框统一 1px（线框分层语言；禁止 >1px 彩色侧边条）" }
+  },
+
+  "shadow": {
+    "$comment": "Phase 1 草案曾假设宿主有 --dsw-shadow-lv1/2/3——实测宿主 theme 包无任何 shadow token，此为勘误：阴影为本插件自有 primitive。面板内卡片默认 border 分层无阴影，仅浮层用以下两级（避免幽灵卡片：1px 边框元素禁再叠 blur≥16px 阴影）。",
+    "overlay": {
+      "css": "0 8px 24px rgba(15, 17, 21, 0.12)",
+      "host": null,
+      "light": "0 8px 24px rgba(15, 17, 21, 0.12)",
+      "dark": "0 8px 24px rgba(0, 0, 0, 0.50)",
+      "type": "boxShadow",
+      "usage": "下拉菜单/Tooltip/悬浮卡片",
+      "darkOverride": true
+    },
+    "modal": {
+      "css": "0 16px 48px rgba(15, 17, 21, 0.16)",
+      "host": null,
+      "light": "0 16px 48px rgba(15, 17, 21, 0.16)",
+      "dark": "0 16px 48px rgba(0, 0, 0, 0.60)",
+      "type": "boxShadow",
+      "usage": "模态框/右滑抽屉/生成中全屏阶段视图",
+      "darkOverride": true
+    }
+  },
+
+  "motion": {
+    "$comment": "全盘宿主值（100/200/300ms + 宿主缓动）。禁 >400ms、禁弹跳缓动；prefers-reduced-motion 时全关（tokens.css 内已写死全局关闭块）。动效三档 = 即时反馈/状态确认/内容进入。",
+    "fast": { "css": "var(--ds-transition-duration-fast)", "host": "--ds-transition-duration-fast", "value": "0.1s",  "type": "duration", "usage": "即时反馈：按钮按下、开关切换、状态点切换" },
+    "base": { "css": "var(--ds-transition-duration)",      "host": "--ds-transition-duration",      "value": "0.2s",  "type": "duration", "usage": "状态确认：hover 变色、Tab 切换、选中态" },
+    "slow": { "css": "var(--ds-transition-duration-slow)", "host": "--ds-transition-duration-slow", "value": "0.3s",  "type": "duration", "usage": "内容进入/退出：下拉展开、Toast、弹层、抽屉" },
+    "ease": { "css": "var(--ds-ease-in-out)",              "host": "--ds-ease-in-out",              "value": "cubic-bezier(0.4, 0, 0.2, 1)", "type": "cubicBezier", "usage": "唯一缓动曲线（宿主同款）" }
+  },
+
+  "layout": {
+    "$comment": "面板级布局常量（面板寄生在 DSH 中心栏，无自有视口，不设 container-max）。",
+    "header-h":    { "value": "48px", "type": "dimension", "usage": "面板顶栏（二级 Tab 条）高度" },
+    "row-h":       { "value": "44px", "type": "dimension", "usage": "列表行高（触摸目标底线，44×44px WCAG 2.5.5）" },
+    "canvas-w":    { "value": "375px", "type": "dimension", "usage": "微信预览画布固定宽（iPhone 基准）" },
+    "page-pad":    { "value": "24px", "type": "dimension", "usage": "页面内容区左右内边距" },
+    "editor-pad":  { "value": "20px", "type": "dimension", "usage": "编辑器双栏各自内边距" }
+  },
+
+  "breakpoint": {
+    "$comment": "面板内容区宽度断点（非视口断点，面板宽度 = 宿主中心栏宽度减内边距）。",
+    "narrow": { "value": 900,  "type": "dimension", "unit": "px", "usage": "<900px：编辑器三视图退化为单栏 Tab 切换；列表降列" },
+    "wide":   { "value": 1200, "type": "dimension", "unit": "px", "usage": "≥1200px：编辑器双栏全宽（1fr + 画布侧）；选题中心双栏全开" }
+  },
+
+  "zIndex": {
+    "$comment": "面板内层级梯（宿主 Toast/Modal 层之上不再叠加；面板自身不脱离宿主文档流层级）。",
+    "dropdown": { "value": 1000, "type": "number", "usage": "下拉/菜单/Tooltip" },
+    "sticky":   { "value": 1100, "type": "number", "usage": "面板顶栏 sticky、编辑器浮动工具条" },
+    "modal":    { "value": 1200, "type": "number", "usage": "模态/抽屉/生成中阶段视图" },
+    "toast":    { "value": 1300, "type": "number", "usage": "面板内 Toast（推送成功/失败反馈）" }
+  },
+
+  "focus": {
+    "focus-ring": {
+      "css": "0 0 0 3px var(--ww-accent-ring)",
+      "host": null,
+      "light": "0 0 0 3px rgba(65, 118, 230, 0.32)",
+      "dark": "0 0 0 3px rgba(103, 158, 254, 0.40)",
+      "type": "boxShadow",
+      "usage": "统一 :focus-visible 焦点环（3px accent 半透明环；官方 primitives 自带，自建组件必须同款）"
+    }
+  }
+}

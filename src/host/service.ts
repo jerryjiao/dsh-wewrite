@@ -1,0 +1,294 @@
+/** WeWriteService（架构 §3）：host 级唯一服务；写操作串行化。重活已拆 images/wechat-flow/articles-store/schedules-store/views。 */
+
+import { CONTRACT_VERSION, type ArticleDetail, type ArticleListItem, type ConfigView, type HotspotItem, type RunParams, type RunSummary, type ScheduleViewModel, type SnapshotResponse } from '../shared/contract';
+import { CREDENTIAL_REFS, DEFAULT_IMAGE_PROVIDER_CHAIN } from '../shared/image-provider-ids';
+import { convertArticle } from '../render/convert';
+import { SettingsRecordSchema } from './domain';
+import { createPipelineEngine, pruneTerminalRuns, type PipelineEngine, type RunStore } from './pipeline/engine';
+import { aggregateHotspots, buildHotspotSources } from './pipeline/steps/topic';
+import { qualityGatesRunner } from './pipeline/steps/gates';
+import { resolveLogger, type CredentialsService, type HostLogger, type LlmService, type StorageDomainHandle } from './platform';
+import { createSchedulerService } from './scheduler/service';
+import { createDomainRunStore, openTables, parseGlobalState, type DomainTables, type GlobalState } from './store';
+import { createImagesGenerator } from './images';
+import { ArticleStore } from './articles-store';
+import { ScheduleStore } from './schedules-store';
+import { diagnoseWeChat, pushArticleDraft, type WeChatFlowDeps } from './wechat-flow';
+import { truncateMessage } from './redaction';
+import { buildConfigView, runToSummary, scheduleToView } from './views';
+import { toServiceError, WewriteServiceError } from './service-errors';
+import type { DiagnoseResult } from './wechat/client';
+
+export { WewriteServiceError };
+
+export interface ServiceDeps {
+  readonly domain: StorageDomainHandle;
+  readonly credentials: CredentialsService;
+  readonly llm: LlmService;
+  readonly fetchImpl?: typeof fetch;
+  readonly now?: () => Date;
+  readonly logger?: HostLogger;
+}
+
+export class WeWriteService {
+  private readonly tables: DomainTables;
+  private readonly runStore: RunStore;
+  private readonly engine: PipelineEngine;
+  private readonly logger: HostLogger;
+  private readonly nowFn: () => Date;
+  private state: GlobalState;
+  private operationTail: Promise<unknown> = Promise.resolve();
+  private wechatSecret = '';
+  private readonly articles: ArticleStore;
+  private readonly schedules: ScheduleStore;
+  private readonly scheduler: ReturnType<typeof createSchedulerService>;
+
+  private constructor(private readonly deps: ServiceDeps) {
+    this.tables = openTables(deps.domain);
+    this.logger = deps.logger ?? resolveLogger({}, 'dsh-wewrite');
+    this.nowFn = deps.now ?? (() => new Date());
+    this.state = parseGlobalState(deps.domain.global.get(), this.logger);
+    this.runStore = createDomainRunStore(this.tables.runs, this.logger);
+    this.articles = new ArticleStore({
+      tables: this.tables,
+      runStore: this.runStore,
+      serialize: <T,>(operation: () => Promise<T>) => this.serialize(operation),
+      nowIso: () => this.nowIso(),
+      getSettings: () => this.settings,
+    });
+    this.schedules = new ScheduleStore({
+      tables: this.tables,
+      serialize: <T,>(operation: () => Promise<T>) => this.serialize(operation),
+      nowIso: () => this.nowIso(),
+      startRun: (schedule) => this.startRun({ trigger: 'schedule', params: schedule.params, scheduleId: schedule.id }),
+    });
+    this.engine = createPipelineEngine({
+      llm: deps.llm,
+      store: this.runStore,
+      gates: qualityGatesRunner,
+      renderer: { convert: ({ markdown, theme }) => convertArticle({ markdown, theme }) },
+      topicSource: { fetch: async (limit: number) => [...(await this.fetchHotspots(limit))] },
+      images: createImagesGenerator({
+        getSettings: () => this.settings,
+        resolveCredential: (ref) => Promise.resolve(deps.credentials.resolve(ref)),
+        now: this.nowFn,
+        ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
+        persist: async (records) => {
+          for (const record of records) await this.tables.images.put(record.id, record);
+        },
+      }),
+      onProduced: ({ markdown, runId }) => this.articles.persistProduced(markdown, runId),
+      onImagesBound: ({ articleId, coverImageId, bodyImageIds }) =>
+        this.articles.bindImages(articleId, { coverImageId, bodyImageIds }),
+      now: this.nowFn,
+    });
+    this.scheduler = createSchedulerService({
+      loadSchedules: async () => [...this.tables.schedules.entries()].map(([, record]) => record),
+      saveSchedule: async (record) => this.tables.schedules.put(record.id, record),
+      claim: (key) => this.claimOccurrence(key),
+      startRun: async (schedule) => this.startRun({ trigger: 'schedule', params: schedule.params, scheduleId: schedule.id }).runId,
+      now: this.nowFn,
+    });
+  }
+
+  static async open(deps: ServiceDeps): Promise<WeWriteService> {
+    const service = new WeWriteService(deps);
+    await service.persistState();
+    const recovered = await service.engine.resumeInterrupted();
+    if (recovered > 0) service.logger.warn(`宿主停机打断 ${recovered} 个 run，已标记 interrupted（不自动补偿重跑）`);
+    return service;
+  }
+
+  private serialize<T>(operation: () => Promise<T>): Promise<T> {
+    const next = this.operationTail.then(operation, operation);
+    this.operationTail = next.catch(() => undefined);
+    return next;
+  }
+
+  private async persistState(): Promise<void> {
+    await this.deps.domain.global.set(this.state);
+  }
+
+  get settings() {
+    return this.state.settings;
+  }
+
+  private nowIso(): string {
+    return this.nowFn().toISOString();
+  }
+
+  // ── snapshot / hotspots / runs ─────────────────────────────────────────────
+
+  async snapshot(): Promise<SnapshotResponse> {
+    return {
+      articles: this.listArticles(),
+      runs: this.listRuns(),
+      schedules: [...this.tables.schedules.entries()].map(([, record]) => scheduleToView(record)),
+      config: await this.getConfig(),
+      serverNow: this.nowIso(),
+      capabilities: { contractVersion: CONTRACT_VERSION, features: ['scheduler', 'images', 'hotspots', 'gates'] },
+    };
+  }
+
+  listRuns(): RunSummary[] {
+    return this.runStore
+      .all()
+      .sort((left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt))
+      .map(runToSummary);
+  }
+
+  async fetchHotspots(limit = 20): Promise<HotspotItem[]> {
+    const sources = buildHotspotSources({ aggregatorUrl: this.settings.hotspotAggregatorUrl, fetchImpl: this.deps.fetchImpl });
+    const { items, failures } = await aggregateHotspots(sources, limit);
+    for (const failure of failures) {
+      this.logger.warn(truncateMessage(`热榜源 ${failure.sourceId} 拉取失败：${failure.message}`));
+    }
+    return [...items];
+  }
+
+  startRun(input: { trigger: 'manual' | 'schedule'; params: RunParams; articleId?: string; scheduleId?: string }): { runId: string } {
+    const { runId, done } = this.engine.begin({
+      trigger: input.trigger,
+      params: input.params,
+      ...(input.articleId ? { articleId: input.articleId } : {}),
+      ...(input.scheduleId ? { scheduleId: input.scheduleId } : {}),
+    });
+    void done.catch((error) => {
+      const serviceError = toServiceError(error);
+      this.logger.error(truncateMessage(`run ${runId} 执行异常（${serviceError.code}）：${serviceError.message}`));
+    });
+    return { runId };
+  }
+
+  cancelRun(runId: string): { ok: boolean } {
+    return { ok: this.engine.cancel(runId) };
+  }
+
+  // ── articles / schedules（委托 store）─────────────────────────────────────
+
+  listArticles(): ArticleListItem[] {
+    return this.articles.list();
+  }
+
+  getArticle(id: string): ArticleDetail {
+    return this.articles.get(id);
+  }
+
+  saveArticle(input: { id?: string; slug: string; title: string; digest: string; markdown: string; theme: string }): Promise<ArticleDetail> {
+    return this.articles.save(input);
+  }
+
+  deleteArticle(id: string): Promise<{ deleted: boolean }> { return this.articles.delete(id); }
+
+  previewArticle(input: { id: string } | { markdown: string; theme: string }): { html: string } {
+    return this.articles.preview(input);
+  }
+
+  saveSchedule(input: { id?: string; name: string; rrule: string; timeZone: string; params: RunParams; enabled: boolean }): Promise<ScheduleViewModel> {
+    return this.schedules.save(input);
+  }
+
+  deleteSchedule(id: string): Promise<{ deleted: boolean }> { return this.schedules.delete(id); }
+
+  toggleSchedule(id: string, enabled: boolean): Promise<ScheduleViewModel> {
+    return this.schedules.toggle(id, enabled);
+  }
+
+  runScheduleNow(id: string): { runId: string } { return this.schedules.runNow(id); }
+
+  private async claimOccurrence(key: string): Promise<boolean> {
+    return this.serialize(async () => {
+      if (this.state.claimedOccurrences.includes(key)) return false;
+      this.state = { ...this.state, claimedOccurrences: [...this.state.claimedOccurrences, key].slice(-500) };
+      await this.persistState();
+      return true;
+    });
+  }
+
+  async getConfig(): Promise<ConfigView> {
+    return buildConfigView(this.settings, await this.describeCredentials());
+  }
+
+  async setConfig(patch: Record<string, unknown>): Promise<ConfigView> {
+    return this.serialize(async () => {
+      const parsed = SettingsRecordSchema.safeParse({ ...this.state.settings, ...patch });
+      if (!parsed.success) {
+        throw new WewriteServiceError('config-invalid', `设置校验失败：${parsed.error.issues[0]?.message ?? '未知问题'}`);
+      }
+      this.state = { ...this.state, settings: parsed.data };
+      await this.persistState();
+      return this.getConfig();
+    });
+  }
+
+  async setCredential(ref: string, value: string): Promise<{ ok: boolean }> {
+    await this.deps.credentials.set(ref, value);
+    if (ref === CREDENTIAL_REFS.wechatSecret) this.wechatSecret = value;
+    return { ok: true };
+  }
+
+  async describeCredentials(): Promise<Record<string, { configured: boolean; writable: boolean }>> {
+    const refs = [CREDENTIAL_REFS.wechatSecret, ...DEFAULT_IMAGE_PROVIDER_CHAIN.map(CREDENTIAL_REFS.image)];
+    const descriptors: Record<string, { configured: boolean; writable: boolean }> = {};
+    for (const ref of refs) {
+      const raw = await Promise.resolve(this.deps.credentials.describe(ref));
+      descriptors[ref] = { configured: raw?.configured ?? false, writable: raw?.writable ?? true };
+    }
+    return descriptors;
+  }
+
+  listLlmOptions(): { providers: { id: string; models: string[] }[] } {
+    const providers = this.deps.llm.listProviders?.() ?? [];
+    return {
+      providers: providers.map((entry) => {
+        const listing = entry as { id?: string; name?: string };
+        const id = String(listing?.id ?? listing?.name ?? entry ?? '');
+        const models = (this.deps.llm.listModels?.(id) ?? []).map((model) => String(model));
+        return { id, models };
+      }),
+    };
+  }
+
+  // ── wechat / lifecycle ─────────────────────────────────────────────────────
+
+  private weChatFlowDeps(): WeChatFlowDeps {
+    return {
+      articles: this.tables.articles,
+      images: this.tables.images,
+      clientDeps: {
+        ...(this.deps.fetchImpl ? { fetchImpl: this.deps.fetchImpl } : {}),
+        getCredentials: () => ({ appId: this.settings.wechatAppId, secret: this.wechatSecret }),
+        getSettings: () => ({ apiBaseUrl: this.settings.wechatApiBaseUrl, author: this.settings.wechatAuthor }),
+      },
+      refreshSecret: async () => {
+        const resolved = await Promise.resolve(this.deps.credentials.resolve(CREDENTIAL_REFS.wechatSecret));
+        this.wechatSecret = resolved ?? '';
+      },
+      serialize: <T,>(operation: () => Promise<T>) => this.serialize(operation),
+      now: this.nowFn,
+    };
+  }
+
+  async pushArticleDraft(articleId: string): Promise<{ mediaId: string; thumbMediaId: string }> {
+    return pushArticleDraft(this.weChatFlowDeps(), articleId);
+  }
+
+  async diagnoseWeChat(): Promise<DiagnoseResult> {
+    return diagnoseWeChat(this.weChatFlowDeps());
+  }
+
+  startScheduler(): void { this.scheduler.start(); }
+
+  async pruneRunHistory(): Promise<void> {
+    const kept = pruneTerminalRuns(this.runStore.all(), this.settings.runHistoryLimit);
+    const keptIds = new Set(kept.map((run) => run.id));
+    for (const run of this.runStore.all()) {
+      if (!keptIds.has(run.id)) await this.tables.runs.delete(run.id);
+    }
+  }
+
+  async dispose(): Promise<void> {
+    this.scheduler.stop();
+    await this.deps.domain.close().catch(() => undefined);
+  }
+}

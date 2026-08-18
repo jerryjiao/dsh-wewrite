@@ -1,0 +1,84 @@
+{
+  "name": "dsh-wewrite",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WeChat official account AI writing pipeline as a DeepSeek Harness (DSH) plugin",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "main": "./lib/index.js",
+  "types": "./lib/types/host/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/host/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./shared": {
+      "types": "./lib/types/shared/index.d.ts",
+      "default": "./lib/shared.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "scripts": {
+    "test": "vitest run",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "check:p0": "node scripts/checks/scan-p0.mjs",
+    "build": "node scripts/build.mjs && tsc -p tsconfig.build.json"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "react": "^18.2.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@types/node": "^26.2.0",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.8.1",
+    "react": "^18.3.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.67.0",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.11.0",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/view": "^6.43.9",
+    "@deepseek-ai/dsh-client-ui-primitives": "^0.0.1-rc.1",
+    "@uiw/react-codemirror": "^4.25.11",
+    "lucide-react": "^1.32.0",
+    "marked": "^18.0.10",
+    "rrule": "^2.8.1",
+    "zod": "^4.4.3"
+  }
+}

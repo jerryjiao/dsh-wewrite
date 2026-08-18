@@ -1,0 +1,199 @@
+/*
+ * 四态（骨架/空态/错误）+ 按钮菜单 + Toast——跨页通用状态样式。
+ */
+
+/* ---------- 四态：骨架 / 空态 / 错误 ---------- */
+
+@keyframes ww-pulse { 0% { opacity: 0.45; } 50% { opacity: 1; } 100% { opacity: 0.45; } }
+
+.ww-skeleton-row {
+  display: flex;
+  gap: var(--ww-space-3);
+  align-items: center;
+  padding: var(--ww-space-2) 0;
+}
+
+.ww-skeleton-row__cell {
+  flex: 1;
+  height: 14px;
+  border-radius: var(--ww-radius-sm);
+  background: var(--ww-skeleton);
+  animation: ww-pulse 1.6s var(--ww-ease) infinite;
+}
+
+.ww-skeleton-block { display: flex; flex-direction: column; gap: var(--ww-space-3); }
+
+.ww-skeleton-block__line {
+  height: 14px;
+  border-radius: var(--ww-radius-sm);
+  background: var(--ww-skeleton);
+  animation: ww-pulse 1.6s var(--ww-ease) infinite;
+}
+
+.ww-skeleton-block__line:nth-child(2n) { width: 78%; }
+.ww-skeleton-block__line:nth-child(3n) { width: 56%; }
+
+.ww-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ww-space-3);
+  padding: var(--ww-space-8) var(--ww-space-4);
+  color: var(--ww-fg-secondary);
+}
+
+.ww-empty__icon { color: var(--ww-fg-caption); display: inline-flex; }
+
+.ww-empty__title {
+  margin: 0;
+  font-size: var(--ww-text-md);
+  color: var(--ww-fg);
+  max-width: 44em;
+  line-height: var(--ww-leading-body);
+}
+
+.ww-empty__actions { display: flex; gap: var(--ww-space-2); }
+
+.ww-error {
+  display: flex;
+  gap: var(--ww-space-3);
+  padding: var(--ww-space-4);
+  border: var(--ww-border-width) solid var(--ww-danger);
+  border-radius: var(--ww-radius-lg);
+  background: var(--ww-danger-subtle);
+  color: var(--ww-fg);
+}
+
+.ww-error__body { min-width: 0; }
+.ww-error__title { margin: 0 0 var(--ww-space-1); font-weight: var(--ww-weight-medium); }
+.ww-error__hint { margin: 0 0 var(--ww-space-2); font-size: var(--ww-text-sm); color: var(--ww-fg-secondary); }
+.ww-error__actions { display: flex; gap: var(--ww-space-2); }
+
+/* ---------- 按钮 / 菜单触发器 / 视图 Tab ---------- */
+
+.dsh-wewrite-panel .ww-btn-accent {
+  background: var(--ww-accent);
+  color: var(--ww-accent-on);
+}
+
+.dsh-wewrite-panel .ww-btn-accent:hover:not(:disabled) { background: var(--ww-accent-hover); }
+.dsh-wewrite-panel .ww-btn-accent:active:not(:disabled) { background: var(--ww-accent-active); }
+
+.dsh-wewrite-panel .ww-danger-ghost { color: var(--ww-danger); }
+.dsh-wewrite-panel .ww-danger-ghost:hover:not(:disabled) { background: var(--ww-danger-subtle); }
+
+.ww-menu-trigger {
+  appearance: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  color: var(--ww-fg);
+  background: var(--ww-surface);
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-md);
+  padding: var(--ww-space-2) var(--ww-space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-2);
+  min-height: 28px;
+  cursor: pointer;
+  transition: border-color var(--ww-motion-fast) var(--ww-ease), background var(--ww-motion-fast) var(--ww-ease);
+}
+
+.ww-menu-trigger:hover { border-color: var(--ww-border-strong); background: var(--ww-interactive-hover); }
+
+.ww-menu-trigger__mono { font-family: var(--ww-font-code); font-size: var(--ww-text-xs); }
+
+.ww-view-tabs {
+  display: inline-flex;
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-md);
+  padding: 2px;
+  gap: 2px;
+  background: var(--ww-surface-sunken);
+}
+
+.ww-view-tab {
+  appearance: none;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  color: var(--ww-fg-secondary);
+  padding: var(--ww-space-1) var(--ww-space-3);
+  border-radius: var(--ww-radius-sm);
+  cursor: pointer;
+  transition: background var(--ww-motion-fast) var(--ww-ease), color var(--ww-motion-fast) var(--ww-ease);
+}
+
+.ww-view-tab:hover { color: var(--ww-fg); }
+
+.ww-view-tab--active {
+  background: var(--ww-surface);
+  color: var(--ww-fg);
+  font-weight: var(--ww-weight-medium);
+  box-shadow: 0 0 0 var(--ww-border-width) var(--ww-border);
+}
+
+
+/* ---------- Toast（自建；官方 primitives 0.0.1-rc.1 无 Toast） ---------- */
+
+.ww-toasts {
+  position: fixed;
+  right: var(--ww-space-6);
+  bottom: var(--ww-space-6);
+  z-index: var(--ww-z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ww-space-2);
+  max-width: 380px;
+}
+
+.ww-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ww-space-2);
+  padding: var(--ww-space-3) var(--ww-space-4);
+  background: var(--ww-surface-raised);
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-lg);
+  box-shadow: var(--ww-shadow-overlay);
+  color: var(--ww-fg);
+}
+
+.ww-toast--success > svg { color: var(--ww-success); }
+.ww-toast--error > svg { color: var(--ww-danger); }
+.ww-toast--info > svg { color: var(--ww-info); }
+
+.ww-toast__body { flex: 1; min-width: 0; }
+.ww-toast__title { margin: 0; font-size: var(--ww-text-sm); font-weight: var(--ww-weight-medium); }
+.ww-toast__detail { margin: 2px 0 0; font-size: var(--ww-text-sm); color: var(--ww-fg-secondary); line-height: var(--ww-leading-ui); }
+
+.ww-toast__action {
+  appearance: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  border: none;
+  background: none;
+  color: var(--ww-accent);
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.ww-toast__action:hover { color: var(--ww-accent-hover); text-decoration: underline; }
+
+.ww-toast__close {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--ww-fg-tertiary);
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ww-radius-sm);
+  cursor: pointer;
+}
+
+.ww-toast__close:hover { color: var(--ww-fg); background: var(--ww-interactive-hover); }

@@ -1,0 +1,218 @@
+/*
+ * dsh-wewrite 面板基础样式（UI chrome）。
+ * 颜色一律 var(--ww-*)（tokens.css 定义于 .dsh-wewrite-panel）；零渐变、零裸 hex。
+ * 线框分层优先于阴影；阴影仅浮层（--ww-shadow-overlay/modal）。
+ */
+
+.dsh-wewrite-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+  height: 100%;
+  background: var(--ww-bg);
+  color: var(--ww-fg);
+  font-family: var(--ww-font-ui);
+  font-size: var(--ww-text-base);
+  line-height: var(--ww-leading-ui);
+  letter-spacing: var(--ww-tracking-none);
+}
+
+.ww-root,
+.ww-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.ww-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--ww-space-6);
+  padding-top: var(--ww-space-5);
+}
+
+/* ---------- 顶栏 Tab 条 ---------- */
+
+.ww-tabbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--ww-header-h);
+  min-height: var(--ww-header-h);
+  padding: 0 var(--ww-space-4) 0 var(--ww-space-6);
+  border-bottom: var(--ww-border-width) solid var(--ww-border-strong);
+  background: var(--ww-bg);
+  position: sticky;
+  top: 0;
+  z-index: var(--ww-z-sticky);
+}
+
+.ww-tabbar__nav {
+  display: flex;
+  gap: var(--ww-space-2);
+  min-width: 0;
+}
+
+.ww-tab {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--ww-fg-secondary);
+  font: inherit;
+  padding: 0 var(--ww-space-3);
+  height: var(--ww-header-h);
+  display: inline-flex;
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color var(--ww-motion-base) var(--ww-ease), border-color var(--ww-motion-base) var(--ww-ease);
+}
+
+.ww-tab:hover { color: var(--ww-fg); }
+
+.ww-tab--active {
+  color: var(--ww-fg);
+  font-weight: var(--ww-weight-medium);
+  border-bottom-color: var(--ww-accent);
+}
+
+.ww-tabbar__conn {
+  appearance: none;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  color: var(--ww-fg-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-2);
+  padding: var(--ww-space-2) var(--ww-space-3);
+  border-radius: var(--ww-radius-md);
+  cursor: pointer;
+  transition: background var(--ww-motion-fast) var(--ww-ease);
+}
+
+.ww-tabbar__conn:hover { background: var(--ww-interactive-hover); }
+
+/* ---------- 页面骨架通用 ---------- */
+
+.ww-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ww-space-3);
+  margin-bottom: var(--ww-space-4);
+}
+
+.ww-page-title {
+  margin: 0;
+  font-size: var(--ww-text-lg);
+  font-weight: var(--ww-weight-medium);
+  letter-spacing: var(--ww-tracking-none);
+}
+
+.ww-page-head__aside {
+  display: flex;
+  align-items: center;
+  gap: var(--ww-space-2);
+}
+
+.ww-page-meta {
+  font-size: var(--ww-text-sm);
+  color: var(--ww-fg-tertiary);
+}
+
+.ww-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--ww-space-3);
+}
+
+.ww-section-head__title {
+  margin: 0;
+  font-size: var(--ww-text-md);
+  font-weight: var(--ww-weight-medium);
+}
+
+.ww-section-head__aside { font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); }
+
+.ww-link {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  color: var(--ww-accent);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-1);
+}
+
+.ww-link:hover { color: var(--ww-accent-hover); text-decoration: underline; }
+
+/* ---------- 等宽信息带 / 状态 ---------- */
+
+.ww-code {
+  font-family: var(--ww-font-code);
+  font-size: var(--ww-text-xs);
+  background: var(--ww-code-bg);
+  color: var(--ww-fg);
+  border-radius: var(--ww-radius-sm);
+  padding: 1px var(--ww-space-2);
+  letter-spacing: var(--ww-tracking-none);
+  white-space: nowrap;
+}
+
+.ww-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-2);
+  font-size: var(--ww-text-sm);
+  white-space: nowrap;
+}
+
+.ww-status__hollow {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--ww-radius-full);
+  border: var(--ww-border-width) solid var(--ww-border-strong);
+  background: none;
+}
+
+.ww-status__label { color: var(--ww-fg-secondary); }
+
+/* ---------- 焦点环 / 动效工具 / 读屏 ---------- */
+
+.dsh-wewrite-panel button:focus-visible,
+.dsh-wewrite-panel a:focus-visible,
+.dsh-wewrite-panel input:focus-visible,
+.dsh-wewrite-panel [tabindex]:focus-visible {
+  outline: none;
+  box-shadow: var(--ww-focus-ring);
+  border-radius: var(--ww-radius-sm);
+}
+
+@keyframes ww-spin { to { transform: rotate(360deg); } }
+
+.ww-spin { animation: ww-spin 1s linear infinite; }
+.ww-rotate-180 { transform: rotate(180deg); }
+
+.ww-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ww-modal-note { margin: 0; color: var(--ww-fg-secondary); font-size: var(--ww-text-sm); display: flex; align-items: center; gap: var(--ww-space-2); }

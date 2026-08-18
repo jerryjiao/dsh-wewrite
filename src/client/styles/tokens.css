@@ -1,0 +1,227 @@
+/*
+ * dsh-wewrite Design Tokens — CSS 自定义属性实现
+ * 与 docs/design/design-tokens.json 一一对应（该 JSON 是机器可读真源，本文件是运行时真源）。
+ *
+ * 挂载约定：
+ *   - 全部 --ww-* 挂面板容器 .dsh-wewrite-panel（寄生型插件 UI 不污染全局 :root；
+ *     React 挂载根元素必须带此类名）。
+ *   - 浅/深主题跟随宿主：宿主 alias token 挂 body / body[data-ds-dark-theme]，
+ *     本文件的 var(--dsw-*) 引用经 CSS 继承自动翻转，零媒体查询、零自有主题开关。
+ *   - 仅自有值且随主题变的 token（--ww-accent-ring / --ww-shadow-overlay / --ww-shadow-modal）
+ *     在下方 dark 覆盖块单独处理。
+ *
+ * 构造保证（P0 视觉门禁）：
+ *   - 本文件不含任何 linear-gradient / radial-gradient（stylelint 已配
+ *     declaration-property-value-disallowed-list: linear-gradient）。
+ *   - 紫粉四色 #7C3AED / #A855F7 / #EC4899 / #6366F1 不出现。
+ *   - 组件代码只引用 --ww-*，禁止裸 hex；唯一例外域 = 微信预览画布内的 UGC 排版主题 CSS
+ *     （作用域限定画布容器，非 UI chrome）。
+ *
+ * 宿主引用清单（核实自 @deepseek-ai/dsh-client-ui-theme v0.1.0-rc.6，
+ * 与各 token 行内注释一一对应）。
+ */
+
+/* ============================================================
+ * 1. 颜色 — accent（宿主 deepseek 品牌蓝，纯色平涂）
+ * ========================================================== */
+.dsh-wewrite-panel {
+  /* 主操作色：主 CTA / 选中 Tab。宿主 light=deepseek-500 #4176E6 / dark=deepseek-400 #679EFE */
+  --ww-accent: var(--dsw-alias-button-info-fill);
+  /* 悬停态（宿主深浅主题下明暗方向相反，自动跟随）。light #679EFE / dark #4176E6 */
+  --ww-accent-hover: var(--dsw-alias-button-info-hover);
+  /* 按下态。宿主 static deepseek-600 #4868B2（不随主题） */
+  --ww-accent-active: var(--dsw-static-deepseek-600);
+  /* accent 上的前景文字。宿主 static neutral-bluish-00 #FFFFFF（不裸写 #fff） */
+  --ww-accent-on: var(--dsw-static-neutral-bluish-00);
+  /* 大面积浅 accent（选中行底/命中标签底）。宿主 static deepseek-50 #EDF3FE */
+  --ww-accent-subtle: var(--dsw-static-deepseek-50);
+  /* focus ring 色（自有值，dark 覆盖块覆写）。light rgba(65,118,230,.32) */
+  --ww-accent-ring: rgba(65, 118, 230, 0.32);
+
+  /* ============================================================
+   * 2. 颜色 — 中性表面与前景（全量宿主 alias/specific 引用）
+   * ========================================================== */
+  /* 面板页面基底。light #FFFFFF / dark #151517 */
+  --ww-bg: var(--dsw-alias-bg-base);
+  /* 卡片/表格容器/输入框底。light #FFFFFF / dark #2C2C2E */
+  --ww-surface: var(--dsw-alias-bg-layer-2);
+  /* 浮层表面（下拉/悬浮卡）。light #FFFFFF / dark #353638（宿主 --dsw-specific-menu 同源） */
+  --ww-surface-raised: var(--dsw-alias-bg-layer-3);
+  /* 嵌套凹区（画布外圈/表头/阶段视图底）。light #F9FAFB / dark #1B1B1C */
+  --ww-surface-sunken: var(--dsw-specific-sidebar-fill);
+  /* 骨架屏底。light rgba(0,0,0,.04) / dark rgba(255,255,255,.08) */
+  --ww-skeleton: var(--dsw-alias-bg-skeleton);
+
+  /* 主文字。light #0F1115 / dark #F9FAFB（对比度 ≈17:1 / ≈15:1） */
+  --ww-fg: var(--dsw-alias-label-primary);
+  /* 次级文字（来源/摘要/表头）。light #61666B / dark #CFD3D6 */
+  --ww-fg-secondary: var(--dsw-alias-label-secondary);
+  /* 三级文字（时间戳/字数）。light #81858C / dark #ADB2B8 */
+  --ww-fg-tertiary: var(--dsw-alias-label-tertiary);
+  /* 最小元信息（规则内部 ID/版本号）。light #ADB2B8 / dark #81858C */
+  --ww-fg-caption: var(--dsw-alias-label-caption);
+
+  /* ============================================================
+   * 3. 颜色 — 边框（线框分层语言：全部 1px，层级靠 l1/l2/l3）
+   * ========================================================== */
+  /* 默认边框（卡片/输入框/画布框）。light rgba(0,0,0,.10) / dark rgba(255,255,255,.12) */
+  --ww-border: var(--dsw-alias-border-l2);
+  /* 强调边框（focus 边/表头下沿/顶栏下沿）。light rgba(0,0,0,.12) / dark rgba(255,255,255,.16) */
+  --ww-border-strong: var(--dsw-alias-border-l3);
+  /* 内部分隔线（列表行间）。light rgba(0,0,0,.04) / dark rgba(255,255,255,.06) */
+  --ww-divider: var(--dsw-alias-border-l1);
+
+  /* ============================================================
+   * 4. 颜色 — 交互态
+   * ========================================================== */
+  /* 列表行/菜单项悬停底。light rgba(38,49,72,.06) / dark rgba(255,255,255,.08) */
+  --ww-interactive-hover: var(--dsw-alias-interactive-bg-hover);
+  /* 按下底。light rgba(38,49,72,.10) / dark rgba(255,255,255,.14) */
+  --ww-interactive-active: var(--dsw-alias-interactive-bg-active);
+
+  /* ============================================================
+   * 5. 颜色 — 语义状态色（挂宿主 state token）
+   * ========================================================== */
+  /* 成功（门禁通过/已进草稿箱）。#22C55E */
+  --ww-success: var(--dsw-alias-state-success-primary);
+  /* 成功提示条底。light #E6FAED / dark #233C2C */
+  --ww-success-subtle: var(--dsw-alias-state-success-tertiary);
+  /* 警示（门禁未过/定时拦停）。#F59E0B */
+  --ww-warn: var(--dsw-alias-state-warn-primary);
+  /* 警示提示条底。light #FEF5E7 / dark #27241F */
+  --ww-warn-subtle: var(--dsw-alias-state-warn-tertiary);
+  /* 失败（推送失败/管线错误）。light #EC1313 / dark #F25A5A */
+  --ww-danger: var(--dsw-alias-state-error-primary);
+  /* 危险悬停/失败提示条底。light rgba(236,19,19,.05) / dark rgba(242,90,90,.15) */
+  --ww-danger-subtle: var(--dsw-alias-interactive-bg-hover-danger);
+  /* 信息态（与 accent 同源、语义独立命名：状态归 info，操作归 accent） */
+  --ww-info: var(--dsw-alias-state-business-primary);
+
+  /* ============================================================
+   * 6. 颜色 — 等宽信息带 / 微信预览画布
+   * ========================================================== */
+  /* 等宽信息带底（slug/模型名/RRULE/规则 ID）。light #EBEEF2 / dark #2C2C2E */
+  --ww-code-bg: var(--dsw-alias-markdown-inline-code);
+  /* 画布底：固定浅色（公众号文章永远浅底，UGC 域不随宿主主题翻转） */
+  --ww-canvas-bg: #ffffff;
+  /* 画布外框 */
+  --ww-canvas-frame: var(--dsw-alias-border-l2);
+
+  /* ============================================================
+   * 7. 字体（零网络字体，全跟宿主栈）
+   * ========================================================== */
+  /* UI 系统中文栈 */
+  --ww-font-ui: var(--dsw-font-family);
+  /* 等宽栈（宿主刻意不带裸 monospace 尾巴，防 Windows CJK 回落宋体） */
+  --ww-font-code: var(--ds-font-family-code);
+  /* 预览画布默认字体（文章实际字体由排版主题 CSS 接管，作用域限定画布内） */
+  --ww-font-canvas: -apple-system, BlinkMacSystemFont, 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+
+  /* 字号 8 级（正文基准 14px） */
+  --ww-text-xs: 12px;   /* 最小元信息/规则 ID/徽标 */
+  --ww-text-sm: 13px;   /* 辅助说明/表格次要列 */
+  --ww-text-base: 14px; /* 正文基准 */
+  --ww-text-md: 16px;   /* 区块标题/输入框主字段 */
+  --ww-text-lg: 18px;   /* 页面标题 */
+  --ww-text-xl: 20px;   /* 弹层标题 */
+  --ww-text-2xl: 24px;  /* 空状态主文案（少用） */
+  --ww-text-3xl: 32px;  /* 门禁分数（唯一场景） */
+
+  /* 行高：UI 1.5 / 中文阅读 1.7 / 标题 1.3 */
+  --ww-leading-ui: 1.5;
+  --ww-leading-body: 1.7;
+  --ww-leading-heading: 1.3;
+
+  /* 字重：宿主约束 Figma 510→CSS 500，可用仅 400/500/700 */
+  --ww-weight-regular: 400;
+  --ww-weight-medium: 500;
+  --ww-weight-bold: 700;
+
+  /* 字距：中文正文 0（禁加字距）/ 全大写拉丁标签 0.06em / ≥24px 标题 -0.01em */
+  --ww-tracking-none: 0;
+  --ww-tracking-caps: 0.06em;
+  --ww-tracking-heading: -0.01em;
+
+  /* ============================================================
+   * 8. 间距（4px 网格 8 级）
+   * ========================================================== */
+  --ww-space-1: 4px;   /* 图标与文字 */
+  --ww-space-2: 8px;   /* 同组紧凑 */
+  --ww-space-3: 12px;  /* 表单元素间/行内列距 */
+  --ww-space-4: 16px;  /* 卡片内边距 */
+  --ww-space-5: 20px;  /* 编辑器内边距 */
+  --ww-space-6: 24px;  /* 页面内容区左右 */
+  --ww-space-8: 32px;  /* 大区块间 */
+  --ww-space-12: 48px; /* 空状态留白 */
+
+  /* ============================================================
+   * 9. 圆角（上限 8px）与描边
+   * ========================================================== */
+  --ww-radius-sm: 4px;     /* badge/输入框 */
+  --ww-radius-md: 6px;     /* 按钮/菜单项/Pill */
+  --ww-radius-lg: 8px;     /* 卡片/画布/弹层（上限） */
+  --ww-radius-full: 9999px; /* 状态点/胶囊 */
+
+  /* 全部边框统一 1px（禁 >1px 彩色侧边条） */
+  --ww-border-width: 1px;
+
+  /* ============================================================
+   * 10. 阴影（自有 primitive：宿主无 shadow token，实测勘误）
+   *     卡片默认 border 分层无阴影；仅浮层用以下两级
+   * ========================================================== */
+  --ww-shadow-overlay: 0 8px 24px rgba(15, 17, 21, 0.12);  /* 下拉/Tooltip */
+  --ww-shadow-modal: 0 16px 48px rgba(15, 17, 21, 0.16);   /* 模态/抽屉/生成视图 */
+
+  /* ============================================================
+   * 11. 动效（全盘宿主值 100/200/300ms + 宿主缓动）
+   * ========================================================== */
+  --ww-motion-fast: var(--ds-transition-duration-fast); /* 0.1s 即时反馈 */
+  --ww-motion-base: var(--ds-transition-duration);      /* 0.2s 状态确认 */
+  --ww-motion-slow: var(--ds-transition-duration-slow); /* 0.3s 内容进入 */
+  --ww-ease: var(--ds-ease-in-out);                     /* cubic-bezier(0.4,0,0.2,1) */
+
+  /* ============================================================
+   * 12. 布局常量与层级
+   * ========================================================== */
+  --ww-header-h: 48px;   /* 面板顶栏（Tab 条） */
+  --ww-row-h: 44px;      /* 列表行高（触摸底线） */
+  --ww-canvas-w: 375px;  /* 微信预览画布宽 */
+  --ww-page-pad: 24px;   /* 页面内容区左右内边距 */
+  --ww-editor-pad: 20px; /* 编辑器双栏内边距 */
+
+  --ww-z-dropdown: 1000;
+  --ww-z-sticky: 1100;
+  --ww-z-modal: 1200;
+  --ww-z-toast: 1300;
+
+  /* ============================================================
+   * 13. 焦点环（统一 :focus-visible）
+   * ========================================================== */
+  --ww-focus-ring: 0 0 0 3px var(--ww-accent-ring);
+}
+
+/* ============================================================
+ * 深色主题覆写 — 仅自有值且随主题变的 3 个 token；
+ * 其余全部经 var(--dsw-*) 引用由宿主自动翻转
+ * ========================================================== */
+body[data-ds-dark-theme] .dsh-wewrite-panel {
+  /* 焦点环换 deepseek-400 基调提亮 */
+  --ww-accent-ring: rgba(103, 158, 254, 0.40);
+  /* 浮层阴影加深（深色下浅阴影不可见） */
+  --ww-shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.50);
+  --ww-shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.60);
+}
+
+/* ============================================================
+ * reduced-motion：面板内动效全关（无渐变无装饰动画，纯功能动效）
+ * ========================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .dsh-wewrite-panel,
+  .dsh-wewrite-panel * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
