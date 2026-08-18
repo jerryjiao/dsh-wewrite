@@ -16,15 +16,22 @@ function warnDegraded(action: string, error: unknown): void {
   console.warn(`[dsh-wewrite] ${action} 失败，已降级跳过`, error);
 }
 
+// 宿主 loader 契约（dsh-automation 真身同款）：ctx 服务访问权由 inject 数组授予，
+// 缺声明即 "cannot get property X without inject"（2026-08-19 实拍踩中）。
+export const name = 'dsh-wewrite-client';
+export const inject = ['slots', 'locale', 'connection'];
+
 export function apply(ctx: ClientContext): void {
   let disposeLocale: (() => void) | undefined;
+  let fallbackT: (key: string) => string;
   try {
     disposeLocale = ctx.locale.register(LOCALE_NAMESPACE, { zh, en });
+    fallbackT = ctx.locale.bind(LOCALE_NAMESPACE);
   } catch (error) {
     warnDegraded('locale.register', error);
+    fallbackT = (key) => key;
   }
 
-  const fallbackT = ctx.locale.bind(LOCALE_NAMESPACE);
   const rpc = createRpc(ctx);
 
   function View(props: WewriteViewProps) {
