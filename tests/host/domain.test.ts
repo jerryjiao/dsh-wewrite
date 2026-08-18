@@ -76,9 +76,10 @@ const imageRecord = () => ({
   createdAt: '2026-08-18T04:03:00.000Z',
 });
 
-describe('domainSpec（单一 domain dsh-wewrite v1，ADR-0005）', () => {
-  it('domain 名与版本锁定', () => {
-    expect(domainSpec.name).toBe('dsh-wewrite');
+describe('domainSpec（单一 domain dsh_wewrite v1，ADR-0005）', () => {
+  it('domain 名与版本锁定（平台 UNIT_NAME_RE 禁连字符，存储单元名用下划线形态）', () => {
+    expect(domainSpec.name).toBe('dsh_wewrite');
+    expect(domainSpec.name).toMatch(/^[a-z][a-z0-9_]*$/);
     expect(domainSpec.version).toBe(1);
   });
 

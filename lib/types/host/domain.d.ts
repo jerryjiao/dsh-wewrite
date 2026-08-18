@@ -226,7 +226,7 @@ export declare const GlobalStateSchema: z.ZodObject<{
 }, z.core.$strict>;
 export type GlobalState = z.infer<typeof GlobalStateSchema>;
 export declare const domainSpec: {
-    readonly name: "dsh-wewrite";
+    readonly name: "dsh_wewrite";
     readonly version: 1;
     readonly global: {
         readonly valueSchema: z.ZodObject<{

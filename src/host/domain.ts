@@ -132,7 +132,9 @@ export type GlobalState = z.infer<typeof GlobalStateSchema>;
 // ── domain spec（F15：defineDomain({name, version, global?, tables}) + domainTable(zod)）──
 
 export const domainSpec = {
-  name: 'dsh-wewrite',
+  // 存储单元名受平台 UNIT_NAME_RE（/^[a-z][a-z0-9_]*$/）约束，连字符非法——
+  // 用下划线形态，与 cordis 插件名（dsh-wewrite）区分。
+  name: 'dsh_wewrite',
   version: 1,
   global: { valueSchema: GlobalStateSchema },
   tables: {
