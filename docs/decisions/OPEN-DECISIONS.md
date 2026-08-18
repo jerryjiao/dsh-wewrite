@@ -8,3 +8,7 @@
 | D-4 | 图片 9 家 v0.1 全量实现 vs 裁剪 3 家首发 | 已关闭（全量） | 2026-08-18 | 架构师建议裁剪（R1）；总监裁定全量实现——Jerry 要求「完善的产品」，接口+registry 先行后 9 家单文件并行，单测 mock 传输层覆盖；README 标注 gpt-image-2 为默认第一供应商 |
 | D-5 | UI 全局槽位（F12 UNKNOWN） | 已关闭（按 tab 形态锁） | 2026-08-18 | conversation.view 官方证实路径承载工作台；Phase 2 可顺带探测 ui-layout root 槽位但不阻塞 |
 | D-6 | SSH 云主机中继模式 | 已关闭（不进 v0.1） | 2026-08-18 | 对插件用户过重；direct/自托管 relay 双模式 + tools/wechat-relay docker 参考实现 |
+| D-7 | lib/ dist-committed 入 git | 已关闭 | 2026-08-18 | DSH git 安装不跑 build 脚本，预构建产物随 repo 是 no-build 安装路径（ADR-008 的 git-tag 形态）；README 已注明 |
+| D-8 | storage 单元名 dsh-wewrite → dsh_wewrite | 已关闭 | 2026-08-18 | 部署冒烟抓到 UNIT_NAME_RE ^[a-z][a-z0-9_]*$ 拒绝连字符（StorageError malformed-medium）；仅存储单元名改动，插件名/RPC channel/包名不变；测试加正则断言防复发 |
+| D-9 | npm publish | 悬置（Jerry 决定） | 2026-08-18 | ADR-0008 主路径；git tag 安装路径已验证可用，npm 发布可后补 |
+| D-10 | awesome-dsh-plugins 收录 PR | 悬置（Jerry 决定） | 2026-08-18 | 发布后自然流量入口；对外提交需 Jerry 点头 |
