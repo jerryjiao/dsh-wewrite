@@ -22,20 +22,24 @@ import {
  * - 未执行步骤 status='pending'；失败步骤带 error{code,message}
  */
 
-type Chunk = { type: 'text'; text: string } | { type: 'finish'; error?: { code: string; message: string }; aborted?: boolean };
+/** 宿主 StreamChunk 真实协议（2026-08-19 真机校准）：text-delta 承载增量，finish.reason 承载终态。 */
+type Chunk =
+  | { type: 'text-delta'; index: number; text: string }
+  | { type: 'finish'; reason: { kind: 'stop' | 'error' | 'aborted'; failure?: { code: string; message: string } } };
 
 const makeStream = (chunks: Chunk[]) =>
   (async function* () {
     for (const chunk of chunks) yield chunk;
   })();
 
-const okTextStream = (text: string) => makeStream([{ type: 'text', text }, { type: 'finish' }]);
+const okTextStream = (text: string) => makeStream([{ type: 'text-delta', index: 0, text }, { type: 'finish', reason: { kind: 'stop' } }]);
 
 const baseParams: RunParams = {
   topicMode: 'fixed',
   topic: 'AI 写作管线产品化',
   theme: 'professional-clean',
   imageCount: 1,
+  llm: { provider: 'zhipu', model: 'glm-4.5-flash' },
 };
 
 function makeStep(name: string, status: StepRecord['status'], extra: Partial<StepRecord> = {}): StepRecord {
@@ -130,17 +134,27 @@ describe('run 生命周期：queued -> running -> 终态', () => {
     expect(deps.llm.stream).toHaveBeenCalledTimes(2);
   });
 
-  it('llm.stream 调用带 purpose=wewrite-pipeline（架构 §7.2 F22 辅助调用标注）', async () => {
+  it('llm.stream 调用带 purpose=wewrite-pipeline + provider/model/system（F22 + GenerateOptions 协议）', async () => {
     const deps = makeDeps();
     await makeEngine(deps).start({ trigger: 'manual', params: baseParams });
 
     const calls = (deps.llm.stream as unknown as { mock: { calls: unknown[][] } }).mock.calls;
     expect(calls.length).toBe(2);
     for (const args of calls) {
-      const options = args[0] as { purpose: string; messages: { role: string; content: string }[] };
+      const options = args[0] as {
+        purpose: string;
+        provider: string;
+        model: string;
+        system: string;
+        messages: { role: string; content: { type: string; text: string }[] }[];
+      };
       expect(options.purpose).toBe('wewrite-pipeline');
+      expect(options.provider).toBe('zhipu');
+      expect(options.model).toBe('glm-4.5-flash');
+      expect(options.system.length).toBeGreaterThan(0);
       expect(Array.isArray(options.messages)).toBe(true);
       expect(options.messages.length).toBeGreaterThan(0);
+      expect(options.messages[0].content[0].type).toBe('text');
     }
   });
 
@@ -233,7 +247,10 @@ describe('AC-4：阶段失败停止后续 + 保留已完成产物', () => {
     const llmStream = vi.fn(async (_options: Record<string, unknown>) => {
       callIndex += 1;
       if (callIndex === 1) return okTextStream('大纲内容');
-      return makeStream([{ type: 'text', text: '写到一半' }, { type: 'finish', error: { code: 'llm-error', message: '供应商中断' } }]);
+      return makeStream([
+        { type: 'text-delta', index: 0, text: '写到一半' },
+        { type: 'finish', reason: { kind: 'error', failure: { code: 'llm-error', message: '供应商中断' } } },
+      ]);
     });
     const deps = makeDeps();
     const engine = makeEngine({ ...deps, llm: { stream: llmStream as unknown as PipelineLlm['stream'] } });
@@ -286,11 +303,11 @@ describe('AbortSignal 中止', () => {
         return okTextStream('大纲内容');
       }
       return (async function* () {
-        yield { type: 'text' as const, text: '成稿开头' };
+        yield { type: 'text-delta' as const, index: 0, text: '成稿开头' };
         await new Promise<void>((resolve) => {
           controller.signal.addEventListener('abort', () => resolve(), { once: true });
         });
-        yield { type: 'finish' as const, aborted: true };
+        yield { type: 'finish' as const, reason: { kind: 'aborted' } };
       })();
     });
     const deps = makeDeps();

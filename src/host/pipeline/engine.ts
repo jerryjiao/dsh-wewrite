@@ -8,9 +8,9 @@
 import { randomUUID } from 'node:crypto';
 import type { RunParams } from '../../shared/contract';
 import type { RunRecord, StepRecord } from '../domain';
-import { buildDraftMessages, buildOutlineMessages, streamLlmText, type PipelineLlm } from './llm';
+import { draftUserPrompt, outlineUserPrompt, pipelineSystemPrompt, streamLlmText, type PipelineLlm } from './llm';
 
-export type { LlmStreamMessage, LlmStreamOptions, PipelineLlm, PipelineLlmChunk } from './llm';
+export type { LlmStreamOptions, PipelineLlm, PipelineLlmChunk } from './llm';
 
 export const PIPELINE_STEP_NAMES = ['topic', 'outline', 'draft', 'gates', 'render', 'images'] as const;
 export type PipelineStepName = (typeof PIPELINE_STEP_NAMES)[number];
@@ -111,6 +111,18 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
     }));
   }
 
+  /** LLM 步的供应商/模型（GenerateOptions 必填）：service 已把 settings.llmDefault 合并进 params.llm。 */
+  function resolveLlmCall(params: RunParams): { provider: string; model: string } {
+    const merged = (params.llm ?? {}) as { provider?: string; model?: string };
+    if (!merged.provider || !merged.model) {
+      throw new PipelineStepError(
+        'llm-not-configured',
+        '模型服务未配置：请在 设置 → 模型服务 选择供应商与模型后再运行管线',
+      );
+    }
+    return { provider: merged.provider, model: merged.model };
+  }
+
   async function execute(runId: string, opts: StartOptions, signal: AbortSignal): Promise<void> {
     const { params } = opts;
     deps.store.update(runId, (run) => ({ ...run, status: 'running' }));
@@ -152,9 +164,10 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
             topic = params.topic;
           }
         } else if (stepName === 'outline') {
+          const llmCall = resolveLlmCall(params);
           const outcome = await streamLlmText(
             deps.llm,
-            { purpose: 'wewrite-pipeline', messages: buildOutlineMessages(topic), ...params.llm },
+            { purpose: 'wewrite-pipeline', system: pipelineSystemPrompt(), user: outlineUserPrompt(topic), ...llmCall },
             signal,
           );
           if (outcome.status === 'aborted') throwAborted();
@@ -162,9 +175,10 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
           outline = outcome.text;
           patchStep(runId, stepName, { metrics: { chars: outline.length } });
         } else if (stepName === 'draft') {
+          const llmCall = resolveLlmCall(params);
           const outcome = await streamLlmText(
             deps.llm,
-            { purpose: 'wewrite-pipeline', messages: buildDraftMessages(topic, outline), ...params.llm },
+            { purpose: 'wewrite-pipeline', system: pipelineSystemPrompt(), user: draftUserPrompt(topic, outline), ...llmCall },
             signal,
           );
           if (outcome.status === 'aborted') throwAborted();

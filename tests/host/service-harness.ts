@@ -79,19 +79,19 @@ export function makeCredentials(values: Record<string, string> = {}) {
   return { service, calls, store };
 }
 
-/** 双调用流：第 1 次返回大纲短文，第 2 次返回注入的成稿（真门禁用）。 */
+/** 双调用流：第 1 次返回大纲短文，第 2 次返回注入的成稿（真门禁用）。宿主真实 chunk 协议（text-delta + finish.reason）。 */
 export function makeLlm(draft = '管线成稿文本，长度足够通过门禁判定。') {
   let callIndex = 0;
   const fn = vi.fn(async () => {
     callIndex += 1;
     async function* generate() {
       if (callIndex === 1) {
-        yield { type: 'text' as const, text: '大纲：起承转合四段。' };
-        yield { type: 'finish' as const };
+        yield { type: 'text-delta' as const, index: 0, text: '大纲：起承转合四段。' };
+        yield { type: 'finish' as const, reason: { kind: 'stop' } };
         return;
       }
-      yield { type: 'text' as const, text: draft };
-      yield { type: 'finish' as const };
+      yield { type: 'text-delta' as const, index: 0, text: draft };
+      yield { type: 'finish' as const, reason: { kind: 'stop' } };
     }
     return generate();
   });

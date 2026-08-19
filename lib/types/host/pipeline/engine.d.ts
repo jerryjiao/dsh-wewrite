@@ -7,7 +7,7 @@
 import type { RunParams } from '../../shared/contract';
 import type { RunRecord } from '../domain';
 import { type PipelineLlm } from './llm';
-export type { LlmStreamMessage, LlmStreamOptions, PipelineLlm, PipelineLlmChunk } from './llm';
+export type { LlmStreamOptions, PipelineLlm, PipelineLlmChunk } from './llm';
 export declare const PIPELINE_STEP_NAMES: readonly ["topic", "outline", "draft", "gates", "render", "images"];
 export type PipelineStepName = (typeof PIPELINE_STEP_NAMES)[number];
 export interface RunStore {

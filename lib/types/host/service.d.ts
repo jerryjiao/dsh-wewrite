@@ -110,12 +110,12 @@ export declare class WeWriteService {
         configured: boolean;
         writable: boolean;
     }>>;
-    listLlmOptions(): {
+    listLlmOptions(): Promise<{
         providers: {
             id: string;
             models: string[];
         }[];
-    };
+    }>;
     private weChatFlowDeps;
     pushArticleDraft(articleId: string): Promise<{
         mediaId: string;

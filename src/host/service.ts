@@ -63,7 +63,7 @@ export class WeWriteService {
       startRun: (schedule) => this.startRun({ trigger: 'schedule', params: schedule.params, scheduleId: schedule.id }),
     });
     this.engine = createPipelineEngine({
-      llm: deps.llm,
+      llm: deps.llm as unknown as import('./pipeline/llm').PipelineLlm,
       store: this.runStore,
       gates: qualityGatesRunner,
       renderer: { convert: ({ markdown, theme }) => convertArticle({ markdown, theme }) },
@@ -147,9 +147,11 @@ export class WeWriteService {
   }
 
   startRun(input: { trigger: 'manual' | 'schedule'; params: RunParams; articleId?: string; scheduleId?: string }): { runId: string } {
+    // settings.llmDefault 解析进 params.llm（本次显式覆盖优先）——paramsSnapshot 记录实际用的供应商/模型。
+    const params: RunParams = { ...input.params, llm: { ...this.state.settings.llmDefault, ...(input.params.llm ?? {}) } };
     const { runId, done } = this.engine.begin({
       trigger: input.trigger,
-      params: input.params,
+      params,
       ...(input.articleId ? { articleId: input.articleId } : {}),
       ...(input.scheduleId ? { scheduleId: input.scheduleId } : {}),
     });
@@ -237,16 +239,22 @@ export class WeWriteService {
     return descriptors;
   }
 
-  listLlmOptions(): { providers: { id: string; models: string[] }[] } {
-    const providers = this.deps.llm.listProviders?.() ?? [];
-    return {
-      providers: providers.map((entry) => {
-        const listing = entry as { id?: string; name?: string };
-        const id = String(listing?.id ?? listing?.name ?? entry ?? '');
-        const models = (this.deps.llm.listModels?.(id) ?? []).map((model) => String(model));
-        return { id, models };
-      }),
-    };
+  async listLlmOptions(): Promise<{ providers: { id: string; models: string[] }[] }> {
+    // 宿主 listModels 返回 Promise（dsh-llm seam 实测），同步 .map 会炸——归一后再用。
+    const rawProviders = await Promise.resolve(this.deps.llm.listProviders?.() ?? []);
+    const providers = Array.isArray(rawProviders) ? rawProviders : [];
+    const result: { id: string; models: string[] }[] = [];
+    for (const entry of providers) {
+      const listing = entry as { id?: string; name?: string };
+      const id = String(listing?.id ?? listing?.name ?? entry ?? '');
+      if (!id) continue;
+      const rawModels = await Promise.resolve(this.deps.llm.listModels?.(id) ?? []);
+      const models = (Array.isArray(rawModels) ? rawModels : []).map((model) =>
+        String((model as { id?: string })?.id ?? model),
+      );
+      result.push({ id, models });
+    }
+    return { providers: result };
   }
 
   // ── wechat / lifecycle ─────────────────────────────────────────────────────

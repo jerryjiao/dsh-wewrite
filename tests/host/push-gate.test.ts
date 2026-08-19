@@ -173,7 +173,7 @@ describe('AC-7 推送闸门：service 层（qa-test-plan §10-2 补齐）', () =
 
     const { runId } = service.startRun({
       trigger: 'manual',
-      params: { topicMode: 'fixed', topic: '管线门禁与推送', theme: 'professional-clean', imageCount: 1 },
+      params: { topicMode: 'fixed', topic: '管线门禁与推送', theme: 'professional-clean', imageCount: 1, llm: { provider: 'zhipu', model: 'glm-4.5-flash' } },
     });
     await waitForTerminal(service, runId);
 

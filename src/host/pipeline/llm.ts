@@ -1,36 +1,69 @@
 /**
  * 管线文本步的 LLM 访问层（ADR-003：宿主直调 ctx.llm.stream，F22 辅助调用先例）。
- * BlockAssembler 组装 text chunk；终端 finish chunk 承载 error/aborted 而非异常。
- * 对 ctx.llm 只做最小接口形状依赖（PipelineLlm），宿主类型与业务逻辑解耦。
+ * 2026-08-19 真机校准：宿主 dsh-llm seam 的真实协议是
+ * GenerateOptions{provider, model, system, messages[{role, content:[{type:'text',text}]}], purpose}
+ * 与 StreamChunk{text-delta | finish(reason.kind)}；旧版按 {type:'text'} 块 + content 传字符串，
+ * 在真宿主上产出 0 字空稿（v0.1.4 缺陷），本层按真实协议重写。
  */
-
-export interface LlmStreamMessage {
-  readonly role: 'system' | 'user' | 'assistant';
-  readonly content: string;
-}
 
 export interface LlmStreamOptions {
   /** 辅助调用标注（F22）：wewrite-pipeline。 */
   readonly purpose: string;
-  readonly messages: readonly LlmStreamMessage[];
-  readonly provider?: string;
-  readonly model?: string;
+  /** 宿主 GenerateOptions.system：系统提示独立字段，不进 messages。 */
+  readonly system: string;
+  /** 用户轮提示全文（outline/draft 各自组装）。 */
+  readonly user: string;
+  /** 宿主已注册的供应商路由 id（必填，GenerateOptions.provider）。 */
+  readonly provider: string;
+  /** 供应商下点名的模型 id（必填，GenerateOptions.model）。 */
+  readonly model: string;
+  readonly maxTokens?: number;
 }
 
+/** 宿主 StreamChunk 的最小依赖面：text-delta 承载增量文本，finish.reason 承载终态。 */
 export type PipelineLlmChunk =
-  | { readonly type: 'text'; readonly text: string }
-  | { readonly type: 'finish'; readonly error?: { readonly code: string; readonly message: string }; readonly aborted?: boolean };
+  | { readonly type: 'text-delta'; readonly index: number; readonly text: string }
+  | {
+      readonly type: 'finish';
+      readonly reason: {
+        readonly kind: 'stop' | 'tool-calls' | 'max-tokens' | 'aborted' | 'error';
+        readonly failure?: { readonly code?: string; readonly message: string };
+      };
+    }
+  | { readonly type: string; readonly [field: string]: unknown };
 
+/** 宿主 GenerateOptions 的最小形状依赖（seam 实际读取字段的子集）。 */
 export interface PipelineLlm {
-  stream(options: LlmStreamOptions): AsyncIterable<PipelineLlmChunk> | Promise<AsyncIterable<PipelineLlmChunk>>;
+  stream(options: Record<string, unknown>): AsyncIterable<PipelineLlmChunk> | Promise<AsyncIterable<PipelineLlmChunk>>;
 }
 
-/** 把流式 text chunk 组装为完整文本。 */
+/** 组装宿主 GenerateOptions（只带 seam 会读的字段；source 按 Message 协议最小声明）。 */
+function toHostOptions(options: LlmStreamOptions): Record<string, unknown> {
+  return {
+    purpose: options.purpose,
+    provider: options.provider,
+    model: options.model,
+    system: options.system,
+    messages: [
+      {
+        id: `wewrite-${Date.now().toString(36)}`,
+        role: 'user',
+        content: [{ type: 'text', text: options.user }],
+        source: { kind: 'plugin', plugin: 'dsh-wewrite', form: 'live' },
+      },
+    ],
+    ...(options.maxTokens ? { maxTokens: options.maxTokens } : {}),
+  };
+}
+
+/** 把流式 text-delta 组装为完整文本。 */
 export class BlockAssembler {
   private readonly parts: string[] = [];
 
   push(chunk: PipelineLlmChunk): void {
-    if (chunk.type === 'text' && chunk.text) this.parts.push(chunk.text);
+    if (chunk.type !== 'text-delta') return;
+    const text = (chunk as { text?: unknown }).text;
+    if (typeof text === 'string' && text) this.parts.push(text);
   }
 
   getText(): string {
@@ -50,18 +83,25 @@ export async function streamLlmText(
   signal: AbortSignal,
 ): Promise<LlmStepOutcome> {
   const assembler = new BlockAssembler();
-  const iterable = await llm.stream(options);
+  const iterable = await llm.stream(toHostOptions(options));
   for await (const chunk of iterable) {
     if (signal.aborted) return { status: 'aborted' };
-    if (chunk.type === 'text') {
+    if (chunk.type === 'text-delta') {
       assembler.push(chunk);
       continue;
     }
-    if (chunk.aborted) return { status: 'aborted' };
-    if (chunk.error) {
-      return { status: 'error', code: chunk.error.code || 'llm-error', message: chunk.error.message };
+    if (chunk.type === 'finish') {
+      const reason = (chunk as { reason?: { kind?: string; failure?: { code?: string; message?: string } } }).reason;
+      if (reason?.kind === 'aborted') return { status: 'aborted' };
+      if (reason?.kind === 'error') {
+        return {
+          status: 'error',
+          code: reason.failure?.code || 'llm-error',
+          message: reason.failure?.message || '供应商返回错误（无详细信息）',
+        };
+      }
+      return { status: 'ok', text: assembler.getText() };
     }
-    return { status: 'ok', text: assembler.getText() };
   }
   return { status: 'ok', text: assembler.getText() };
 }
@@ -72,40 +112,32 @@ const SYSTEM_STYLE = [
   '面向已具备工程背景的读者，直接进入具体事实与取舍。',
 ].join('');
 
-export function buildOutlineMessages(topic: string): LlmStreamMessage[] {
+export function outlineUserPrompt(topic: string): string {
   return [
-    { role: 'system', content: SYSTEM_STYLE },
-    {
-      role: 'user',
-      content: [
-        `主题：${topic}`,
-        '',
-        '请给出一篇文章大纲：',
-        '- 5 到 8 个二级标题小节，每节一句话说明要覆盖的具体内容；',
-        '- 标注每节计划出现的具体证据类型（数据/命令/对比/亲历细节）；',
-        '- 不写引言节与总结节，首节直接切入主体。',
-      ].join('\n'),
-    },
-  ];
+    `主题：${topic}`,
+    '',
+    '请给出一篇文章大纲：',
+    '- 5 到 8 个二级标题小节，每节一句话说明要覆盖的具体内容；',
+    '- 标注每节计划出现的具体证据类型（数据/命令/对比/亲历细节）；',
+    '- 不写引言节与总结节，首节直接切入主体。',
+  ].join('\n');
 }
 
-export function buildDraftMessages(topic: string, outline: string): LlmStreamMessage[] {
+export function draftUserPrompt(topic: string, outline: string): string {
   return [
-    { role: 'system', content: SYSTEM_STYLE },
-    {
-      role: 'user',
-      content: [
-        `主题：${topic}`,
-        '',
-        '大纲如下：',
-        outline,
-        '',
-        '请成稿：',
-        '- Markdown 输出，标题层级从 ## 开始（一级标题由发布字段承载，正文不出现）；',
-        '- 每节包含至少一处具体细节（数字、命令、代码或对比结论）；',
-        '- 段落长短交替，避免连续同长段；',
-        '- 正文配图位置以「![描述](图片待生成)」占位，后续管线会替换。',
-      ].join('\n'),
-    },
-  ];
+    `主题：${topic}`,
+    '',
+    '大纲如下：',
+    outline,
+    '',
+    '请成稿：',
+    '- Markdown 输出，标题层级从 ## 开始（一级标题由发布字段承载，正文不出现）；',
+    '- 每节包含至少一处具体细节（数字、命令、代码或对比结论）；',
+    '- 段落长短交替，避免连续同长段；',
+    '- 正文配图位置以「![描述](图片待生成)」占位，后续管线会替换。',
+  ].join('\n');
+}
+
+export function pipelineSystemPrompt(): string {
+  return SYSTEM_STYLE;
 }

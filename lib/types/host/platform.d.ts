@@ -5,7 +5,6 @@
  * 全部服务在 apply 内做存在性探测，缺失时降级为 console 警告（§9.1）。
  */
 import type { WewriteDomainSpec } from './domain';
-import type { LlmStreamOptions, PipelineLlmChunk } from './pipeline/llm';
 export interface KvTable<V> {
     get(key: string): V | undefined;
     entries(): IterableIterator<[string, V]>;
@@ -50,9 +49,10 @@ export interface LlmProviderListing {
     readonly models?: readonly unknown[];
 }
 export interface LlmService {
-    listProviders?(): readonly unknown[];
-    listModels?(provider: string): readonly unknown[];
-    stream(options: LlmStreamOptions): AsyncIterable<PipelineLlmChunk> | Promise<AsyncIterable<PipelineLlmChunk>>;
+    /** 宿主 dsh-llm seam：listProviders 同步、listModels 异步（返回 Promise），两者都按可能异步防御。 */
+    listProviders?(): readonly unknown[] | Promise<readonly unknown[]>;
+    listModels?(provider: string): readonly unknown[] | Promise<readonly unknown[]>;
+    stream(options: Record<string, unknown>): AsyncIterable<unknown> | Promise<AsyncIterable<unknown>>;
 }
 export interface ToolsService {
     register(definition: unknown): unknown;
