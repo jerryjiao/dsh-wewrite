@@ -5,7 +5,7 @@
 [![CI](https://github.com/jerryjiao/dsh-wewrite/actions/workflows/ci.yml/badge.svg)](https://github.com/jerryjiao/dsh-wewrite/actions/workflows/ci.yml)
 [![Website](https://github.com/jerryjiao/dsh-wewrite/actions/workflows/website.yml/badge.svg)](https://github.com/jerryjiao/dsh-wewrite/actions/workflows/website.yml)
 
-一个 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 插件：把一条经过 30+ 篇真实文章验证的微信公众号 AI 写作管线（选题 → 大纲 → 成稿 → 质量门禁 → 排版渲染 → 配图 → 草稿箱）产品化。任何 DSH 用户一条命令安装，在本地 Web UI 里完成从选题到草稿箱的全流程。模型与凭据全部走你自己的账号，数据只落本地。
+一个 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 插件：把一整套微信公众号 AI 写作管线（选题 → 大纲 → 成稿 → 质量门禁 → 排版渲染 → 配图 → 草稿箱）产品化。任何 DSH 用户一条命令安装，在本地 Web UI 里完成从选题到草稿箱的全流程。模型与凭据全部走你自己的账号，数据只落本地。
 
 - 官网：https://jerryjiao.github.io/dsh-wewrite/
 - 版本：v0.1.4
@@ -234,7 +234,7 @@ npm run build        # 产出 lib/（提交前必跑，产物入库）
 
 ## English
 
-**What.** dsh-wewrite is a plugin for DeepSeek Harness (DSH) that turns a WeChat official-account AI writing pipeline—topic, outline, draft, quality gates, render, images, draft box—validated on 30+ real published articles—into a local web workbench. Models and credentials stay yours: text generation uses your DSH model config, secrets never leave `~/.dsh`.
+**What.** dsh-wewrite is a plugin for DeepSeek Harness (DSH) that turns a WeChat official-account AI writing pipeline—topic, outline, draft, quality gates, render, images, draft box—into a local web workbench. Models and credentials stay yours: text generation uses your DSH model config, secrets never leave `~/.dsh`.
 
 **Install.** `npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.1.4`, then `npx @deepseek-ai/dsh web` and open http://127.0.0.1:3080 . Fill in your official-account AppID/AppSecret in the workbench settings, run the connection test, pick a topic, and push your first draft. Requires DSH v0.1.x developer preview and Node ^22.19.0 || >=24.0.0.
 

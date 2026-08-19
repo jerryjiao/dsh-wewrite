@@ -5,7 +5,7 @@
 
 ## 产品一句话
 
-一个开源 DeepSeek Harness（DSH）插件：把一条经过 30+ 篇真实文章验证的微信公众号 AI 写作管线（选题→研究→写作→质量门禁→排版→配图→草稿箱）产品化，任何 DSH 用户 `npx @deepseek-ai/dsh plugin add github:<owner>/dsh-wewrite` 即装即用。
+一个开源 DeepSeek Harness（DSH）插件：把一条经真实生产使用检验的微信公众号 AI 写作管线（选题→研究→写作→质量门禁→排版→配图→草稿箱）产品化，任何 DSH 用户 `npx @deepseek-ai/dsh plugin add github:<owner>/dsh-wewrite` 即装即用。
 
 ## 已核实的 DSH 平台事实（2026-08-14 本机实测，来源：apps/dsh-hub field notes）
 

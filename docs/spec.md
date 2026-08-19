@@ -8,7 +8,7 @@
 
 ## 1. 产品定义
 
-- **一句话描述**：开源 DeepSeek Harness 插件，把一条经 30+ 篇真实文章验证的微信公众号 AI 写作管线（选题→研究→写作→质量门禁→排版→配图→草稿箱）产品化，一条命令装进任何 DSH 用户的本地环境。
+- **一句话描述**：开源 DeepSeek Harness 插件，把一条经真实生产使用检验的微信公众号 AI 写作管线（选题→研究→写作→质量门禁→排版→配图→草稿箱）产品化，一条命令装进任何 DSH 用户的本地环境。
 - **目标用户**：已用 DSH 的技术型公众号号主（开发者/AI 从业者，本机已配模型供应商）；次要是重度内容创业者（v0.1 单账号场景）。
 - **核心问题**：现有方案断裂——排版工具只有排版（doocs/md）、AI 写作是闭源 SaaS 黑盒（135/壹伴/讯飞）、开源管线工具上手门槛高且无定时化（md2wechat-skill 差评实证：IP 白名单/CLI 门槛/出稿慢）。
 
@@ -52,7 +52,7 @@
 | 图标 | lucide-react（唯一图标库，ADR-009） | 最新 stable | P0 视觉门禁①：一套 SVG 库 |
 | 校验 | zod | `^4.1.5`（与 DSH storage domain/参照插件一致） | 双端契约载体 |
 | RRULE | rrule（RFC 5545）+ Intl 时区 | 最新 stable | 标准实现 |
-| 渲染 | vendored convertArticle（自 shared-ops/md-html 平移，C2） | 内置 | 30+ 篇验证；无 npm 等价物 |
+| 渲染 | vendored convertArticle（自 shared-ops/md-html 平移，C2） | 内置 | 真实生产使用检验；无 npm 等价物 |
 | LLM | 复用 ctx.llm.stream()（ADR-003，不建自有抽象） | — | 用户原生配置零迁移（F21-F23） |
 | 图片 | 自建 ImageProvider 抽象 9 家（§7.1） | — | 图片≠文本流协议，平台装不下（架构 §2） |
 | 持久化 | DSH storage domain（sqlite 路由优先 json 兜底，ADR-005） | domain version 1 | 平台唯一受支持通道（F15-F18） |

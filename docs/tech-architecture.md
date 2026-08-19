@@ -93,7 +93,7 @@ workspace ADR 锁定的默认技术栈为 Astro + Cloudflare Workers/Hono/D1/R2�
 
 | # | 事实 | 来源 |
 |---|---|---|
-| F30 | 草稿箱 API 族端点：`/cgi-bin/token`（client_credential 换 access_token）、`/cgi-bin/media/uploadimg`（正文图，返回微信 CDN URL）、`/cgi-bin/material/add_material`（封面，得 thumb_media_id）、`/cgi-bin/draft/add`、`/cgi-bin/draft/get`、`/cgi-bin/draft/update` | source: `workspace-writer/wewrite/scripts/publish_article.mjs`（已在 30+ 篇真实文章验证） |
+| F30 | 草稿箱 API 族端点：`/cgi-bin/token`（client_credential 换 access_token）、`/cgi-bin/media/uploadimg`（正文图，返回微信 CDN URL）、`/cgi-bin/material/add_material`（封面，得 thumb_media_id）、`/cgi-bin/draft/add`、`/cgi-bin/draft/get`、`/cgi-bin/draft/update` | source: `workspace-writer/wewrite/scripts/publish_article.mjs`（已在真实生产使用验证） |
 | F31 | **IP 白名单**：官方文档明言「仅白名单中的 IP 才可调用公众号/服务号的服务端接口，即通过 AppSecret 或者 access_token 调用服务端接口时，需将访问来源 IP 设置为 IP 白名单」，违规返回 errcode 40164 | source: developers.weixin.qq.com《API IP 白名单》操作指南 |
 | F32 | 源管线已把 API base URL 参数化（`DEFAULT_WECHAT_API_BASE_URL = "https://api.weixin.qq.com"` + `--api-base-url`），代理缝天然存在；现行代理形态为固定 IP 云主机 SSH 中转（push_to_draft.mjs scp+ssh 编排，凭据用完即删） | source: `push_to_draft.mjs` + `publish_article.mjs:11` |
 
@@ -117,7 +117,7 @@ workspace ADR 锁定的默认技术栈为 Astro + Cloudflare Workers/Hono/D1/R2�
 | 状态/样式 | 组件本地态 + RPC 快照订阅；样式跟随 DSH web-styling 约定（`docs/web-styling.md`）+ 少量自定义 CSS（Indigo/Slate 纯色 token，禁紫粉渐变） | 不引入状态库/组件库，减少与宿主样式冲突 | tailwind：宿主未用，引入成本高——否决（MVP） |
 | 校验 | zod v4 | 与 DSH storage domain/参照插件一致（dsh-automation 依赖 zod ^4.1.5） | — |
 | RRULE | rrule（RFC 5545）+ Intl 时区 | 标准实现；参照插件自研归一化但未开源为库 | 自研（luxon 手写）：重复造轮——否决 |
-| 渲染 | vendored convertArticle（md→微信 HTML，内联样式+主题） | 源管线已 30+ 篇验证；无npm等价物可替代微信内联样式要求 | doocs/md 渲染核：它是编辑器应用非库，抽取成本高于平移自有已验证代码——否决 |
+| 渲染 | vendored convertArticle（md→微信 HTML，内联样式+主题） | 源管线经真实生产使用检验；无npm等价物可替代微信内联样式要求 | doocs/md 渲染核：它是编辑器应用非库，抽取成本高于平移自有已验证代码——否决 |
 | LLM 接入 | **复用 `ctx.llm`（DSH 原生供应商体系）** | 用户已在 DSH 配好模型（F23）；我们零凭据管理成本，模型选择器直接列原生 providers | 自建 LLM 配置面：重复平台能力且割裂用户体验——否决 |
 | 图片生成 | 自建 `ImageProvider` 抽象（9 家 + gpt-image-2 第一） | 图片供应商与文本 LLM 供应商集合并集很小（仅 openai/azure/gemini 交叉）；DSH llm 服务是文本流协议（StreamChunk），装不下图片二进制返回——必须自建 | 挂到 ctx.llm adapter：协议不匹配——否决 |
 | 持久化 | DSH storage domain（sqlite 路由优先，json 兜底，见 ADR-005） | 平台唯一受支持通道（F15-F18）；自带 SQLite 文件违反插件边界 | 自写文件到 `~/.dsh`：绕过平台、卸载不清理——否决 |
@@ -166,7 +166,7 @@ workspace ADR 锁定的默认技术栈为 Astro + Cloudflare Workers/Hono/D1/R2�
 | `shared/` | 双端契约：zod schema（RPC payload/view model）、provider id 联合类型、能力协商常量 | — |
 | `render/` | vendored md→微信 HTML（convertArticle + inline styles + themes），host 侧渲染，预览 HTML 经 RPC 返回（保证预览=产物） | — |
 
-**管线执行形态（ADR-003）**：管线由宿主服务**代码驱动**，文本步直接调 `ctx.llm.stream()`（F22 辅助调用先例），确定性步骤（选题抓取/门禁/渲染/配图/推送）纯代码执行。不经 Agent 循环编排——30+ 篇验证的管线是确定性步骤流，交给 LLM 自主编排会引入不确定性并浪费编排 token。Agent 交互面降级为可选工具（tools.ts）。
+**管线执行形态（ADR-003）**：管线由宿主服务**代码驱动**，文本步直接调 `ctx.llm.stream()`（F22 辅助调用先例），确定性步骤（选题抓取/门禁/渲染/配图/推送）纯代码执行。不经 Agent 循环编排——真实生产使用的管线是确定性步骤流，交给 LLM 自主编排会引入不确定性并浪费编排 token。Agent 交互面降级为可选工具（tools.ts）。
 
 ---
 
