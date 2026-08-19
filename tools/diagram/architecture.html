@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>dsh-wewrite 架构图</title>
+<!--
+  dsh-wewrite 架构图真源（2026-08-19，替换 codex 文生图版）。
+  配色/字体与官网 site.css、插件 tokens.css 同源：#4176E6 纯色平涂、1px 线框、零渐变零 emoji，
+  图标 = lucide-react 同库 stroke 1.75（与插件 UI 的 Icon.tsx 同语言）。
+  渲染：tools/diagram/render.mjs（playwright 截图，出网箭头按 #mod-wechat 实测坐标定位）。
+  内容与 README「架构」节文字版同步——改架构必须同步两处。
+-->
+<style>
+  :root {
+    --fg: #0F1115;
+    --fg-2: #61666B;
+    --fg-3: #81858C;
+    --fg-cap: #ADB2B8;
+    --border: rgba(0, 0, 0, 0.10);
+    --border-strong: rgba(0, 0, 0, 0.14);
+    --divider: rgba(0, 0, 0, 0.05);
+    --sunken: #F9FAFB;
+    --accent: #4176E6;
+    --accent-subtle: #EDF3FE;
+    --code-bg: #EBEEF2;
+    --egress: #94A3B8;
+    --font-ui: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fff; }
+  svg.lucide { flex: none; }
+
+  #canvas {
+    width: 1600px;
+    background: #fff;
+    font-family: var(--font-ui);
+    color: var(--fg);
+    padding: 40px 48px 44px;
+  }
+
+  /* ---------- 顶栏：题注 + 图例 ---------- */
+  .topbar { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; }
+  .topbar__title { font-family: var(--font-mono); font-size: 13px; color: var(--fg-2); letter-spacing: 0.02em; }
+  .topbar__title b { color: var(--fg); font-weight: 600; }
+  .legend { display: flex; gap: 18px; font-size: 12px; color: var(--fg-3); align-items: center; }
+  .legend__item { display: inline-flex; align-items: center; gap: 6px; }
+  .legend__solid { width: 22px; border-top: 2px solid var(--accent); }
+  .legend__dash { width: 22px; border-top: 2px dashed var(--egress); }
+
+  /* ---------- 舞台：边界内 + 出网列 ---------- */
+  .stage { position: relative; display: grid; grid-template-columns: 1fr 264px; column-gap: 44px; }
+
+  .boundary {
+    position: relative;
+    border: 1.5px dashed var(--egress);
+    border-radius: 14px;
+    padding: 24px 24px 20px;
+  }
+  .boundary__tab {
+    position: absolute; top: -11px; right: 22px;
+    background: #fff; border: 1.5px dashed var(--egress); border-radius: 9999px;
+    font-family: var(--font-mono); font-size: 12px; color: var(--fg-2);
+    padding: 2px 12px; line-height: 18px;
+  }
+
+  /* ---------- 通用卡片 ---------- */
+  .card {
+    background: #fff; border: 1px solid var(--border); border-radius: 8px;
+  }
+  .chip {
+    font-family: var(--font-mono); font-size: 12px; color: var(--fg-2);
+    background: var(--code-bg); border-radius: 4px; padding: 1px 8px; white-space: nowrap;
+  }
+  .chip--blue { background: var(--accent-subtle); color: var(--accent); }
+  .cap { font-size: 12px; color: var(--fg-3); }
+  .mono { font-family: var(--font-mono); }
+
+  /* ---------- T1 客户端 ---------- */
+  .client { padding: 18px 22px 16px; }
+  .client__head { display: flex; align-items: center; gap: 10px; }
+  .client__head svg { color: var(--accent); }
+  .client__name { font-size: 17px; font-weight: 600; }
+  .client__head .chips { display: flex; gap: 8px; margin-left: 4px; }
+  .client__head .cap { margin-left: auto; }
+  .client__panels { display: flex; gap: 10px; margin-top: 16px; }
+  .panel-pill {
+    flex: 1; text-align: center; font-size: 13px; color: var(--fg-2);
+    border: 1px solid var(--border); border-radius: 6px; padding: 7px 0;
+    background: var(--sunken);
+  }
+  .panel-pill--active { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent); font-weight: 500; }
+
+  /* ---------- RPC 连接 ---------- */
+  .rpc { position: relative; height: 64px; display: flex; justify-content: center; }
+  .rpc__line {
+    width: 2px; background: var(--accent); position: relative;
+  }
+  .rpc__line::before, .rpc__line::after {
+    content: ''; position: absolute; left: 50%; transform: translateX(-50%);
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+  }
+  .rpc__line::before { top: 0; border-top: 7px solid var(--accent); }
+  .rpc__line::after { bottom: 0; border-bottom: 7px solid var(--accent); }
+  .rpc__label {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    background: #fff; border: 1px solid var(--border); border-radius: 6px;
+    display: flex; align-items: center; gap: 8px; padding: 5px 12px;
+    white-space: nowrap;
+  }
+  .rpc__label svg { color: var(--fg-3); }
+  .rpc__label .t { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; }
+  .rpc__label .s { font-size: 12px; color: var(--fg-3); }
+
+  /* ---------- T2 宿主 ---------- */
+  .host {
+    background: var(--sunken); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 18px;
+  }
+  .host__head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .host__name { font-size: 15px; font-weight: 600; }
+  .host__head .cap { margin-left: auto; }
+
+  .plugin { padding: 14px 16px; }
+  .plugin__head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .plugin__name { font-size: 15px; font-weight: 600; }
+  .plugin__head .chip { margin-left: auto; }
+
+  .modules { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .mod { padding: 12px 14px; }
+  .mod__head { display: flex; align-items: center; gap: 8px; }
+  .mod__head svg { color: var(--accent); }
+  .mod__id { font-family: var(--font-mono); font-size: 13px; font-weight: 600; }
+  .mod__role { font-size: 13px; color: var(--fg-2); }
+  .mod__flow { font-family: var(--font-mono); font-size: 12px; color: var(--fg-2); margin-top: 7px; }
+  .mod__cap { font-size: 12px; color: var(--fg-3); margin-top: 4px; }
+
+  /* ---------- 分叉连接（宿主 → 三本地件） ---------- */
+  .drops { position: relative; height: 34px; }
+  .drops__stub { position: absolute; left: 50%; top: 0; height: 11px; border-left: 2px solid var(--accent); }
+  .drops__rail { position: absolute; top: 11px; left: 16.666%; right: 16.666%; border-top: 2px solid var(--accent); }
+  .drops__drop { position: absolute; top: 11px; height: 23px; border-left: 2px solid var(--accent); }
+  .drops__drop::after {
+    content: ''; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-bottom: 7px solid var(--accent);
+  }
+  .drops__d1 { left: 16.666%; }
+  .drops__d2 { left: 50%; }
+  .drops__d3 { left: 83.333%; }
+
+  /* ---------- T3 本地三件 ---------- */
+  .locals { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .local { padding: 12px 16px; display: flex; gap: 12px; align-items: flex-start; }
+  .local svg { color: var(--fg-2); margin-top: 2px; }
+  .local__name { font-size: 13.5px; font-weight: 600; }
+  .local__path { font-family: var(--font-mono); font-size: 12px; color: var(--fg-2); margin-top: 3px; }
+  .local__cap { font-size: 12px; color: var(--fg-3); margin-top: 3px; }
+
+  /* ---------- 出网（虚线，指向公众号草稿箱） ---------- */
+  .egress-line {
+    position: absolute; border-top: 2px dashed var(--egress); height: 0;
+  }
+  .egress-line::after {
+    content: ''; position: absolute; right: -2px; top: -6px;
+    border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+    border-left: 8px solid var(--egress);
+  }
+  .egress-box {
+    position: absolute; right: 0; width: 264px;
+    background: #fff; border: 1.5px dashed var(--egress); border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .egress-box__head { display: flex; align-items: center; gap: 8px; }
+  .egress-box__head svg { color: var(--fg-2); }
+  .egress-box__name { font-size: 14.5px; font-weight: 600; }
+  .egress-box__path { font-family: var(--font-mono); font-size: 12px; color: var(--fg-2); margin-top: 6px; }
+  .egress-box__cap { font-size: 12px; color: var(--fg-3); margin-top: 4px; line-height: 1.55; }
+</style>
+</head>
+<body>
+<div id="canvas">
+  <div class="topbar">
+    <div class="topbar__title"><b>dsh-wewrite</b> · v0.1 · 单包双端 Cordis 插件</div>
+    <div class="legend">
+      <span class="legend__item"><span class="legend__solid"></span>本机调用</span>
+      <span class="legend__item"><span class="legend__dash"></span>出本机</span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="boundary">
+      <span class="boundary__tab">本机 · loopback</span>
+
+      <!-- T1 客户端 -->
+      <div class="card client">
+        <div class="client__head">
+          <svg class="lucide" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"/><path d="m2 22 3-3"/><path d="M7.5 13.5 10 11"/><path d="M10.5 16.5 13 14"/><path d="m18 3-4 4h6l-4 4"/></svg>
+          <span class="client__name">DSH Web 工作台</span>
+          <span class="chips">
+            <span class="chip">React 18</span>
+            <span class="chip">http://127.0.0.1:3080</span>
+          </span>
+          <span class="cap">会话视图环 · wewrite tab</span>
+        </div>
+        <div class="client__panels">
+          <span class="panel-pill">选题</span>
+          <span class="panel-pill">编辑器</span>
+          <span class="panel-pill">微信预览</span>
+          <span class="panel-pill">运行历史</span>
+          <span class="panel-pill">定时计划</span>
+          <span class="panel-pill panel-pill--active">设置</span>
+        </div>
+      </div>
+
+      <!-- RPC 连接 -->
+      <div class="rpc">
+        <div class="rpc__line"></div>
+        <div class="rpc__label">
+          <svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span class="t">connection.rpc</span>
+          <span class="s">回环直连 · authority 校验</span>
+        </div>
+      </div>
+
+      <!-- T2 宿主 -->
+      <div class="host">
+        <div class="host__head">
+          <span class="host__name">DSH Host</span>
+          <span class="chip">Node + Cordis</span>
+          <span class="cap">宿主进程</span>
+        </div>
+        <div class="card plugin">
+          <div class="plugin__head">
+            <span class="plugin__name">dsh-wewrite 宿主插件</span>
+            <span class="chip chip--blue">WeWriteService · 唯一写权威 · 操作串行化</span>
+          </div>
+          <div class="modules">
+            <div class="card mod" id="mod-pipeline">
+              <div class="mod__head">
+                <svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg>
+                <span class="mod__id">pipeline/</span>
+                <span class="mod__role">写作管线 · 六步引擎</span>
+              </div>
+              <div class="mod__flow">选题 → 大纲 → 成稿 → 门禁 → 渲染 → 配图</div>
+              <div class="mod__cap">文本步调 ctx.llm · 确定性步骤纯代码执行</div>
+            </div>
+            <div class="card mod" id="mod-scheduler">
+              <div class="mod__head">
+                <svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 14v2.2l1.6 1"/><path d="M16 2v3"/><path d="M21 7.338V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h2.338"/><path d="M3 9h5.859"/><path d="M8 2v3"/><circle cx="16" cy="16" r="6"/></svg>
+                <span class="mod__id">scheduler/</span>
+                <span class="mod__role">定时调度</span>
+              </div>
+              <div class="mod__flow">RRULE 归一化 → durable claim → 派发 run</div>
+              <div class="mod__cap">错过不补偿 · 运行历史完整可审计</div>
+            </div>
+            <div class="card mod" id="mod-wechat">
+              <div class="mod__head">
+                <svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+                <span class="mod__id">wechat/</span>
+                <span class="mod__role">微信草稿箱</span>
+              </div>
+              <div class="mod__flow">token · uploadimg · material · draft</div>
+              <div class="mod__cap">apiBaseUrl 可配 = 统一代理缝</div>
+            </div>
+            <div class="card mod" id="mod-providers">
+              <div class="mod__head">
+                <svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                <span class="mod__id">providers/</span>
+                <span class="mod__role">图片生成</span>
+              </div>
+              <div class="mod__flow">9 家供应商 · fallback 编排</div>
+              <div class="mod__cap">gpt-image-2 优先 · 全败无图推进</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 分叉：宿主 → 本地三件 -->
+      <div class="drops">
+        <div class="drops__stub"></div>
+        <div class="drops__rail"></div>
+        <div class="drops__drop drops__d1"></div>
+        <div class="drops__drop drops__d2"></div>
+        <div class="drops__drop drops__d3"></div>
+      </div>
+
+      <!-- T3 本地三件 -->
+      <div class="locals">
+        <div class="card local">
+          <svg class="lucide" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+          <div>
+            <div class="local__name">本地凭据</div>
+            <div class="local__path">ctx.credentials → ~/.dsh</div>
+            <div class="local__cap">AppSecret / API Key 只存本机</div>
+          </div>
+        </div>
+        <div class="card local">
+          <svg class="lucide" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>
+          <div>
+            <div class="local__name">本地存储</div>
+            <div class="local__path">storageDomain → ~/.dsh</div>
+            <div class="local__cap">文章 / 运行历史 / 排期</div>
+          </div>
+        </div>
+        <div class="card local">
+          <svg class="lucide" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20v2"/><path d="M12 2v2"/><path d="M17 20v2"/><path d="M17 2v2"/><path d="M2 12h2"/><path d="M2 17h2"/><path d="M2 7h2"/><path d="M20 12h2"/><path d="M20 17h2"/><path d="M20 7h2"/><path d="M7 20v2"/><path d="M7 2v2"/><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg>
+          <div>
+            <div class="local__name">DSH 模型</div>
+            <div class="local__path">ctx.llm · 你的账号</div>
+            <div class="local__cap">宿主原生模型配置，插件不另建</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 出网箭头与外部位（render.mjs 按 #mod-wechat 实测坐标定位） -->
+    <div class="egress-line" id="egress-line"></div>
+    <div class="egress-box" id="egress-box">
+      <div class="egress-box__head">
+        <svg class="lucide" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/></svg>
+        <span class="egress-box__name">微信公众平台</span>
+      </div>
+      <div class="egress-box__path">草稿箱 · draft/add</div>
+      <div class="egress-box__cap">v0.1 无 freepublish 调用路径；<br>群发永远由你后台人工执行</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -170,7 +170,7 @@ export function ArticlesPanel() {
                       {!gate || gate.verdict === 'unknown' ? (
                         <span className="ww-table__muted">—</span>
                       ) : gate.verdict === 'passed' ? (
-                        <span>
+                        <span className="ww-table__gate-pass">
                           <Icon name="shield-check" size={16} /> 已过
                         </span>
                       ) : (

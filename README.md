@@ -100,7 +100,7 @@ RRULE 原文与人类可读翻译双行展示，下次运行时间可见，可�
 
 单包双端（host + client），DSH Cordis 插件形态：
 
-<p><img src="assets/diagram/architecture-1536x1024.png" alt="dsh-wewrite 架构图：DSH Web 工作台经 RPC 到宿主插件（写作管线/定时调度/微信草稿箱/图片生成），落本地存储/凭据/DSH 模型，草稿箱指向公众号" width="768"></p>
+<p><img src="assets/diagram/architecture.png" alt="dsh-wewrite 架构图：DSH Web 工作台经 RPC 到宿主插件（写作管线/定时调度/微信草稿箱/图片生成），落本地存储/凭据/DSH 模型，草稿箱指向公众号" width="768"></p>
 
 <details>
 <summary>文字版</summary>

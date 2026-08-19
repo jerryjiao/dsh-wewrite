@@ -204,6 +204,7 @@
 
 .ww-table__mono { font-family: var(--ww-font-code); font-size: var(--ww-text-xs); font-variant-numeric: tabular-nums; }
 .ww-table__muted { color: var(--ww-fg-caption); }
+.ww-table__gate-pass { display: inline-flex; align-items: center; gap: var(--ww-space-1); }
 .ww-table__danger { color: var(--ww-danger); display: inline-flex; align-items: center; gap: var(--ww-space-1); }
 .ww-table__actions { white-space: nowrap; display: flex; gap: var(--ww-space-1); justify-content: flex-end; }
 .ww-table__more { margin: var(--ww-space-2) 0 0; font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); }
@@ -233,6 +234,8 @@
 
 .ww-schedule-card__body { display: flex; flex-direction: column; gap: var(--ww-space-1); }
 .ww-schedule-card__human { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-fg-secondary); }
+.ww-schedule-card__rrule { margin: 0; }
+.ww-schedule-card__rrule .ww-code { margin-left: calc(-1 * var(--ww-space-2)); }
 .ww-schedule-card__target { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); }
 .ww-schedule-card__actions { display: flex; gap: var(--ww-space-2); flex-wrap: wrap; }
 
