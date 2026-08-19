@@ -2,22 +2,36 @@
 import Icon from './Icon.astro';
 import { INSTALL_CMD } from '../site-data';
 
+const base = import.meta.env.BASE_URL;
+
 // 竖排三行（桌面与移动同构）；步骤号是流程性编号（divider 时间线语义），非装饰编号
+// 截图均来自 v0.1.4 真机运行（DSH Web 实拍）
 const steps = [
   {
     num: '01',
     title: '装插件',
     body: '一条命令装进 DSH。仓库直接提交了预构建产物，不需要在 pnpm 侧加任何 allowBuilds 信任声明，装完即用。',
+    shot: 'screenshots/01-dashboard.png',
+    shotAlt:
+      '写作台界面：今日待办计数与提示、最近文章列表（含门禁已过标签）、底部「输入主题，直接开写…」输入框',
+    shotCaption: '装完启动 dsh web，会话视图环里出现「wewrite 工作台」tab——这是写作台首屏。',
   },
   {
     num: '02',
     title: '配凭据',
     body: '工作台设置页填公众号 AppID / AppSecret，点连接测试。模型不用另配——文本生成直接用 DSH 里已有的模型配置。图片供应商 API Key 可选，不配则文章无图推进，不阻塞发布。',
+    shot: 'screenshots/07-settings.png',
+    shotAlt:
+      '设置界面：公众号、模型服务、图片供应商、API 代理、发布纪律分组配置，凭据输入框回显掩码',
+    shotCaption: '设置页按分组配置；AppSecret 保存后只回显掩码，连接测试在同一页。',
   },
   {
     num: '03',
     title: '出第一篇',
     body: '选题面板挑一条热榜，或直接输入主题。管线跑完选题、大纲、成稿、门禁、渲染、配图六步，在编辑器里改稿——右侧微信预览与最终推送产物字节一致。确认后点推草稿箱，到公众平台后台图文素材里查看。群发请你在后台自己点。',
+    shot: 'screenshots/02-hotspots.png',
+    shotAlt: '选题中心界面：热门榜按序号列出多条 Hacker News 条目，每条带来源与「写这个」按钮',
+    shotCaption: '选题中心热门榜拉取真实 Hacker News 数据，点「写这个」直接进管线。',
   },
 ];
 ---
@@ -43,6 +57,16 @@ const steps = [
                   </button>
                 </div>
               )}
+              <figure class="qs-shot">
+                <img
+                  src={`${base}${step.shot}`}
+                  alt={step.shotAlt}
+                  width="1440"
+                  height="900"
+                  loading="lazy"
+                />
+                <figcaption>{step.shotCaption}</figcaption>
+              </figure>
             </div>
           </li>
         ))
@@ -89,6 +113,27 @@ const steps = [
     line-height: 1.7;
     color: var(--site-fg-secondary);
     max-width: 75ch;
+  }
+
+  .qs-shot {
+    margin-top: 16px;
+    max-width: 720px;
+  }
+
+  .qs-shot img {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: var(--site-surface);
+    border: 1px solid var(--site-border);
+    border-radius: 8px;
+  }
+
+  .qs-shot figcaption {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--site-fg-secondary);
   }
 
   @media (max-width: 899px) {

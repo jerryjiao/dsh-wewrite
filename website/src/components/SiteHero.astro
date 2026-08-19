@@ -1,7 +1,7 @@
 ---
 import Icon from './Icon.astro';
 import GithubMark from './GithubMark.astro';
-import { INSTALL_CMD, REPO_URL } from '../site-data';
+import { INSTALL_CMD, REPO_URL, VERSION } from '../site-data';
 
 const base = import.meta.env.BASE_URL;
 ---
@@ -47,7 +47,7 @@ const base = import.meta.env.BASE_URL;
             </button>
           </div>
           <div class="codeblock-body">
-            <div class="cmd"><span class="prompt">$</span> npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.1.0</div>
+            <div class="cmd"><span class="prompt">$</span> {INSTALL_CMD}</div>
             <div class="cmd"><span class="prompt">$</span> npx @deepseek-ai/dsh web</div>
             <div class="cmd-out">→ http://127.0.0.1:3080</div>
           </div>
@@ -55,7 +55,7 @@ const base = import.meta.env.BASE_URL;
         <p class="hero-prereq">需要 Node ^22.19.0 || &gt;=24.0.0 与 DSH v0.1.x developer preview</p>
       </div>
     </div>
-    <p class="hero-meta">v0.1.0 · MIT · 318 个测试 · 无遥测</p>
+    <p class="hero-meta">{VERSION} · MIT · 318 个测试 · 无遥测</p>
   </div>
 </section>
 

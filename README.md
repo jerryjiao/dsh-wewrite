@@ -8,7 +8,7 @@
 一个 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 插件：把一条经过 30+ 篇真实文章验证的微信公众号 AI 写作管线（选题 → 大纲 → 成稿 → 质量门禁 → 排版渲染 → 配图 → 草稿箱）产品化。任何 DSH 用户一条命令安装，在本地 Web UI 里完成从选题到草稿箱的全流程。模型与凭据全部走你自己的账号，数据只落本地。
 
 - 官网：https://jerryjiao.github.io/dsh-wewrite/
-- 版本：v0.1.0
+- 版本：v0.1.4
 - License：MIT
 - 适用 DSH：v0.1.x developer preview（见下方[版本兼容表](#版本兼容表)）
 
@@ -19,7 +19,7 @@
 **第 1 步：安装插件**
 
 ```bash
-npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.1.0
+npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.1.4
 ```
 
 安装完成后如需卸载：`npx @deepseek-ai/dsh plugin --profile web remove dsh-wewrite`。
@@ -47,6 +47,46 @@ npx @deepseek-ai/dsh web
 
 「选题」面板选一条热榜（内置 Hacker News，可配自定义聚合源）点「以此为题」，或直接输入固定主题。管线自动执行六步（选题 → 大纲 → 成稿 → 门禁 → 渲染 → 配图），进度实时可见。完成后在编辑器里改稿，右侧微信预览与最终推送产物字节一致。确认后点「推草稿箱」，到微信公众平台后台「内容与互动 → 图文素材」里查看草稿。群发请你在公众平台后台人工执行（本插件 v0.1 没有任何群发调用路径，见[安全声明](#安全声明)）。
 
+## 一步步用起来
+
+以下截图全部来自 v0.1.4 真机运行（本机 DSH Web 实拍），按使用动线排列。
+
+**写作台**
+
+<p><img src="assets/screenshots/01-dashboard.png" alt="写作台界面：今日待办计数与提示、最近文章列表（含门禁已过标签）、底部「输入主题，直接开写…」输入框" width="720"></p>
+
+今日待办与最近文章一屏可见，底部输入主题直接开写；未配置凭据时第一步提示「配置公众号」。
+
+**选题中心**
+
+<p><img src="assets/screenshots/02-hotspots.png" alt="选题中心界面：热门榜按序号列出多条 Hacker News 条目，每条带来源与「写这个」按钮" width="720"></p>
+
+热门榜实时拉取（上图为真实 Hacker News 数据），点「写这个」直接进管线。
+
+**文章库**
+
+<p><img src="assets/screenshots/03-articles.png" alt="文章库界面：文章列表含标题、已排版状态、门禁已过标签与更新时间，顶部有筛选与搜索框" width="720"></p>
+
+每篇文章的状态、门禁结果、定时标记与更新时间集中一处，可搜索、可重推。
+
+**编辑器**
+
+<p><img src="assets/screenshots/04-editor.png" alt="编辑器界面：左栏 Markdown 改稿，右栏微信预览显示同名文章的排版效果，顶部有门禁报告与推草稿箱按钮" width="720"></p>
+
+左侧 Markdown 改稿，右侧微信预览与最终推送产物字节一致；门禁报告与推草稿箱在顶部工具栏。
+
+**定时任务**
+
+<p><img src="assets/screenshots/06-schedule.png" alt="定时任务界面：计划卡片显示 RRULE 原文、人类可读翻译与下次运行时间，右上角有新建定时按钮" width="720"></p>
+
+RRULE 原文与人类可读翻译双行展示，下次运行时间可见，可暂停/恢复。
+
+**设置**
+
+<p><img src="assets/screenshots/07-settings.png" alt="设置界面：公众号、模型服务、图片供应商、API 代理、发布纪律分组配置，凭据输入框回显掩码" width="720"></p>
+
+公众号凭据、模型服务、图片供应商链、API 代理分组配置；AppSecret 只回显掩码，连接测试在此。
+
 ## 功能亮点
 
 - **主题写作 + 热门榜选题**：固定主题直写，或从热榜选题。内置 Hacker News（官方 Algolia 索引，无需 key），支持自定义聚合源（DailyHotApi 兼容形态，配 URL 即启用）。单源失败只标记该源，不影响其余源展示。
@@ -60,7 +100,12 @@ npx @deepseek-ai/dsh web
 
 单包双端（host + client），DSH Cordis 插件形态：
 
-```
+<p><img src="assets/diagram/architecture-1536x1024.png" alt="dsh-wewrite 架构图：DSH Web 工作台经 RPC 到宿主插件（写作管线/定时调度/微信草稿箱/图片生成），落本地存储/凭据/DSH 模型，草稿箱指向公众号" width="768"></p>
+
+<details>
+<summary>文字版</summary>
+
+<pre>
 DSH Web UI（React 18，http://127.0.0.1:3080）
   └─ wewrite 工作台 tab
        │  选题 │ 编辑器 │ 微信预览 │ 运行历史 │ 定时计划 │ 设置
@@ -75,7 +120,9 @@ DSH Host（Node + Cordis）
        │               apiBaseUrl 可配 = 代理缝（全部调用统一走该地址）
        └─ providers/  9 家图片供应商 + fallback 编排
   凭据：ctx.credentials（~/.dsh 本地）   数据：storageDomain（~/.dsh 本地）
-```
+</pre>
+
+</details>
 
 设计细节见 `docs/tech-architecture.md`（ADR-001~009 收录于该文档 §10）。
 
@@ -149,7 +196,7 @@ v0.1 没有，这是有意的安全默认（见安全声明）。Roadmap 的 v0.
 
 | dsh-wewrite | DSH | Node | React | 状态 |
 |---|---|---|---|---|
-| v0.1.0 | v0.1.x developer preview（2026-08-13 发布） | ^22.19.0 \|\| >=24.0.0 | 18（宿主提供，peer） | 已验证（2026-08 基线，DSH master@2026-08-17 实测） |
+| v0.1.0 – v0.1.4 | v0.1.x developer preview（2026-08-13 发布） | ^22.19.0 \|\| >=24.0.0 | 18（宿主提供，peer） | 已验证（2026-08 基线，DSH master@2026-08-17 实测） |
 
 DSH v0.1 是 developer preview，不承诺 API 稳定；DSH 升级后如插件失活，优先检查本表并升级插件版本。
 
@@ -189,7 +236,7 @@ npm run build        # 产出 lib/（提交前必跑，产物入库）
 
 **What.** dsh-wewrite is a plugin for DeepSeek Harness (DSH) that turns a WeChat official-account AI writing pipeline—topic, outline, draft, quality gates, render, images, draft box—validated on 30+ real published articles—into a local web workbench. Models and credentials stay yours: text generation uses your DSH model config, secrets never leave `~/.dsh`.
 
-**Install.** `npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.1.0`, then `npx @deepseek-ai/dsh web` and open http://127.0.0.1:3080 . Fill in your official-account AppID/AppSecret in the workbench settings, run the connection test, pick a topic, and push your first draft. Requires DSH v0.1.x developer preview and Node ^22.19.0 || >=24.0.0.
+**Install.** `npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.1.4`, then `npx @deepseek-ai/dsh web` and open http://127.0.0.1:3080 . Fill in your official-account AppID/AppSecret in the workbench settings, run the connection test, pick a topic, and push your first draft. Requires DSH v0.1.x developer preview and Node ^22.19.0 || >=24.0.0.
 
 **Safety.** v0.1 pushes to the draft box only; there is no code path for mass publishing (freepublish), by design. Credentials are stored locally via the DSH credentials service and masked in logs; no telemetry is collected. MIT licensed.
 

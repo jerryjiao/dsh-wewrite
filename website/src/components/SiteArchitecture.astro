@@ -2,6 +2,8 @@
 import Icon from './Icon.astro';
 import { REPO_URL } from '../site-data';
 
+const base = import.meta.env.BASE_URL;
+
 // sync: README.md「架构」节 —— 本图与 README 同源，改架构必须同步两处（方向文档 §9.5）
 const archDiagram = `DSH Web UI（React 18，http://127.0.0.1:3080）
   └─ wewrite 工作台 tab
@@ -23,7 +25,19 @@ DSH Host（Node + Cordis）
   <div class="container">
     <h2 class="section-title">架构</h2>
     <p class="section-intro">单包双端（host + client），DSH Cordis 插件形态：文本步调宿主模型，确定性步骤纯代码执行。</p>
-    <pre class="arch-pre">{archDiagram}</pre>
+    <figure class="arch-figure">
+      <img
+        src={`${base}diagram/architecture.jpg`}
+        alt="dsh-wewrite 架构图：DSH Web 工作台经 RPC 到宿主插件（写作管线/定时调度/微信草稿箱/图片生成），落本地存储/凭据/DSH 模型，草稿箱指向公众号"
+        width="1536"
+        height="1024"
+        loading="lazy"
+      />
+    </figure>
+    <details class="arch-details">
+      <summary>文字版</summary>
+      <pre class="arch-pre">{archDiagram}</pre>
+    </details>
     <p class="arch-link-row">
       <a class="text-link" href={`${REPO_URL}/blob/main/docs/tech-architecture.md`}>
         设计细节与 ADR 见 docs/tech-architecture.md <Icon name="external-link" size={16} />
@@ -33,8 +47,38 @@ DSH Host（Node + Cordis）
 </section>
 
 <style>
-  .arch-pre {
+  .arch-figure {
     margin-top: 32px;
+  }
+
+  .arch-figure img {
+    display: block;
+    width: 100%;
+    max-width: 960px;
+    height: auto;
+    background: var(--site-surface);
+    border: 1px solid var(--site-border);
+    border-radius: 8px;
+  }
+
+  .arch-details {
+    margin-top: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .arch-details summary {
+    cursor: pointer;
+    color: var(--site-fg-secondary);
+    user-select: none;
+  }
+
+  .arch-details summary:hover {
+    color: var(--site-fg);
+  }
+
+  .arch-pre {
+    margin-top: 12px;
     background: var(--site-code-bg);
     border: 1px solid var(--site-border);
     border-radius: 8px;

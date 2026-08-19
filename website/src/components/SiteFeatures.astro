@@ -1,6 +1,8 @@
 ---
 import Icon from './Icon.astro';
 
+const base = import.meta.env.BASE_URL;
+
 // 管线全宽块 + 5 小项 3+2 分数网格（有意非均质，不做第 6 张凑数卡）
 const smallFeatures = [
   {
@@ -62,6 +64,17 @@ const flowSteps = ['选题', '大纲', '成稿', '门禁', '渲染', '配图'];
       </p>
       <p class="pipe-note">质量门禁未过会拦下默认推送路径：改稿重过，或显式覆盖。</p>
     </div>
+
+    <figure class="feat-shot">
+      <img
+        src={`${base}screenshots/04-editor.png`}
+        alt="编辑器界面：左栏 Markdown 改稿，右栏微信预览显示同名文章的排版效果，顶部有门禁报告与推草稿箱按钮"
+        width="1440"
+        height="900"
+        loading="lazy"
+      />
+      <figcaption>编辑器双栏实景（v0.1.4 真机）：左侧 CodeMirror Markdown，右侧微信预览——预览 HTML 与推送载荷字节一致。</figcaption>
+    </figure>
 
     <div class="feat-grid">
       {
@@ -134,6 +147,26 @@ const flowSteps = ['选题', '大纲', '成稿', '门禁', '渲染', '配图'];
 
   .pipe-note {
     margin-top: 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--site-fg-secondary);
+  }
+
+  .feat-shot {
+    margin-top: 24px;
+  }
+
+  .feat-shot img {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: var(--site-surface);
+    border: 1px solid var(--site-border);
+    border-radius: 8px;
+  }
+
+  .feat-shot figcaption {
+    margin-top: 8px;
     font-size: 12px;
     line-height: 1.5;
     color: var(--site-fg-secondary);
