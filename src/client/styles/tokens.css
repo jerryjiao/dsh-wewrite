@@ -5,6 +5,10 @@
  * 挂载约定：
  *   - 全部 --ww-* 挂面板容器 .dsh-wewrite-panel（寄生型插件 UI 不污染全局 :root；
  *     React 挂载根元素必须带此类名）。
+ *   - 例外（v0.3 §D3）：两个宿主 chrome 家具渲染在面板作用域之外——
+ *     .ww-sidebar-entry（宿主 sidebar footer）与 .ww-overlay（宿主 overlayLayer），
+ *     并入同一选择器组挂 token（不带 dsh-wewrite-panel 类：base.css 对该类
+ *     附加 min-height 布局，会破坏 chrome 几何）。
  *   - 浅/深主题跟随宿主：宿主 alias token 挂 body / body[data-ds-dark-theme]，
  *     本文件的 var(--dsw-*) 引用经 CSS 继承自动翻转，零媒体查询、零自有主题开关。
  *   - 仅自有值且随主题变的 token（--ww-accent-ring / --ww-shadow-overlay / --ww-shadow-modal）
@@ -24,7 +28,9 @@
 /* ============================================================
  * 1. 颜色 — accent（宿主 deepseek 品牌蓝，纯色平涂）
  * ========================================================== */
-.dsh-wewrite-panel {
+.dsh-wewrite-panel,
+.ww-sidebar-entry,
+.ww-overlay {
   /* 主操作色：主 CTA / 选中 Tab。宿主 light=deepseek-500 #4176E6 / dark=deepseek-400 #679EFE */
   --ww-accent: var(--dsw-alias-button-info-fill);
   /* 悬停态（宿主深浅主题下明暗方向相反，自动跟随）。light #679EFE / dark #4176E6 */
@@ -49,6 +55,10 @@
   --ww-surface-raised: var(--dsw-alias-bg-layer-3);
   /* 嵌套凹区（画布外圈/表头/阶段视图底）。light #F9FAFB / dark #1B1B1C */
   --ww-surface-sunken: var(--dsw-specific-sidebar-fill);
+  /* 工作台底（v0.2 增量）：非编辑器页面的内容区底色（白卡浮其上）；rail 导航家具同源。
+     宿主引用：specific-sidebar-fill。light #F9FAFB / dark #1B1B1C。
+     与 --ww-surface-sunken 同源宿主 primitive 但语义槽不同（页面底 vs 凹区），日后宿主换肤可各自分叉 */
+  --ww-bg-page: var(--dsw-specific-sidebar-fill);
   /* 骨架屏底。light rgba(0,0,0,.04) / dark rgba(255,255,255,.08) */
   --ww-skeleton: var(--dsw-alias-bg-skeleton);
 
@@ -102,6 +112,10 @@
    * ========================================================== */
   /* 等宽信息带底（slug/模型名/RRULE/规则 ID）。light #EBEEF2 / dark #2C2C2E */
   --ww-code-bg: var(--dsw-alias-markdown-inline-code);
+  /* 预览画布井（v0.2 增量）：比 sunken 深一档，制造「画布立在井上」。
+     借宿主 alias-markdown-inline-code（唯一近似档）。light #EBEEF2 / dark #2C2C2E。
+     与 --ww-code-bg 同源但语义槽不同（画布井 vs 等宽带），分立不算重复 */
+  --ww-canvas-well: var(--dsw-alias-markdown-inline-code);
   /* 画布底：固定浅色（公众号文章永远浅底，UGC 域不随宿主主题翻转） */
   --ww-canvas-bg: #ffffff;
   /* 画布外框 */
@@ -162,6 +176,10 @@
   --ww-radius-md: 6px;     /* 按钮/菜单项/Pill */
   --ww-radius-lg: 8px;     /* 卡片/画布/弹层（上限） */
   --ww-radius-full: 9999px; /* 状态点/胶囊 */
+  --ww-radius-footer: 12px; /* 宿主 sidebar footer 动作钮圆角（dsh-client-ui-cordis
+                              footer badge border-radius:12px 字面值）。插件面板自有面
+                              不用此档（上限仍是 radius-lg 8px）；仅宿主 chrome 同排
+                              家具用（v0.3 §D3）。 */
 
   /* 全部边框统一 1px（禁 >1px 彩色侧边条） */
   --ww-border-width: 1px;
@@ -170,6 +188,8 @@
    * 10. 阴影（自有 primitive：宿主无 shadow token，实测勘误）
    *     卡片默认 border 分层无阴影；仅浮层用以下两级
    * ========================================================== */
+  /* 卡片级微投影（v0.2 增量）：白卡在灰底上的物理暗示；blur 2px 远低于 16px 幽灵卡红线 */
+  --ww-shadow-card: 0 1px 2px rgba(15, 17, 21, 0.05);
   --ww-shadow-overlay: 0 8px 24px rgba(15, 17, 21, 0.12);  /* 下拉/Tooltip */
   --ww-shadow-modal: 0 16px 48px rgba(15, 17, 21, 0.16);   /* 模态/抽屉/生成视图 */
 
@@ -184,11 +204,16 @@
   /* ============================================================
    * 12. 布局常量与层级
    * ========================================================== */
-  --ww-header-h: 48px;   /* 面板顶栏（Tab 条） */
+  /* 页头工具行高（v0.2 增量）：顶栏与页内工具行共用 */
+  --ww-toolrow-h: 40px;
+  /* 面板顶栏（v0.2 起与 --ww-toolrow-h 合流为 40px） */
+  --ww-header-h: var(--ww-toolrow-h);
   --ww-row-h: 44px;      /* 列表行高（触摸底线） */
   --ww-canvas-w: 375px;  /* 微信预览画布宽 */
   --ww-page-pad: 24px;   /* 页面内容区左右内边距 */
   --ww-editor-pad: 20px; /* 编辑器双栏内边距 */
+  /* 内容区底部兜底（v0.2 增量）：吸收宿主 composer 遮挡（60-80px）+ 呼吸位 */
+  --ww-content-pad-bottom: 96px;
 
   --ww-z-dropdown: 1000;
   --ww-z-sticky: 1100;
@@ -205,10 +230,13 @@
  * 深色主题覆写 — 仅自有值且随主题变的 3 个 token；
  * 其余全部经 var(--dsw-*) 引用由宿主自动翻转
  * ========================================================== */
-body[data-ds-dark-theme] .dsh-wewrite-panel {
+body[data-ds-dark-theme] .dsh-wewrite-panel,
+body[data-ds-dark-theme] .ww-sidebar-entry,
+body[data-ds-dark-theme] .ww-overlay {
   /* 焦点环换 deepseek-400 基调提亮 */
   --ww-accent-ring: rgba(103, 158, 254, 0.40);
   /* 浮层阴影加深（深色下浅阴影不可见） */
+  --ww-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.40);
   --ww-shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.50);
   --ww-shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.60);
 }
@@ -218,7 +246,11 @@ body[data-ds-dark-theme] .dsh-wewrite-panel {
  * ========================================================== */
 @media (prefers-reduced-motion: reduce) {
   .dsh-wewrite-panel,
-  .dsh-wewrite-panel * {
+  .dsh-wewrite-panel *,
+  .ww-sidebar-entry,
+  .ww-sidebar-entry *,
+  .ww-overlay,
+  .ww-overlay * {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

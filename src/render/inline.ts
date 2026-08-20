@@ -16,36 +16,37 @@ export function pythonInlineToHtml(text: string, theme: RenderTheme, breaks = tr
     const prevChar = position > 0 ? text[position - 1] : '';
     // python-markdown：内容以空白开头时，开符号必须前邻非空白字符
     const allowLeadingSpace = position > 0 && !/[\s*]/.test(prevChar);
-    let match: RegExpExecArray | null;
-    if ((match = /^\\([\\`*_{}[\]()#+\-.!>~|])/.exec(rest))) {
+    let match: RegExpMatchArray | null;
+    if ((match = rest.match(/^\\([\\`*_{}[\]()#+\-.!>~|])/))) {
       html += escapeText(match[1]);
       rest = rest.slice(match[0].length);
       continue;
     }
-    if ((match = /^`+/.exec(rest))) {
+    if ((match = rest.match(/^`+/))) {
       const run = match[0];
-      const closerMatch = new RegExp(`(?<!\`)${run}(?!\`)`).exec(rest.slice(run.length));
+      const closerMatch = rest.slice(run.length).match(new RegExp(`(?<!\`)${run}(?!\`)`));
       if (closerMatch) {
-        const content = rest.slice(run.length, run.length + closerMatch.index).trim();
+        const closerIndex = closerMatch.index ?? 0;
+        const content = rest.slice(run.length, run.length + closerIndex).trim();
         html += `<code style="${theme.code}">${escapeCode(content)}</code>`;
-        rest = rest.slice(run.length + closerMatch.index + run.length);
+        rest = rest.slice(run.length + closerIndex + run.length);
         continue;
       }
       html += escapeText(rest[0]);
       rest = rest.slice(1);
       continue;
     }
-    if ((match = /^(\*\*)([\s\S]+?)\*\*/.exec(rest)) && (allowLeadingSpace || !/^\s/.test(match[2]))) {
+    if ((match = rest.match(/^(\*\*)([\s\S]+?)\*\*/)) && (allowLeadingSpace || !/^\s/.test(match[2]))) {
       html += `<strong style="${theme.strong}">${pythonInlineToHtml(match[2], theme, breaks)}</strong>`;
       rest = rest.slice(match[0].length);
       continue;
     }
-    if ((match = /^\*([^*\n]+?)\*/.exec(rest)) && (allowLeadingSpace || !/^\s/.test(match[1]))) {
+    if ((match = rest.match(/^\*([^*\n]+?)\*/)) && (allowLeadingSpace || !/^\s/.test(match[1]))) {
       html += `<em style="${theme.em}">${pythonInlineToHtml(match[1], theme, breaks)}</em>`;
       rest = rest.slice(match[0].length);
       continue;
     }
-    if ((match = /^!\[([^\]]*)\]\(\s*([^)\s]+)\s*(?:['"]([^)]*)['"]\s*)?\)/.exec(rest))) {
+    if ((match = rest.match(/^!\[([^\]]*)\]\(\s*([^)\s]+)\s*(?:['"]([^)]*)['"]\s*)?\)/))) {
       const url = sanitizeUrl(match[2]);
       if (url === null) {
         // 非法图片 URL：丢弃资源，保留 alt 文本（防属性注入）
@@ -58,7 +59,7 @@ export function pythonInlineToHtml(text: string, theme: RenderTheme, breaks = tr
       rest = rest.slice(match[0].length);
       continue;
     }
-    if ((match = /^\[([^\]]*)\]\(\s*([^)\s]+)\s*(?:['"]([^)]*)['"]\s*)?\)/.exec(rest))) {
+    if ((match = rest.match(/^\[([^\]]*)\]\(\s*([^)\s]+)\s*(?:['"]([^)]*)['"]\s*)?\)/))) {
       const url = sanitizeUrl(match[2]);
       const inner = pythonInlineToHtml(match[1], theme, breaks);
       if (url === null) {
@@ -71,18 +72,18 @@ export function pythonInlineToHtml(text: string, theme: RenderTheme, breaks = tr
       rest = rest.slice(match[0].length);
       continue;
     }
-    if ((match = /^<\/?[a-zA-Z][^>]*>/.exec(rest))) {
+    if ((match = rest.match(/^<\/?[a-zA-Z][^>]*>/))) {
       const sanitized = sanitizeHtmlTag(match[0]);
       html += sanitized ?? escapeText(match[0]);
       rest = rest.slice(match[0].length);
       continue;
     }
-    if ((match = /^&[a-zA-Z][a-zA-Z0-9]*;|^&#\d+;|^&#x[0-9a-fA-F]+;/.exec(rest))) {
+    if ((match = rest.match(/^&[a-zA-Z][a-zA-Z0-9]*;|^&#\d+;|^&#x[0-9a-fA-F]+;/))) {
       html += match[0];
       rest = rest.slice(match[0].length);
       continue;
     }
-    const textRun = /^[^\\`*[!<&]+/.exec(rest);
+    const textRun = rest.match(/^[^\\`*[!<&]+/);
     const chunkSource = textRun ? textRun[0] : rest[0];
     const chunk = breaks ? escapeText(chunkSource).replace(/\n/g, '<br />\n') : escapeText(chunkSource);
     html += chunk;

@@ -9,11 +9,11 @@
 export const LOCALE_NAMESPACE = 'wewrite';
 
 export const zh = {
-  'tab.home': '写作台',
-  'tab.hotspots': '选题中心',
-  'tab.articles': '文章库',
-  'tab.schedule': '定时任务',
-  'tab.settings': '设置',
+  'topbar.write': '写作',
+  'topbar.hotspots': '选题',
+  'topbar.schedule': '定时',
+  'topbar.settings': '设置',
+  'topbar.generating': '生成中',
   'panel.label': '写作台',
   'action.startWriting': '开始写作',
   'action.writeThis': '写这个',
@@ -47,11 +47,11 @@ export const zh = {
 export type WewriteLocaleKey = keyof typeof zh;
 
 export const en: Record<WewriteLocaleKey, string> = {
-  'tab.home': 'Workbench',
-  'tab.hotspots': 'Topics',
-  'tab.articles': 'Articles',
-  'tab.schedule': 'Schedule',
-  'tab.settings': 'Settings',
+  'topbar.write': 'Write',
+  'topbar.hotspots': 'Topics',
+  'topbar.schedule': 'Schedule',
+  'topbar.settings': 'Settings',
+  'topbar.generating': 'Generating',
   'panel.label': 'Workbench',
   'action.startWriting': 'Start writing',
   'action.writeThis': 'Write this',

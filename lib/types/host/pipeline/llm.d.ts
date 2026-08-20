@@ -61,3 +61,9 @@ export declare function streamLlmText(llm: PipelineLlm, options: LlmStreamOption
 export declare function outlineUserPrompt(topic: string): string;
 export declare function draftUserPrompt(topic: string, outline: string): string;
 export declare function pipelineSystemPrompt(): string;
+export declare function rewriteSystemPrompt(): string;
+export declare function rewriteUserPrompt(input: {
+    readonly text: string;
+    readonly instruction: string;
+    readonly title?: string;
+}): string;

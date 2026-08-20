@@ -10,6 +10,24 @@ export declare const HotspotItemSchema: z.ZodObject<{
     url: z.ZodString;
 }, z.core.$strict>;
 export type HotspotItem = z.infer<typeof HotspotItemSchema>;
+/** 热榜逐条 AI 速览请求条目（uiux v0.3 §1）：只要 rank/title/url，不带 source 投影。 */
+export declare const HotspotDigestItemSchema: z.ZodObject<{
+    rank: z.ZodNumber;
+    title: z.ZodString;
+    url: z.ZodString;
+}, z.core.$strict>;
+export type HotspotDigestItem = z.infer<typeof HotspotDigestItemSchema>;
+/** 热榜逐条 AI 速览响应（uiux v0.3 §1）：source 由 host 依抓取抽取结果判定，不由模型自报。 */
+export declare const HotspotItemDigestSchema: z.ZodObject<{
+    digest: z.ZodString;
+    source: z.ZodEnum<{
+        title: "title";
+        article: "article";
+    }>;
+    model: z.ZodString;
+    generatedAtIso: z.ZodISODateTime;
+}, z.core.$strict>;
+export type HotspotItemDigest = z.infer<typeof HotspotItemDigestSchema>;
 export declare const ArticleListItemSchema: z.ZodObject<{
     id: z.ZodString;
     slug: z.ZodString;

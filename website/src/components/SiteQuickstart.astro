@@ -5,16 +5,16 @@ import { INSTALL_CMD } from '../site-data';
 const base = import.meta.env.BASE_URL;
 
 // 竖排三行（桌面与移动同构）；步骤号是流程性编号（divider 时间线语义），非装饰编号
-// 截图均来自 v0.1.4 真机运行（DSH Web 实拍）
+// 截图均来自 v0.2.0 真机运行（DSH Web 实拍）
 const steps = [
   {
     num: '01',
     title: '装插件',
     body: '一条命令装进 DSH。仓库直接提交了预构建产物，不需要在 pnpm 侧加任何 allowBuilds 信任声明，装完即用。',
-    shot: 'screenshots/01-dashboard.png',
+    shot: 'screenshots/01-workbench.png',
     shotAlt:
-      '写作台界面：今日待办计数与提示、最近文章列表（含门禁已过标签）、底部「输入主题，直接开写…」输入框',
-    shotCaption: '装完启动 dsh web，会话视图环里出现「wewrite 工作台」tab——这是写作台首屏。',
+      '写作工作区界面：左栏文章列表（搜索、状态筛选、门禁标记、新文章入口），主区编辑器默认载入最近一篇',
+    shotCaption: '装完启动 dsh web，会话视图环里出现「wewrite 工作台」tab；侧边栏底部也有「打开写作台」入口，可跳过会话一键全屏进入。',
   },
   {
     num: '02',
@@ -28,10 +28,10 @@ const steps = [
   {
     num: '03',
     title: '出第一篇',
-    body: '选题面板挑一条热榜，或直接输入主题。管线跑完选题、大纲、成稿、门禁、渲染、配图六步，在编辑器里改稿——右侧微信预览与最终推送产物字节一致。确认后点推草稿箱，到公众平台后台图文素材里查看。群发请你在后台自己点。',
+    body: '选题面板挑一条热榜——点开先看 AI 速览（抓原文后的中文要点，抓不到则给标题解读），合适就「写这个」；或直接输入主题。管线跑完选题、大纲、成稿、门禁、渲染、配图六步，在编辑器里改稿——选中一段点「AI 改写」可局部重写（可撤销），右侧微信预览与最终推送产物字节一致。确认后点推草稿箱，到公众平台后台图文素材里查看。群发请你在后台自己点。',
     shot: 'screenshots/02-hotspots.png',
     shotAlt: '选题中心界面：热门榜按序号列出多条 Hacker News 条目，每条带来源与「写这个」按钮',
-    shotCaption: '选题中心热门榜拉取真实 Hacker News 数据，点「写这个」直接进管线。',
+    shotCaption: '选题中心热门榜拉取真实 Hacker News 数据；点开条目出 AI 速览，点「写这个」直接进管线。',
   },
 ];
 ---

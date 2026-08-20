@@ -69,7 +69,7 @@ function auditNumbering(markdown: string): { passed: boolean; issues: string[] }
       continue;
     }
     if (inFence) continue;
-    const match = /^([ \t]*)(\d+)[.)]\s+\S/.exec(line);
+    const match = line.match(/^([ \t]*)(\d+)[.)]\s+\S/);
     if (!match) {
       if (listSeen) {
         listSeen = false;
@@ -93,7 +93,7 @@ function auditNumbering(markdown: string): { passed: boolean; issues: string[] }
 /** 配图一致性：正文图占位/引用按出现顺序编号时，编号必须连续且与图片计数一致。 */
 function auditFigureNumbering(markdown: string, imageCount: number): { passed: boolean; issues: string[] } {
   const references = [...markdown.matchAll(/!\[([^\]]*)\]\(([^)]*)\)/g)];
-  const numbered = references.map((match) => /^图\s*(\d+)/.exec(match[1] ?? ''));
+  const numbered = references.map((ref) => (ref[1] ?? '').match(/^图\s*(\d+)/));
   const issues: string[] = [];
   const explicit = numbered.filter(Boolean) as RegExpExecArray[];
   for (let index = 0; index < explicit.length; index += 1) {

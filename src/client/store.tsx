@@ -4,6 +4,7 @@ import type { RunParams, SnapshotResponse } from '@/shared/contract';
 import type { Translate } from './lib/context';
 import type { WewriteRpc } from './lib/rpc';
 import type { Route } from './lib/router';
+import { normalizeRoute } from './lib/router';
 import type { ToastApi, ToastMessage } from './components/Toast';
 
 /**
@@ -82,7 +83,8 @@ export function WewriteProvider({ rpc, t, narrow, children }: { rpc: WewriteRpc;
     }
   }, [rpc]);
 
-  const navigate = useCallback((next: Route) => setRoute(next), []);
+  // v0.2：旧 /articles 路由一律重写为 home（delta §1-8 兼容壳，老书签不断）。
+  const navigate = useCallback((next: Route) => setRoute(normalizeRoute(next)), []);
 
   const startGeneration = useCallback(
     async (params: RunParams, topic: string) => {

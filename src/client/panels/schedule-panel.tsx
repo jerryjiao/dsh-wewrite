@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
 import type { RunSummary, ScheduleViewModel } from '@/shared/contract';
 import { describeRrule, formatDateTime, formatDuration, formatShortDateTime } from '../lib/format';
-import { EmptyState, ErrorNote, CodeChip, runStatusBadge, SkeletonBlock, StatusBadge } from '../components/bits';
+import { EmptyState, ErrorNote, runStatusBadge, SkeletonBlock, StatusBadge } from '../components/bits';
 import { ScheduleForm } from '../components/ScheduleForm';
 import { Icon } from '../components/Icon';
 import { useStore } from '../store';
@@ -20,6 +20,7 @@ export function SchedulePanel() {
   const [formOpen, setFormOpen] = useState(false);
   const [formBusy, setFormBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   const schedules = snapshot.status === 'ready' ? snapshot.data.schedules : undefined;
   const runs = snapshot.status === 'ready' ? snapshot.data.runs : undefined;
@@ -102,9 +103,11 @@ export function SchedulePanel() {
 
   return (
     <div className="ww-schedule">
-      <div className="ww-page-head">
-        <h2 className="ww-page-title">定时任务</h2>
-        <div className="ww-page-head__aside">
+      <div className="ww-pagebar">
+        <h2 className="ww-pagebar__title">定时任务</h2>
+        {schedules ? <span className="ww-pagebar__count">· {queue.length}</span> : null}
+        <div className="ww-pagebar__spacer" />
+        <div className="ww-pagebar__aside">
           <div className="ww-view-tabs" role="tablist" aria-label="定时任务视图">
             <button type="button" role="tab" aria-selected={tab === 'queue'} className={tab === 'queue' ? 'ww-view-tab ww-view-tab--active' : 'ww-view-tab'} onClick={() => setTab('queue')}>
               排队中（{queue.length}）
@@ -130,6 +133,7 @@ export function SchedulePanel() {
         queue.length === 0 ? (
           <EmptyState
             icon={<Icon name="clock" size={20} />}
+            subIcon="plus"
             title="队列是空的。在编辑器里点「推草稿箱 ▾ → 定时」，或从选题中心创建每日选题任务。"
             action={
               <Button variant="outline" size="sm" icon={<Icon name="plus" size={16} />} onClick={() => setFormOpen(true)}>
@@ -149,11 +153,9 @@ export function SchedulePanel() {
                     {paused ? <StatusBadge tone="warning" label="已暂停" /> : <StatusBadge tone="ongoing" label="已排期" />}
                   </div>
                   <div className="ww-schedule-card__body">
-                    <p className="ww-schedule-card__human">
+                    {/* P4：RRULE 代码不再当正文展示；原文移入人话行 title 供悬停查看 */}
+                    <p className="ww-schedule-card__human" title={schedule.rrule}>
                       {describeRrule(schedule.rrule)} · 下次 {formatDateTime(schedule.nextRunAt)}
-                    </p>
-                    <p className="ww-schedule-card__rrule">
-                      <CodeChip>{schedule.rrule}</CodeChip>
                     </p>
                     <p className="ww-schedule-card__target">发布目标：草稿箱（锁定）</p>
                   </div>
@@ -161,23 +163,52 @@ export function SchedulePanel() {
                     <Button variant="ghost" size="sm" icon={<Icon name={schedule.enabled ? 'pause' : 'play'} size={16} />} onClick={() => void toggle(schedule)} disabled={busyId === schedule.id}>
                       {schedule.enabled ? '暂停' : '恢复'}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={<Icon name="calendar-clock" size={16} />}
-                      onClick={() => {
-                        setEditing({ id: schedule.id, name: schedule.name, rrule: schedule.rrule });
-                        setFormOpen(true);
+                    <Menu
+                      open={menuOpenId === schedule.id}
+                      anchor={
+                        <button
+                          type="button"
+                          className="ww-schedule-card__more"
+                          aria-label={`更多操作：${schedule.name}`}
+                          aria-expanded={menuOpenId === schedule.id}
+                          aria-haspopup="menu"
+                          onClick={() => setMenuOpenId(menuOpenId === schedule.id ? null : schedule.id)}
+                        >
+                          <Icon name="ellipsis" size={16} />
+                        </button>
+                      }
+                      items={[
+                        {
+                          id: 'reschedule',
+                          label: '改期',
+                          icon: <Icon name="calendar-clock" size={16} />,
+                        },
+                        {
+                          id: 'runNow',
+                          label: '立即执行',
+                          icon: <Icon name="play" size={16} />,
+                        },
+                        {
+                          id: 'delete',
+                          label: '删除',
+                          icon: <Icon name="trash-2" size={16} />,
+                          danger: true,
+                        },
+                      ]}
+                      onSelect={(id) => {
+                        setMenuOpenId(null);
+                        if (id === 'reschedule') {
+                          setEditing({ id: schedule.id, name: schedule.name, rrule: schedule.rrule });
+                          setFormOpen(true);
+                        } else if (id === 'runNow') {
+                          void runNow(schedule);
+                        } else {
+                          void remove(schedule);
+                        }
                       }}
-                    >
-                      改期
-                    </Button>
-                    <Button variant="ghost" size="sm" icon={<Icon name="play" size={16} />} onClick={() => void runNow(schedule)} disabled={busyId === schedule.id}>
-                      立即执行
-                    </Button>
-                    <Button variant="ghost" size="sm" className="ww-danger-ghost" icon={<Icon name="trash-2" size={16} />} onClick={() => void remove(schedule)} disabled={busyId === schedule.id} aria-label={`删除定时 ${schedule.name}`}>
-                      删除
-                    </Button>
+                      onClose={() => setMenuOpenId(null)}
+                      align="end"
+                    />
                   </div>
                 </li>
               );
@@ -185,7 +216,7 @@ export function SchedulePanel() {
           </ul>
         )
       ) : history.length === 0 ? (
-        <EmptyState icon={<Icon name="history" size={20} />} title="还没有定时执行记录。创建排期后，每次触发都会在这里留痕。" />
+        <EmptyState icon={<Icon name="history" size={20} />} subIcon="clock" title="还没有定时执行记录。创建排期后，每次触发都会在这里留痕。" />
       ) : (
         <ul className="ww-history">
           {history.map((run) => {

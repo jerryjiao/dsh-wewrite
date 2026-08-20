@@ -78,7 +78,7 @@ if (await composer.count()) {
   await sleep(8000); // 模型未配 key 会报错，但会话已非空、视图环已挂载
 }
 
-// 3) 找到插件 tab（locale zh=en 都试）
+// 3) 找到插件 tab（宿主 conversation.view 环，label=写作台/Workbench）
 const tabNames = ['写作台', 'Workbench', 'WeWrite', 'wewrite'];
 let tab = null;
 for (const n of tabNames) {
@@ -96,39 +96,39 @@ if (!tab) {
 }
 await tab.click();
 await sleep(4000);
-await shot(page, '01-dashboard');
 
-// 4) 面板内 5 个子导航
-const goPanel = async (label) => {
-  const el = page.getByRole('button', { name: label, exact: false }).first();
-  const alt = page.getByText(label, { exact: false }).first();
-  const target = (await el.count()) ? el : ((await alt.count()) ? alt : null);
-  if (!target) { console.error('panel miss:', label); return false; }
-  await target.click().catch(() => {});
-  await sleep(3000);
+// v0.2 新 IA：顶栏 4 导航对象（写作/选题/定时 + 设置齿轮），DOM 契约 testid 直锚
+const goTab = async (testid) => {
+  const el = page.locator(`[data-testid="${testid}"]`).first();
+  if (!(await el.count())) { console.error('panel miss:', testid); return false; }
+  await el.click().catch(() => {});
+  await sleep(2500);
   return true;
 };
 
-if (await goPanel('选题中心')) { await sleep(4000); await shot(page, '02-hotspots'); }
-if (await goPanel('文章库')) { await sleep(1500); await shot(page, '03-articles'); }
+// 01 工作区全貌（左栏文章列表 + 主区编辑器双栏，默认载入最近一篇）
+await shot(page, '01-workbench');
 
-// 编辑器：点进文章（按标题行）
-const row = page.getByText('把公众号写作管线装进 DeepSeek Harness', { exact: false }).first();
+// 04 编辑器：点左栏种子文章行确保聚焦态，双栏视图
+const row = page.locator('[data-testid^="ww-rail-row-"]').first();
 if (await row.count()) {
   await row.click().catch(() => {});
-  await sleep(3500);
+  await sleep(2000);
+  const split = page.locator('[data-testid="ww-view-tab-split"]').first();
+  if (await split.count()) { await split.click().catch(() => {}); await sleep(1500); }
   await shot(page, '04-editor');
-  // 微信预览 tab
-  const preview = page.getByRole('button', { name: '微信预览', exact: false }).first();
-  if (await preview.count()) {
-    await preview.click().catch(() => {});
-    await sleep(2000);
+  // 05 仅预览视图（画布井 + 手机 notch）
+  const previewTab = page.locator('[data-testid="ww-view-tab-preview"]').first();
+  if (await previewTab.count()) {
+    await previewTab.click().catch(() => {});
+    await sleep(2500);
     await shot(page, '05-editor-preview');
   }
 }
 
-if (await goPanel('定时任务')) { await sleep(1500); await shot(page, '06-schedule'); }
-if (await goPanel('设置')) {
+if (await goTab('ww-topbar-tab-hotspots')) { await sleep(3500); await shot(page, '02-hotspots'); }
+if (await goTab('ww-topbar-tab-schedule')) { await sleep(1500); await shot(page, '06-schedule'); }
+if (await goTab('ww-topbar-settings')) {
   await sleep(1500);
   await shot(page, '07-settings');
   const imgNav = page.getByText('图片供应商', { exact: false }).first();

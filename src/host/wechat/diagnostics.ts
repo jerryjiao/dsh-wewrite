@@ -18,7 +18,7 @@ export function classifyErrcode(errcode: number): WeChatClassification {
 
 /** 从 errmsg 中提取微信回显的出口 IP（'invalid ip 203.0.113.7 ipv6 ...' 形态）。 */
 export function extractExitIp(errmsg: string): string | undefined {
-  const match = /invalid ip ([0-9a-fA-F.]+)/.exec(errmsg);
+  const match = errmsg.match(/invalid ip ([0-9a-fA-F.]+)/);
   return match?.[1];
 }
 

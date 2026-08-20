@@ -1,6 +1,6 @@
 {
   "name": "dsh-wewrite",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "private": true,
   "description": "WeChat official account AI writing pipeline as a DeepSeek Harness (DSH) plugin",
   "type": "module",
@@ -47,7 +47,15 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check:p0": "node scripts/checks/scan-p0.mjs",
-    "build": "node scripts/build.mjs && tsc -p tsconfig.build.json"
+    "build": "node scripts/build.mjs && tsc -p tsconfig.build.json",
+    "test:e2e": "node tests/e2e/runner.mjs",
+    "test:e2e:live": "node tests/e2e/runner.mjs --phase=live",
+    "host:status": "node scripts/hostctl.mjs status",
+    "host:start": "node scripts/hostctl.mjs start",
+    "host:stop": "node scripts/hostctl.mjs stop",
+    "host:restart": "node scripts/hostctl.mjs restart",
+    "host:ensure": "node scripts/hostctl.mjs ensure",
+    "dev:install": "node scripts/dev-install.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",

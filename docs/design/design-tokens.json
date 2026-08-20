@@ -1,17 +1,18 @@
 {
-  "$comment": "dsh-wewrite Design Token（Phase 2 产出）。CSS 实现见 src/client/styles/tokens.css，二者一一对应。所有 --ww-* 语义 token 默认指向宿主 --dsw-*（DSH web UI 三层 token 体系：--dsw-static-* → --dsw-alias-* → --dsw-specific-*，浅色挂 body、深色挂 body[data-ds-dark-theme]），宿主缺位处（间距/圆角/阴影/画布）用自有 primitive。light/dark 字段是核对用解析值（来源：@deepseek-ai/dsh-client-ui-theme v0.1.0-rc.6 本机实装源码逐条核实，2026-08-18），运行时真实值永远以宿主 token 解析为准——宿主换肤时本表不追改。",
+  "$comment": "dsh-wewrite Design Token（Phase 2 产出）。CSS 实现见 src/client/styles/tokens.css，二者一一对应。多数 --ww-* 语义 token 指向宿主 --dsw-*（DSH web UI 三层 token 体系：--dsw-static-* → --dsw-alias-* → --dsw-specific-*，浅色挂 body、深色挂 body[data-ds-dark-theme]）；宿主缺位处（间距/圆角/阴影/画布）与 v1.2.0 起 Bluewash 主题自有色（台面 tint / 边框 / 骨架 / 选中底 / 视图识别色，共 11 个，见各条目 darkOverride 标记）用自有 primitive——后者在 tokens.css dark 覆写块显式翻转，不随宿主换肤。light/dark 字段是核对用解析值（宿主引用型来源：@deepseek-ai/dsh-client-ui-theme v0.1.0-rc.6 本机实装源码逐条核实，2026-08-18），运行时真实值以宿主 token 解析为准。",
   "meta": {
     "name": "dsh-wewrite",
-    "version": "1.0.0",
-    "date": "2026-08-18",
+    "version": "1.2.0",
+    "date": "2026-08-20",
     "author": "颜好看（MVP 开发专家团设计师）",
-    "inputs": ["docs/FACTS.md", "docs/spec.md §7/§8（锁定契约）", "docs/uiux-direction.md（Phase 1 方向）"],
+    "inputs": ["docs/FACTS.md", "docs/spec.md §7/§8（锁定契约）", "docs/uiux-direction.md（Phase 1 方向）", "docs/redesign/uiux-redesign-v2.md §2-2（v0.2 增量 5 token 真源）", "docs/redesign/uiux-workbench-delta.md（4 Tab 工作区 delta 收口）", "docs/redesign/uiux-color-theme.md + uiux-color-theme-design.md（v1.2.0 Bluewash 色彩主题真源）"],
     "cssScope": ".dsh-wewrite-panel（面板容器作用域；深色跟随 body[data-ds-dark-theme]，仅自有值 token 需要 dark 覆写，宿主引用型 token 自动翻转）",
     "guarantees": [
       "零 gradient token：本文件与 tokens.css 均不含任何 linear-gradient/radial-gradient 定义（P0-2 构造保证）",
       "紫粉四色 #7C3AED / #A855F7 / #EC4899 / #6366F1 不出现在任何 token 值",
       "组件代码只允许引用 --ww-*，禁止裸 hex（唯一例外域：微信预览画布内的 UGC 排版主题 CSS）",
-      "图标唯一库 lucide-react，16px 行内 / 20px 按钮内两档，颜色 currentColor"
+      "图标唯一库 lucide-react，16px 行内 / 20px 按钮内两档，颜色 currentColor",
+      "v1.2.0 Bluewash 纪律：视图识别色只染微面积（Tab 激活文字+icon / 页头 8px 点 / 热榜 Top3 名次），永不染大面积底；同屏非中性色相 ≤2 种；台面 tint 限冷蓝 hue 219（禁暖奶油色带）；纸面（编辑器表面/预览画布/输入框内部）不染 tint"
     ],
     "verifiedAgainst": {
       "hostThemePkg": "@deepseek-ai/dsh-client-ui-theme@0.1.0-rc.6",
@@ -20,7 +21,7 @@
   },
 
   "color": {
-    "$comment": "命名按用途不按色相；每项含 host 引用与 light/dark 双解析值。每屏 accent 可见使用 ≤2 处（主 CTA + 单一选中态）。",
+    "$comment": "命名按用途不按色相；每项含 host 引用与 light/dark 双解析值。每屏 accent 可见使用 ≤2 处（主 CTA + 单一选中态）。v1.2.0 Bluewash：L1 台面 tint 族（bg-page/sunken/canvas-well/border×3/divider/skeleton）与 accent-subtle 转自有双态值（darkOverride），L2 accent 主族不动，L3 新增视图识别色 3 个（微面积专用）。",
 
     "accent": {
       "css": "var(--dsw-alias-button-info-fill)",
@@ -55,12 +56,13 @@
       "usage": "accent 背景上的前景文字（经宿主 static 白，不裸写 #fff）"
     },
     "accent-subtle": {
-      "css": "var(--dsw-static-deepseek-50)",
-      "host": "--dsw-static-deepseek-50",
+      "css": "#EDF3FE",
+      "host": null,
       "light": "#EDF3FE",
-      "dark": "#EDF3FE",
+      "dark": "#1E2B4D",
       "type": "color",
-      "usage": "选中行底色/关键词命中标签底/焦点环底等大面积浅 accent 场景"
+      "usage": "选中行底色/关键词命中标签底/启动卡与 hero 空态 glyph 底等大面积浅 accent 场景。light 保留 deepseek-50 同值；v1.2.0 新增 dark 深蓝档（修复 static 值深色刺眼风险，rail 选中行/命中行/选区在深色下首次成立）",
+      "darkOverride": true
     },
     "accent-ring": {
       "css": "rgba(65, 118, 230, 0.32)",
@@ -80,6 +82,15 @@
       "type": "color",
       "usage": "面板页面基底"
     },
+    "bg-page": {
+      "css": "#F2F4F8",
+      "host": null,
+      "light": "#F2F4F8",
+      "dark": "#1A1E26",
+      "type": "color",
+      "usage": "工作台台面主底（v0.2 引入 / v1.2.0 Bluewash 转自有）：非编辑器页面的内容区底色 + 写作工作区左栏底 + 顶栏融合底 + 浮层底。品牌冷调蓝灰 hsl(219,33%,96%)（dark hsl(219,19%,13%)），与 accent 同 hue 家族——「台面染、纸面白」的台面；宿主 sidebar-fill 为无彩灰无此档，故分叉为主题自有资产，不随宿主换肤",
+      "darkOverride": true
+    },
     "surface": {
       "css": "var(--dsw-alias-bg-layer-2)",
       "host": "--dsw-alias-bg-layer-2",
@@ -97,20 +108,22 @@
       "usage": "浮层表面（下拉菜单/悬浮卡片，宿主 --dsw-specific-menu 即指向它）"
     },
     "surface-sunken": {
-      "css": "var(--dsw-specific-sidebar-fill)",
-      "host": "--dsw-specific-sidebar-fill",
-      "light": "#F9FAFB",
-      "dark": "#1B1B1C",
+      "css": "#EBEEF5",
+      "host": null,
+      "light": "#EBEEF5",
+      "dark": "#20242E",
       "type": "color",
-      "usage": "嵌套凹区：预览画布外圈、表格表头、生成中阶段视图底（与宿主侧栏同源的冷灰）"
+      "usage": "嵌套凹区与控件槽：segmented 槽、编辑器状态栏、表格表头、生成中阶段视图底、暂停卡、次级空态 glyph（v1.2.0 随台面转自有，同 hue 深一档；segmented 槽仍靠 border 双保险可见）",
+      "darkOverride": true
     },
     "skeleton": {
-      "css": "var(--dsw-alias-bg-skeleton)",
-      "host": "--dsw-alias-bg-skeleton",
-      "light": "rgba(0, 0, 0, 0.04)",
-      "dark": "rgba(255, 255, 255, 0.08)",
+      "css": "rgba(38, 54, 94, 0.08)",
+      "host": null,
+      "light": "rgba(38, 54, 94, 0.08)",
+      "dark": "rgba(151, 176, 231, 0.09)",
       "type": "color",
-      "usage": "骨架屏占位底色"
+      "usage": "骨架屏占位底色（v1.2.0 转自有品牌灰，与 divider 同语言）",
+      "darkOverride": true
     },
 
     "fg": {
@@ -147,28 +160,31 @@
     },
 
     "border": {
-      "css": "var(--dsw-alias-border-l2)",
-      "host": "--dsw-alias-border-l2",
-      "light": "rgba(0, 0, 0, 0.10)",
-      "dark": "rgba(255, 255, 255, 0.12)",
+      "css": "rgba(38, 54, 94, 0.13)",
+      "host": null,
+      "light": "rgba(38, 54, 94, 0.13)",
+      "dark": "rgba(151, 176, 231, 0.15)",
       "type": "color",
-      "usage": "默认边框：卡片、输入框、表格外框、画布框"
+      "usage": "默认边框：卡片、输入框、表格外框、画布框（v1.2.0 转自有蓝灰笔触 rgb(38,54,94)=#26365E / dark #97B0E7；叠白底 ≈ #E3E5EA 与旧 rgba(0,0,0,.10) 等可见度、带品牌色温）",
+      "darkOverride": true
     },
     "border-strong": {
-      "css": "var(--dsw-alias-border-l3)",
-      "host": "--dsw-alias-border-l3",
-      "light": "rgba(0, 0, 0, 0.12)",
-      "dark": "rgba(255, 255, 255, 0.16)",
+      "css": "rgba(38, 54, 94, 0.19)",
+      "host": null,
+      "light": "rgba(38, 54, 94, 0.19)",
+      "dark": "rgba(151, 176, 231, 0.21)",
       "type": "color",
-      "usage": "强调边框：输入框 focus 边、表头下沿、面板顶栏下沿"
+      "usage": "强调边框：输入框 focus 边、表头下沿、面板顶栏下沿、浮层容器边（同 border 转自有）",
+      "darkOverride": true
     },
     "divider": {
-      "css": "var(--dsw-alias-border-l1)",
-      "host": "--dsw-alias-border-l1",
-      "light": "rgba(0, 0, 0, 0.04)",
-      "dark": "rgba(255, 255, 255, 0.06)",
+      "css": "rgba(38, 54, 94, 0.07)",
+      "host": null,
+      "light": "rgba(38, 54, 94, 0.07)",
+      "dark": "rgba(151, 176, 231, 0.08)",
       "type": "color",
-      "usage": "内部分隔线：列表行间、设置分组内部"
+      "usage": "内部分隔线：列表行间、设置分组内部（同 border 转自有；较原值微提可见度）",
+      "darkOverride": true
     },
 
     "interactive-hover": {
@@ -253,6 +269,15 @@
       "type": "color",
       "usage": "等宽信息带底色：slug、模型名、RRULE 原文、门禁规则 ID、cron 表达式"
     },
+    "canvas-well": {
+      "css": "#E7EBF3",
+      "host": null,
+      "light": "#E7EBF3",
+      "dark": "#222734",
+      "type": "color",
+      "usage": "预览画布井（v0.2 借 code 槽 / v1.2.0 转正自有并加入台面色温）：比 sunken 深半档的井底，制造「画布立在井上」——井 → 画布白+1px 边+微影+notch → 文章内容三层递进",
+      "darkOverride": true
+    },
 
     "canvas-bg": {
       "css": "#FFFFFF",
@@ -269,6 +294,34 @@
       "dark": "rgba(255, 255, 255, 0.12)",
       "type": "color",
       "usage": "预览画布外框（深色主题下画布外圈留 --ww-surface-sunken 凹区）"
+    },
+
+    "view-topics": {
+      "css": "#C2410C",
+      "host": null,
+      "light": "#C2410C",
+      "dark": "#FB923C",
+      "type": "color",
+      "usage": "v1.2.0 Bluewash L3 选题域识别色（热力橙深档）：选题 Tab 激活文字+icon、选题页头 8px 识别点。微面积专用（永不染大面积底）；与 warn #F59E0B（琥珀、状态专用）保持色距且视觉路径不重叠。on #FFF ≈5.2:1",
+      "darkOverride": true
+    },
+    "view-schedule": {
+      "css": "#0F766E",
+      "host": null,
+      "light": "#0F766E",
+      "dark": "#2DD4BF",
+      "type": "color",
+      "usage": "v1.2.0 Bluewash L3 定时域识别色（青，时间/规律语义）：定时 Tab 激活文字+icon、定时页头识别点。与 success 绿距离充分。on #FFF ≈5.5:1",
+      "darkOverride": true
+    },
+    "rank-top": {
+      "css": "#C2410C",
+      "host": null,
+      "light": "#C2410C",
+      "dark": "#FB923C",
+      "type": "color",
+      "usage": "v1.2.0 Bluewash L3 热榜 Top3 名次数字（13px mono + 500；4+ 名保持 fg-tertiary）。与 view-topics 同值但语义槽独立（同属「热度」域，日后可独立调档）；与命中行 accent-subtle 蓝底构成榜单双色数据编码。on #FFF ≈5.2:1 / on #EDF3FE ≈4.7:1",
+      "darkOverride": true
     }
   },
 
@@ -348,7 +401,8 @@
     "sm":   { "value": "4px",   "type": "dimension", "usage": "Badge/标签/输入框/表格单元格元素" },
     "md":   { "value": "6px",   "type": "dimension", "usage": "按钮/菜单项/Pill" },
     "lg":   { "value": "8px",   "type": "dimension", "usage": "卡片/画布/弹层（上限）" },
-    "full": { "value": "9999px","type": "dimension", "usage": "状态点/圆形按钮/胶囊" }
+    "full": { "value": "9999px","type": "dimension", "usage": "状态点/圆形按钮/胶囊" },
+    "footer": { "value": "12px", "type": "dimension", "usage": "宿主 sidebar footer 动作钮圆角（dsh-client-ui-cordis footer badge 字面值，宿主 chrome 同排对齐显式例外；插件面板自有面不用此档，v0.3 §D3）" }
   },
 
   "border": {
@@ -356,23 +410,32 @@
   },
 
   "shadow": {
-    "$comment": "Phase 1 草案曾假设宿主有 --dsw-shadow-lv1/2/3——实测宿主 theme 包无任何 shadow token，此为勘误：阴影为本插件自有 primitive。面板内卡片默认 border 分层无阴影，仅浮层用以下两级（避免幽灵卡片：1px 边框元素禁再叠 blur≥16px 阴影）。",
-    "overlay": {
-      "css": "0 8px 24px rgba(15, 17, 21, 0.12)",
+    "$comment": "Phase 1 草案曾假设宿主有 --dsw-shadow-lv1/2/3——实测宿主 theme 包无任何 shadow token，此为勘误：阴影为本插件自有 primitive。面板内卡片默认 border 分层无阴影；v0.2 新增 card 级微投影（白卡在灰底上的物理暗示，blur 2px 远低于 16px 幽灵卡红线），浮层用 overlay/modal 两级（1px 边框元素禁再叠 blur≥16px 阴影，card 除外——其 blur 仅 2px）。v1.2.0 light 侧三值蓝黑化（纯黑阴影在 tint 台面上显脏；dark 覆写纯黑系不变——暗色下阴影 hue 无感知）。",
+    "card": {
+      "css": "0 1px 2px rgba(30, 44, 76, 0.06)",
       "host": null,
-      "light": "0 8px 24px rgba(15, 17, 21, 0.12)",
+      "light": "0 1px 2px rgba(30, 44, 76, 0.06)",
+      "dark": "0 1px 2px rgba(0, 0, 0, 0.40)",
+      "type": "boxShadow",
+      "usage": "卡片级微投影（v0.2 新增 / v1.2.0 light 蓝黑化）：bg-page 台面上的白卡（文章卡/输入卡/启动卡/预览画布/门禁滑出面板），blur 2px 物理暗示不越幽灵卡红线",
+      "darkOverride": true
+    },
+    "overlay": {
+      "css": "0 8px 24px rgba(23, 34, 60, 0.14)",
+      "host": null,
+      "light": "0 8px 24px rgba(23, 34, 60, 0.14)",
       "dark": "0 8px 24px rgba(0, 0, 0, 0.50)",
       "type": "boxShadow",
-      "usage": "下拉菜单/Tooltip/悬浮卡片",
+      "usage": "下拉菜单/Tooltip/悬浮卡片（v1.2.0 light 蓝黑化）",
       "darkOverride": true
     },
     "modal": {
-      "css": "0 16px 48px rgba(15, 17, 21, 0.16)",
+      "css": "0 16px 48px rgba(23, 34, 60, 0.18)",
       "host": null,
-      "light": "0 16px 48px rgba(15, 17, 21, 0.16)",
+      "light": "0 16px 48px rgba(23, 34, 60, 0.18)",
       "dark": "0 16px 48px rgba(0, 0, 0, 0.60)",
       "type": "boxShadow",
-      "usage": "模态框/右滑抽屉/生成中全屏阶段视图",
+      "usage": "模态框/右滑抽屉/生成中全屏阶段视图（v1.2.0 light 蓝黑化）",
       "darkOverride": true
     }
   },
@@ -386,12 +449,14 @@
   },
 
   "layout": {
-    "$comment": "面板级布局常量（面板寄生在 DSH 中心栏，无自有视口，不设 container-max）。",
-    "header-h":    { "value": "48px", "type": "dimension", "usage": "面板顶栏（二级 Tab 条）高度" },
+    "$comment": "面板级布局常量（面板寄生在 DSH 中心栏，无自有视口，不设 container-max）。v0.2 新增 toolrow-h / content-pad-bottom（uiux-redesign-v2 §2-2）；header-h 语义待 v0.2 前端落 40px 顶栏时同步改值 40px（本表当前值 48px 对应 v0.1 现状，改值归前端施工批次）。",
+    "header-h":    { "value": "48px", "type": "dimension", "usage": "面板顶栏（二级 Tab 条）高度（v0.1 现状；v0.2 新 IA 定稿为 40px，与 toolrow-h 合流后由前端同步改值）" },
     "row-h":       { "value": "44px", "type": "dimension", "usage": "列表行高（触摸目标底线，44×44px WCAG 2.5.5）" },
     "canvas-w":    { "value": "375px", "type": "dimension", "usage": "微信预览画布固定宽（iPhone 基准）" },
     "page-pad":    { "value": "24px", "type": "dimension", "usage": "页面内容区左右内边距" },
-    "editor-pad":  { "value": "20px", "type": "dimension", "usage": "编辑器双栏各自内边距" }
+    "editor-pad":  { "value": "20px", "type": "dimension", "usage": "编辑器双栏各自内边距" },
+    "toolrow-h":   { "value": "40px", "type": "dimension", "usage": "页头工具行高（v0.2 新增）：顶栏（4 导航对象）与各页 pagebar 共用的紧凑行高——页头与动作合并一行" },
+    "content-pad-bottom": { "value": "96px", "type": "dimension", "usage": "内容区底部兜底（v0.2 新增）：吸收宿主 composer 遮挡（实测 60-80px）+ 呼吸位；Toast 抬高与进度卡锚点同源此值" }
   },
 
   "breakpoint": {

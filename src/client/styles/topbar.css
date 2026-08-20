@@ -1,0 +1,189 @@
+/*
+ * 顶栏样式（v0.2.1 D1，uiux-polish-v0.2.1-design §1）：
+ * 从「系统级 bar」降级为「工作台内工具行」——bg-page 融合底、无全宽底线、
+ * 导航 3 Tab 改胶囊 segmented control。DOM 契约（header/nav/button.ww-tab/
+ * data-testid/aria-current）零改动。
+ */
+
+/* ---------- TopBar 工具行 ---------- */
+
+.ww-topbar {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--ww-space-2);
+  height: var(--ww-toolrow-h);
+  min-height: var(--ww-toolrow-h);
+  /* D1：非 flush 态 .ww-content 的左右对齐（24px）；窄态见文末容器查询 */
+  padding: 0 var(--ww-space-6);
+  /* D1：透明感融合底（显式 bg-page——shell 根是 --ww-bg 白，transparent 会露白）；
+   * 去掉全宽 border-bottom，顶栏与内容区不再硬分隔 */
+  background: var(--ww-bg-page);
+  position: sticky;
+  top: 0;
+  z-index: var(--ww-z-sticky);
+  /* 窄态容器查询锚点（D1 §1-8）：只作用于本行后代，不把 containment 加到 .ww-shell */
+  container-type: inline-size;
+}
+
+/* 导航槽：胶囊分段容器。nav.ww-topbar__nav 命名/语义不变（仍是 nav + aria-label） */
+.ww-topbar__nav {
+  display: inline-flex;
+  align-items: center;
+  /* 控件槽微距 2px：沿用 .ww-view-tabs（states.css）既有控件槽先例，不进 4px 宏观网格 */
+  gap: 2px;
+  padding: 2px;
+  background: var(--ww-surface-sunken);
+  /* 槽边框必带：sunken 与 bg-page 同值（浅 #F9FAFB / 深 #1B1B1C），无边框槽不可见 */
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-full);
+  min-width: 0;
+}
+
+.ww-topbar__spacer { flex: 1; }
+
+/* 分段项：button.ww-tab 命名/激活类/testid/aria-current 语义全部不变 */
+.ww-tab {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--ww-fg-secondary);
+  font: inherit;
+  font-size: var(--ww-text-base);
+  /* 段高 28px：与右端 conn/settings 28px 热区同档（槽 32px = 28 + 2×2 padding，居中于 40px 行） */
+  height: 28px;
+  padding: 0 var(--ww-space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-1);
+  border-radius: var(--ww-radius-full);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color var(--ww-motion-base) var(--ww-ease),
+    background var(--ww-motion-base) var(--ww-ease),
+    box-shadow var(--ww-motion-base) var(--ww-ease);
+}
+
+.ww-tab svg {
+  color: var(--ww-fg-tertiary);
+  transition: color var(--ww-motion-base) var(--ww-ease);
+}
+
+.ww-tab:hover {
+  color: var(--ww-fg);
+  background: var(--ww-interactive-hover);
+}
+
+.ww-tab:hover svg { color: var(--ww-fg-secondary); }
+
+/* 激活段：surface 白底 + accent 文字 + 卡片级微影（blur 2px） */
+.ww-tab--active {
+  color: var(--ww-accent);
+  font-weight: var(--ww-weight-medium);
+  background: var(--ww-surface);
+  box-shadow: var(--ww-shadow-card);
+}
+
+.ww-tab--active svg { color: var(--ww-accent); }
+
+/* 激活段 hover 保持稳定（当前页不是动作目标）。
+ * 必须置于通用 :hover 之后——同特异性下后者胜出会把激活段刷回次级态。 */
+.ww-tab--active:hover {
+  color: var(--ww-accent);
+  background: var(--ww-surface);
+}
+
+.ww-tab--active:hover svg { color: var(--ww-accent); }
+
+/* 禁用态预留（当前无禁用场景；opacity 0.6 = .ww-menu-trigger--accent:disabled 既有惯例） */
+.ww-tab:disabled { opacity: 0.6; cursor: default; }
+
+/* 键盘焦点：全局 ring（base.css）到达时 box-shadow 被整体替换，
+ * 激活段补回微影，避免焦点瞬间「白片塌陷」。特异性 (0,3,0) > 全局 (0,2,1)。 */
+.ww-topbar__nav .ww-tab--active:focus-visible {
+  box-shadow: var(--ww-focus-ring), var(--ww-shadow-card);
+}
+
+/* 键盘焦点（非激活段）沿用 base.css 全局 ring，无需本文件规则。 */
+
+/* ---------- 右端区（progress / conn / settings）：视觉重量不变 ---------- */
+
+/* .ww-topbar__progress / .ww-topbar__conn 样式零改动（次级文字 + 28px 热区 + ghost hover）。 */
+
+.ww-topbar__progress {
+  appearance: none;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  color: var(--ww-fg-secondary);
+  min-width: 28px;
+  height: 28px;
+  padding: 0 var(--ww-space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-1);
+  border-radius: var(--ww-radius-md);
+  cursor: pointer;
+  transition: background var(--ww-motion-fast) var(--ww-ease);
+}
+
+.ww-topbar__progress:hover { background: var(--ww-interactive-hover); color: var(--ww-fg); }
+.ww-topbar__progress-icon { color: var(--ww-accent); }
+
+.ww-topbar__conn {
+  appearance: none;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  color: var(--ww-fg-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-2);
+  padding: var(--ww-space-1) var(--ww-space-2);
+  height: 28px;
+  border-radius: var(--ww-radius-md);
+  cursor: pointer;
+  transition: background var(--ww-motion-fast) var(--ww-ease);
+}
+
+.ww-topbar__conn:hover { background: var(--ww-interactive-hover); }
+
+/* settings 齿轮：去掉 2px 底线语言（透明底线占位一并删除，消除 1px 图标偏心），
+ * 激活态改「迷你激活片」与 segmented 激活段同语言。 */
+.ww-topbar__settings {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--ww-fg-secondary);
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ww-radius-md);
+  cursor: pointer;
+  transition: background var(--ww-motion-fast) var(--ww-ease), color var(--ww-motion-fast) var(--ww-ease), box-shadow var(--ww-motion-base) var(--ww-ease);
+}
+
+.ww-topbar__settings:hover { background: var(--ww-interactive-hover); color: var(--ww-fg); }
+
+.ww-topbar__settings[aria-current='page'] {
+  color: var(--ww-accent);
+  background: var(--ww-surface);
+  box-shadow: var(--ww-shadow-card);
+}
+
+/* 激活态 hover 同样保持稳定（同 .ww-tab--active:hover 理由） */
+.ww-topbar__settings[aria-current='page']:hover {
+  color: var(--ww-accent);
+  background: var(--ww-surface);
+  box-shadow: var(--ww-shadow-card);
+}
+
+/* 窄态（<900px，锚点 App.tsx NARROW_BREAKPOINT）：段内距 12→8px，bar 高度/槽/胶囊不变 */
+@container (max-width: 900px) {
+  .ww-tab { padding: 0 var(--ww-space-2); }
+}

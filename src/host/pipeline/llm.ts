@@ -141,3 +141,24 @@ export function draftUserPrompt(topic: string, outline: string): string {
 export function pipelineSystemPrompt(): string {
   return SYSTEM_STYLE;
 }
+
+// ── 文章改写提示（uiux v0.3 §3；只输出改写文本，无围栏无前后语）──────────────────
+
+export function rewriteSystemPrompt(): string {
+  return [
+    '你是一位公众号写作的改稿助手，负责按指令改写作者选中的段落。',
+    '只输出改写后的文本：无前言后语、无解释、无代码围栏。',
+    '保持 Markdown 结构不变：标题层级、列表、代码块的骨架原样保留。',
+    '忠实执行改写指令，不虚构原文没有的事实。',
+  ].join('');
+}
+
+export function rewriteUserPrompt(input: { readonly text: string; readonly instruction: string; readonly title?: string }): string {
+  return [
+    ...(input.title ? [`文章题名（语气锚点）：${input.title}`] : []),
+    `改写指令：${input.instruction}`,
+    '',
+    '原文：',
+    input.text,
+  ].join('\n');
+}

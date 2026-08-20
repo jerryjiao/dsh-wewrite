@@ -47,7 +47,7 @@ export function normalizeRrule(raw: string): string {
   if (!normalized) throw new RruleValidationError('RRULE 不能为空');
   const seen = new Set<string>();
   for (const part of normalized.split(';')) {
-    const match = /^([A-Z]+)=(.+)$/.exec(part);
+    const match = part.match(/^([A-Z]+)=(.+)$/);
     if (!match) throw new RruleValidationError(`RRULE 段无法解析：${part}`);
     const [, key, value] = match;
     if (!KNOWN_KEYS.has(key)) throw new RruleValidationError(`RRULE 含未知属性：${key}`);

@@ -3,26 +3,33 @@ import type { RefObject } from 'react';
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import type { Translate } from './lib/context';
 import type { WewriteRpc } from './lib/rpc';
-import { PanelTabBar } from './components/PanelTabBar';
+import { TopBar } from './components/TopBar';
 import { PipelineStepper } from './components/PipelineStepper';
+import { ProgressCard } from './components/ProgressCard';
 import { ToastHost } from './components/Toast';
 import { useStore, WewriteProvider } from './store';
-import { TopicPanel } from './panels/topic-panel';
+import { WorkbenchPanel } from './panels/workbench-panel';
 import { HotspotsPanel } from './panels/hotspots-panel';
-import { ArticlesPanel } from './panels/articles-panel';
-import { EditorPanel } from './panels/editor-panel';
 import { SchedulePanel } from './panels/schedule-panel';
 import { SettingsPanel } from './panels/settings-panel';
 import './styles/tokens.css';
 import './styles/base.css';
+import './styles/topbar.css';
+import './styles/rail.css';
+import './styles/workbench.css';
+import './styles/overlay.css';
 import './styles/states.css';
 import './styles/panels.css';
 import './styles/settings.css';
 import './styles/editor.css';
+import './styles/preview.css';
+import './styles/generation.css';
 
 /**
  * 面板根组件：挂载根元素带 class="dsh-wewrite-panel"（--ww-* token 作用域）。
- * 顶栏 5 Tab + 内容区（state 路由）+ 生成中全屏态 + Toast 栈。
+ * v0.2 工作区范式（uiux-workbench-delta §1-0）：
+ * TopBar（4 导航对象）+ 内容区（工作区路由满铺 .ww-content--flush）
+ * + 右下 ProgressCard + 首次提交全屏确认 GenerationLayer + Toast 栈。
  */
 
 const NARROW_BREAKPOINT = 900;
@@ -54,7 +61,7 @@ function GenerationLayer() {
     if (!activeRun || !generation) return;
     if (activeRun.status === 'succeeded' && announced.current !== activeRun.id) {
       announced.current = activeRun.id;
-      toast.push({ kind: 'success', title: t('toast.generateDone'), detail: `《${generation.topic}》已生成，去文章库查看。` });
+      toast.push({ kind: 'success', title: t('toast.generateDone'), detail: `《${generation.topic}》已生成，去写作台查看。` });
       void refreshSnapshot();
     }
   }, [activeRun, generation, refreshSnapshot, toast, t]);
@@ -100,13 +107,12 @@ function PanelBody() {
   const { route } = store;
   switch (route.kind) {
     case 'home':
-      return <TopicPanel />;
+    case 'articles':
+      return <WorkbenchPanel />;
+    case 'article':
+      return <WorkbenchPanel articleId={route.id} />;
     case 'hotspots':
       return <HotspotsPanel />;
-    case 'articles':
-      return <ArticlesPanel />;
-    case 'article':
-      return <EditorPanel articleId={route.id} />;
     case 'schedule':
       return <SchedulePanel />;
     case 'settings':
@@ -130,12 +136,19 @@ export function WewriteApp({ rpc, t }: { rpc: WewriteRpc; t: Translate }) {
 function PanelChrome() {
   const store = useStore();
   const { route, navigate, snapshot, refreshSnapshot, toastMessages, dismissToast, generation, activeRun } = store;
+  const [progressCardOpen, setProgressCardOpen] = useState(true);
 
   useEffect(() => {
     void refreshSnapshot();
   }, [refreshSnapshot]);
 
   const generating = generation !== null && activeRun !== undefined && (activeRun.status === 'queued' || activeRun.status === 'running');
+
+  // 新 run 提交后进度卡回到展开默认（首次全屏确认收起后由卡接管）。
+  const runId = generation?.runId;
+  useEffect(() => {
+    if (runId) setProgressCardOpen(true);
+  }, [runId]);
 
   useEffect(() => {
     const period = generating ? POLL_ACTIVE_MS : POLL_IDLE_MS;
@@ -150,12 +163,23 @@ function PanelChrome() {
     return { configured: secretConfigured && settings.wechatAppId.length > 0, loading: false };
   }, [snapshot]);
 
+  const workbenchRoute = route.kind === 'home' || route.kind === 'article' || route.kind === 'articles';
+
   return (
     <div className="ww-shell">
-      <PanelTabBar route={route} t={store.t} connection={connection} onNavigate={navigate} onOpenSettings={() => navigate({ kind: 'settings' })} />
-      <main className="ww-content" id="wewrite-panel-content">
+      <TopBar
+        route={route}
+        t={store.t}
+        connection={connection}
+        generating={generating}
+        progressCardOpen={progressCardOpen}
+        onToggleProgressCard={() => setProgressCardOpen((open) => !open)}
+        onNavigate={navigate}
+      />
+      <main className={workbenchRoute ? 'ww-content ww-content--flush' : 'ww-content'} id="wewrite-panel-content">
         <PanelBody />
       </main>
+      <ProgressCard open={progressCardOpen && !generation?.overlayOpen} onCollapse={() => setProgressCardOpen(false)} />
       <GenerationLayer />
       <ToastHost messages={toastMessages} onDismiss={dismissToast} />
       <span className="ww-sr-only" aria-live="polite">
