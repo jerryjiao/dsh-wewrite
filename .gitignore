@@ -19,3 +19,7 @@ coverage/
 # 官网构建产物与缓存（产物不入 git，Pages 由 Actions 现场构建）
 website/dist/
 website/.astro/
+
+# E2E 失败截图等产物
+tests/e2e/artifacts/
+.mimosa/

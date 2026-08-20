@@ -54,7 +54,7 @@ export function splitDetachedTails(tokens: LooseToken[]): LooseToken[] {
     let currentItems: LooseToken[] = [];
     const flush = (): void => {
       if (!currentItems.length) return;
-      const firstMarker = /^\s*(\d+)[.)][ \t]/.exec(currentItems[0].raw ?? '');
+      const firstMarker = (currentItems[0].raw ?? '').match(/^\s*(\d+)[.)][ \t]/);
       const start = token.ordered && firstMarker ? Number(firstMarker[1]) : undefined;
       out.push({
         ...token,

@@ -16,6 +16,8 @@ interface RpcPayload {
   readonly articleId?: string;
   readonly enabled?: boolean;
   readonly limit?: number;
+  readonly rank?: number;
+  readonly url?: string;
   readonly ref?: string;
   readonly value?: string;
   readonly params?: RunParams;
@@ -23,6 +25,8 @@ interface RpcPayload {
   readonly title?: string;
   readonly digest?: string;
   readonly markdown?: string;
+  readonly text?: string;
+  readonly instruction?: string;
   readonly theme?: string;
   readonly name?: string;
   readonly rrule?: string;
@@ -35,6 +39,12 @@ async function dispatch(service: WeWriteService, endpoint: RpcEndpoint, payload:
       return service.snapshot();
     case 'hotspots/fetch':
       return service.fetchHotspots(payload.limit ?? 20);
+    case 'hotspots/digestItem':
+      return service.digestHotspotItem({
+        rank: Number(payload.rank),
+        title: String(payload.title),
+        url: String(payload.url),
+      });
     case 'article/list':
       return service.listArticles();
     case 'article/get':
@@ -54,6 +64,12 @@ async function dispatch(service: WeWriteService, endpoint: RpcEndpoint, payload:
       return service.previewArticle(
         payload.id ? { id: payload.id } : { markdown: String(payload.markdown), theme: String(payload.theme) },
       );
+    case 'article/rewrite':
+      return service.rewriteText({
+        text: String(payload.text),
+        instruction: String(payload.instruction),
+        ...(payload.title !== undefined ? { title: String(payload.title) } : {}),
+      });
     case 'run/start':
       return service.startRun({
         trigger: 'manual',

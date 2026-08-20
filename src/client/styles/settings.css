@@ -34,6 +34,9 @@
 
 .ww-settings__nav-item--active .ww-settings__nav-label { font-weight: var(--ww-weight-medium); }
 
+/* v2 §1b-6：激活项 icon 提为 --ww-fg（原 secondary） */
+.ww-settings__nav-item--active svg { color: var(--ww-fg); }
+
 .ww-settings__nav-item svg { grid-row: 1 / span 2; color: var(--ww-fg-secondary); align-self: center; }
 
 .ww-settings__nav-label { font-size: var(--ww-text-base); }
@@ -58,7 +61,14 @@
 
 .ww-settings__content { min-width: 0; }
 .ww-settings__section { display: flex; flex-direction: column; gap: var(--ww-space-4); max-width: 640px; }
-.ww-settings__h { margin: 0; font-size: var(--ww-text-md); font-weight: var(--ww-weight-medium); }
+/* v2 §1b-6：右区组头 = 组级标题 16/500 + 下方分隔线 */
+.ww-settings__h {
+  margin: 0;
+  font-size: var(--ww-text-md);
+  font-weight: var(--ww-weight-medium);
+  padding-bottom: var(--ww-space-2);
+  border-bottom: var(--ww-border-width) solid var(--ww-divider);
+}
 .ww-settings__row { display: flex; align-items: center; gap: var(--ww-space-3); flex-wrap: wrap; }
 .ww-settings__save { font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); }
 .ww-settings__save--error { color: var(--ww-danger); }
@@ -139,9 +149,10 @@
   border: none;
   background: none;
   color: var(--ww-fg-secondary);
-  width: var(--ww-row-h);
-  height: var(--ww-row-h);
-  min-width: var(--ww-row-h);
+  /* §D4 S1：icon-only 动作钮归一 ghost 工具档 28（行 min-height 44 已承载触摸底线） */
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

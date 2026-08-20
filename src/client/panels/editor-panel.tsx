@@ -1,116 +1,76 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Menu, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
-import type { ArticleDetail, RunParams } from '@/shared/contract';
+import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import type { RunParams } from '@/shared/contract';
 import type { GateReportView } from '../components/GateReport';
 import { gateStatusForArticle } from '../lib/gate';
-import { countWords, formatAgo } from '../lib/format';
+import { countWords } from '../lib/format';
 import { describeRpcFailure } from '../lib/rpc';
 import { articleStatusBadge, CodeChip, ErrorNote, SkeletonBlock, StatusBadge } from '../components/bits';
-import { GateReport } from '../components/GateReport';
 import { ScheduleForm } from '../components/ScheduleForm';
 import { EditorWorkbench } from '../components/editor/EditorWorkbench';
 import { PreviewCanvas } from '../components/editor/PreviewCanvas';
 import { StatusStrip } from '../components/editor/StatusStrip';
+import { EditorHeadActions } from '../components/editor/EditorHeadActions';
+import type { EditorView } from '../components/editor/EditorHeadActions';
+import { EditorSplitter, splitColumns } from '../components/editor/Splitter';
+import { useArticleDoc } from '../components/editor/useArticleDoc';
+import { GateOverlayPanel } from '../components/GateOverlayPanel';
 import { Icon } from '../components/Icon';
 import { useStore } from '../store';
 
 /**
- * 编辑器（DESIGN §9.4，文章库下钻）：页头（返回/标题/状态/自动保存/三视图 Tab/推草稿箱 ▾）
- * → 主区（CodeMirror 6 + 375px 预览画布双栏；<900 单栏 Tab）→ 底部 StatusStrip。
- * 预览 = article/preview 真实产物（AC-8）；门禁未过阻断默认推送路径（AC-7）。
+ * 编辑器（DESIGN §9.4 + uiux-workbench-delta §1-6/§1-7）：v0.2 起嵌入工作区主区。
+ * 页头单行（rail toggle/下拉 + 标题 + 状态 | 三视图分段 + ⋯管理 + 推草稿箱 ▾ CTA）
+ * → 主区三视图（仅编辑/双栏可拖/仅预览缩放档）→ StatusStrip（含门禁 chip 入口）
+ * + GateOverlayPanel 右缘滑出（非模态）。保存状态唯一出口 = StatusStrip 右侧。
  */
 
-type EditorView = 'edit' | 'preview' | 'gate';
+const VIEW_STORAGE_KEY = 'ww.editor.view';
+const SPLIT_STORAGE_KEY = 'ww.editor.split';
 
-const PREVIEW_DEBOUNCE_MS = 300;
-const AUTOSAVE_DEBOUNCE_MS = 1200;
+function readStoredView(): EditorView | undefined {
+  try {
+    const raw = window.localStorage.getItem(VIEW_STORAGE_KEY);
+    return raw === 'edit' || raw === 'split' || raw === 'preview' ? raw : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
-export function EditorPanel({ articleId }: { articleId: string }) {
+function readStoredSplit(): number {
+  try {
+    const raw = Number.parseFloat(window.localStorage.getItem(SPLIT_STORAGE_KEY) ?? '');
+    return Number.isFinite(raw) && raw > 0.15 && raw < 0.85 ? raw : 0.55;
+  } catch {
+    return 0.55;
+  }
+}
+export function EditorPanel({
+  articleId,
+  leading,
+  gateOpen,
+  onGateOpenChange,
+}: {
+  articleId: string;
+  leading: ReactNode;
+  gateOpen: boolean;
+  onGateOpenChange: (open: boolean) => void;
+}) {
   const store = useStore();
   const { rpc, navigate, narrow, refreshSnapshot, toast, t, snapshot, startGeneration } = store;
 
-  const [article, setArticle] = useState<ArticleDetail | undefined>();
-  const [loadError, setLoadError] = useState<string | undefined>();
-  const [markdown, setMarkdown] = useState('');
-  const [theme, setTheme] = useState('professional-clean');
-  const [view, setView] = useState<EditorView>('edit');
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [savedAt, setSavedAt] = useState<string | undefined>();
-  const [previewHtml, setPreviewHtml] = useState<string | undefined>();
-  const [previewing, setPreviewing] = useState(false);
+  const doc = useArticleDoc(rpc, articleId);
+  const { article } = doc;
+
+  const [view, setView] = useState<EditorView>(readStoredView() ?? (narrow ? 'edit' : 'split'));
+  const [splitRatio, setSplitRatio] = useState(readStoredSplit);
+  const [zoom, setZoom] = useState(1);
   const [pushing, setPushing] = useState(false);
   const [gateBlockOpen, setGateBlockOpen] = useState(false);
-  const [pushMenuOpen, setPushMenuOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [fixing, setFixing] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    setArticle(undefined);
-    setLoadError(undefined);
-    setPreviewHtml(undefined);
-    rpc.call<ArticleDetail>('article/get', { id: articleId }).then((detail) => {
-      if (!alive) return;
-      setArticle(detail);
-      setMarkdown(detail.markdown);
-      setTheme(detail.theme);
-    }).catch((error: unknown) => {
-      if (alive) setLoadError(error instanceof Error ? error.message : String(error));
-    });
-    return () => {
-      alive = false;
-    };
-  }, [rpc, articleId]);
-
-  const dirtyRef = useRef(false);
-  const handleMarkdownChange = useCallback((next: string) => {
-    dirtyRef.current = true;
-    setMarkdown(next);
-  }, []);
-
-  // 自动保存（失焦停顿节流）：article/save 回填详情（AC-5 存储，仅本地）。
-  useEffect(() => {
-    if (!article || !dirtyRef.current) return;
-    const timer = window.setTimeout(() => {
-      setSaveState('saving');
-      rpc
-        .call<ArticleDetail>('article/save', {
-          id: article.id,
-          slug: article.slug,
-          title: article.title,
-          digest: article.digest,
-          markdown,
-          theme,
-        })
-        .then((saved) => {
-          dirtyRef.current = false;
-          setArticle(saved);
-          setSavedAt(new Date().toISOString());
-          setSaveState('saved');
-        })
-        .catch(() => setSaveState('error'));
-    }, AUTOSAVE_DEBOUNCE_MS);
-    return () => window.clearTimeout(timer);
-  }, [markdown, theme, article, rpc]);
-
-  // 预览：300ms 防抖 + 上一次请求中止（AC-8：<1s 本地刷新）。
-  useEffect(() => {
-    if (!article) return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      setPreviewing(true);
-      rpc
-        .call<{ html: string }>('article/preview', { markdown, theme }, controller.signal)
-        .then((result) => setPreviewHtml(result.html))
-        .catch(() => undefined)
-        .finally(() => setPreviewing(false));
-    }, PREVIEW_DEBOUNCE_MS);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [article, markdown, theme, rpc]);
 
   // 契约 v0.1 RunSummary 无 gates 步明细——分数/规则型报告待契约扩展后接入（组件已就绪）。
   const gateReport: GateReportView | undefined = undefined;
@@ -184,13 +144,35 @@ export function EditorPanel({ articleId }: { articleId: string }) {
     }
   }
 
-  if (loadError) {
-    return <ErrorNote title="文章加载失败。" hint={loadError} action={<Button variant="outline" size="sm" onClick={() => navigate({ kind: 'articles' })}>返回文章库</Button>} />;
+  function persistLocal(key: string, value: string): void {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {
+      /* 持久化失败仅影响下次默认值 */
+    }
+  }
+
+  function changeView(next: EditorView) {
+    setView(next);
+    persistLocal(VIEW_STORAGE_KEY, next);
+  }
+
+  function changeSplit(ratio: number) {
+    setSplitRatio(ratio);
+    persistLocal(SPLIT_STORAGE_KEY, String(ratio));
+  }
+
+  if (doc.loadError) {
+    return (
+      <div className="ww-editor-page ww-editor-page--padded">
+        <ErrorNote title="文章加载失败。" hint={doc.loadError} action={<Button variant="outline" size="sm" onClick={doc.retryLoad}>重试</Button>} />
+      </div>
+    );
   }
 
   if (!article) {
     return (
-      <div className="ww-editor-page ww-editor-page--loading">
+      <div className="ww-editor-page ww-editor-page--padded" aria-busy="true">
         <SkeletonBlock lines={6} />
       </div>
     );
@@ -200,68 +182,87 @@ export function EditorPanel({ articleId }: { articleId: string }) {
   const model = snapshot.status === 'ready' ? snapshot.data.config.settings.llmDefault.model : undefined;
   const author = snapshot.status === 'ready' ? snapshot.data.config.settings.wechatAuthor : '公众号';
   const today = new Date().toLocaleDateString('zh-Hans-CN', { month: 'long', day: 'numeric' });
+  // 窄态回落：split 不可用，仅编辑（delta §1-7）。
+  const effectiveView: EditorView = narrow && view === 'split' ? 'edit' : view;
 
   return (
     <div className="ww-editor-page">
       <header className="ww-editor-head">
         <div className="ww-editor-head__main">
-          <Button variant="ghost" size="sm" icon={<Icon name="arrow-left" size={16} />} onClick={() => navigate({ kind: 'articles' })}>
-            {t('action.back')}
-          </Button>
+          {leading}
           <h2 className="ww-editor-head__title" title={article.title}>{article.title}</h2>
           <StatusBadge tone={badge.tone} label={badge.label} />
-          {saveState === 'saved' && savedAt ? <span className="ww-editor-head__saved">自动保存于 {formatAgo(savedAt)}</span> : null}
         </div>
-        <div className="ww-editor-head__actions">
-          <div className="ww-view-tabs" role="tablist" aria-label="编辑器视图">
-            {([['edit', '编辑'], ['preview', '微信预览'], ['gate', '门禁报告']] as const).map(([key, label]) => (
-              <button key={key} type="button" role="tab" aria-selected={view === key} className={view === key ? 'ww-view-tab ww-view-tab--active' : 'ww-view-tab'} onClick={() => setView(key)}>{label}</button>
-            ))}
-          </div>
-          <Menu
-            open={pushMenuOpen}
-            anchor={
-              <button type="button" className="ww-menu-trigger" aria-expanded={pushMenuOpen} aria-haspopup="menu" onClick={() => setPushMenuOpen((open) => !open)} disabled={pushing}>
-                {pushing ? t('action.pushing') : t('action.pushDraft')}
-                <Icon name="chevron-down" size={16} />
-              </button>
-            }
-            items={[
-              { id: 'push', label: '推草稿箱', icon: <Icon name="send" size={16} /> },
-              { id: 'schedule', label: '推草稿箱并定时…', icon: <Icon name="calendar-clock" size={16} /> },
-            ]}
-            onSelect={(id) => {
-              setPushMenuOpen(false);
-              if (id === 'push') requestPush();
-              else setScheduleOpen(true);
-            }}
-            onClose={() => setPushMenuOpen(false)}
-            align="end"
-          />
-        </div>
+        <EditorHeadActions
+          view={effectiveView}
+          onViewChange={changeView}
+          article={article}
+          onArticleChanged={doc.setArticle}
+          onDeleted={() => navigate({ kind: 'home' })}
+          pushing={pushing}
+          pushLabel={t('action.pushDraft')}
+          pushingLabel={t('action.pushing')}
+          onPush={requestPush}
+          onSchedule={() => setScheduleOpen(true)}
+        />
       </header>
 
-      <div className={narrow ? 'ww-editor-body ww-editor-body--narrow' : 'ww-editor-body'}>
-        {view === 'edit' ? <EditorWorkbench value={markdown} onChange={handleMarkdownChange} /> : null}
-        {view === 'preview' || (!narrow && view === 'edit') ? (
-          <PreviewCanvas html={previewHtml} rendering={previewing} theme={theme} onThemeChange={setTheme} author={author} today={today} />
-        ) : null}
-        {view === 'gate' ? (
-          <div className="ww-editor-gate">
-            <GateReport report={gateReport} onLocate={() => setView('edit')} onFixOne={() => void runFix()} onFixAll={() => void runFix()} fixing={fixing} />
-          </div>
+      <div
+        className={effectiveView === 'split' ? 'ww-editor-body ww-editor-body--split' : 'ww-editor-body'}
+        style={effectiveView === 'split' ? { gridTemplateColumns: splitColumns(splitRatio) } : undefined}
+      >
+        {effectiveView !== 'preview' ? <EditorWorkbench value={doc.markdown} onChange={doc.handleMarkdownChange} title={article.title} /> : null}
+        {effectiveView === 'split' ? <EditorSplitter ratio={splitRatio} onRatioChange={changeSplit} /> : null}
+        {effectiveView !== 'edit' ? (
+          <PreviewCanvas
+            html={doc.previewHtml}
+            rendering={doc.previewing}
+            theme={doc.theme}
+            onThemeChange={doc.setTheme}
+            author={author}
+            today={today}
+            zoom={zoom}
+            onZoomChange={setZoom}
+          />
         ) : null}
       </div>
 
       <StatusStrip
         items={[
-          <>{countWords(markdown).toLocaleString('zh-Hans-CN')} 字</>,
-          <>门禁 {gateStatus.label}</>,
+          <>{countWords(doc.markdown).toLocaleString('zh-Hans-CN')} 字</>,
+          <button
+            type="button"
+            className="ww-statusstrip__gate"
+            data-testid="ww-gate-chip"
+            aria-expanded={gateOpen}
+            aria-controls="ww-gate-overlay"
+            onClick={() => onGateOpenChange(!gateOpen)}
+          >
+            <Icon
+              name={gateStatus.blocking ? 'shield-alert' : 'shield-check'}
+              size={12}
+              className={gateStatus.blocking ? 'ww-statusstrip__gate-icon--warn' : 'ww-statusstrip__gate-icon--ok'}
+            />
+            <span className="ww-statusstrip__gate-label">门禁 {gateStatus.label}</span>
+            <Icon name="chevron-up" size={12} />
+          </button>,
           <>图 {article.bodyImageIds.length} 张</>,
           <>模型 {model ?? '—'}</>,
         ]}
-        saveState={saveState}
-        onRetrySave={() => setSaveState('idle')}
+        saveState={doc.saveState}
+        onRetrySave={() => doc.setSaveState('idle')}
+      />
+
+      <GateOverlayPanel
+        open={gateOpen}
+        gateLabel={gateStatus.label}
+        blocking={gateStatus.blocking}
+        report={gateReport}
+        fixing={fixing}
+        onLocate={() => changeView('edit')}
+        onFixOne={() => void runFix()}
+        onFixAll={() => void runFix()}
+        onClose={() => onGateOpenChange(false)}
       />
 
       <Modal
@@ -280,7 +281,7 @@ export function EditorPanel({ articleId }: { articleId: string }) {
         }
       >
         <p className="ww-modal-note">
-          推送前可在 <CodeChip>门禁报告</CodeChip> 视图查看未过规则并逐项修复。
+          推送前可在 <CodeChip>门禁报告</CodeChip> 面板查看未过规则并逐项修复。
         </p>
       </Modal>
 

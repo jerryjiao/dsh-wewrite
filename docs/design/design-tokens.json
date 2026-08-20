@@ -2,10 +2,10 @@
   "$comment": "dsh-wewrite Design Token（Phase 2 产出）。CSS 实现见 src/client/styles/tokens.css，二者一一对应。所有 --ww-* 语义 token 默认指向宿主 --dsw-*（DSH web UI 三层 token 体系：--dsw-static-* → --dsw-alias-* → --dsw-specific-*，浅色挂 body、深色挂 body[data-ds-dark-theme]），宿主缺位处（间距/圆角/阴影/画布）用自有 primitive。light/dark 字段是核对用解析值（来源：@deepseek-ai/dsh-client-ui-theme v0.1.0-rc.6 本机实装源码逐条核实，2026-08-18），运行时真实值永远以宿主 token 解析为准——宿主换肤时本表不追改。",
   "meta": {
     "name": "dsh-wewrite",
-    "version": "1.0.0",
-    "date": "2026-08-18",
+    "version": "1.1.0",
+    "date": "2026-08-19",
     "author": "颜好看（MVP 开发专家团设计师）",
-    "inputs": ["docs/FACTS.md", "docs/spec.md §7/§8（锁定契约）", "docs/uiux-direction.md（Phase 1 方向）"],
+    "inputs": ["docs/FACTS.md", "docs/spec.md §7/§8（锁定契约）", "docs/uiux-direction.md（Phase 1 方向）", "docs/redesign/uiux-redesign-v2.md §2-2（v0.2 增量 5 token 真源）", "docs/redesign/uiux-workbench-delta.md（4 Tab 工作区 delta 收口）"],
     "cssScope": ".dsh-wewrite-panel（面板容器作用域；深色跟随 body[data-ds-dark-theme]，仅自有值 token 需要 dark 覆写，宿主引用型 token 自动翻转）",
     "guarantees": [
       "零 gradient token：本文件与 tokens.css 均不含任何 linear-gradient/radial-gradient 定义（P0-2 构造保证）",
@@ -79,6 +79,14 @@
       "dark": "#151517",
       "type": "color",
       "usage": "面板页面基底"
+    },
+    "bg-page": {
+      "css": "var(--dsw-specific-sidebar-fill)",
+      "host": "--dsw-specific-sidebar-fill",
+      "light": "#F9FAFB",
+      "dark": "#1B1B1C",
+      "type": "color",
+      "usage": "工作台底（v0.2 新增）：非编辑器页面的内容区底色 + 写作工作区左栏底——白卡浮其上形成「底 vs 卡」双层表面。与 surface-sunken 同源宿主 primitive 但语义槽分立（页面底 vs 嵌套凹区），宿主换肤时可各自分叉"
     },
     "surface": {
       "css": "var(--dsw-alias-bg-layer-2)",
@@ -253,6 +261,14 @@
       "type": "color",
       "usage": "等宽信息带底色：slug、模型名、RRULE 原文、门禁规则 ID、cron 表达式"
     },
+    "canvas-well": {
+      "css": "var(--dsw-alias-markdown-inline-code)",
+      "host": "--dsw-alias-markdown-inline-code",
+      "light": "#EBEEF2",
+      "dark": "#2C2C2E",
+      "type": "color",
+      "usage": "预览画布井（v0.2 新增）：比 sunken 深一档的井底，制造「画布立在井上」——井 → 画布白+1px 边+微影+notch → 文章内容三层递进。与 code-bg 同源宿主 primitive 但语义槽分立（画布井 vs 等宽带）"
+    },
 
     "canvas-bg": {
       "css": "#FFFFFF",
@@ -348,7 +364,8 @@
     "sm":   { "value": "4px",   "type": "dimension", "usage": "Badge/标签/输入框/表格单元格元素" },
     "md":   { "value": "6px",   "type": "dimension", "usage": "按钮/菜单项/Pill" },
     "lg":   { "value": "8px",   "type": "dimension", "usage": "卡片/画布/弹层（上限）" },
-    "full": { "value": "9999px","type": "dimension", "usage": "状态点/圆形按钮/胶囊" }
+    "full": { "value": "9999px","type": "dimension", "usage": "状态点/圆形按钮/胶囊" },
+    "footer": { "value": "12px", "type": "dimension", "usage": "宿主 sidebar footer 动作钮圆角（dsh-client-ui-cordis footer badge 字面值，宿主 chrome 同排对齐显式例外；插件面板自有面不用此档，v0.3 §D3）" }
   },
 
   "border": {
@@ -356,7 +373,16 @@
   },
 
   "shadow": {
-    "$comment": "Phase 1 草案曾假设宿主有 --dsw-shadow-lv1/2/3——实测宿主 theme 包无任何 shadow token，此为勘误：阴影为本插件自有 primitive。面板内卡片默认 border 分层无阴影，仅浮层用以下两级（避免幽灵卡片：1px 边框元素禁再叠 blur≥16px 阴影）。",
+    "$comment": "Phase 1 草案曾假设宿主有 --dsw-shadow-lv1/2/3——实测宿主 theme 包无任何 shadow token，此为勘误：阴影为本插件自有 primitive。面板内卡片默认 border 分层无阴影；v0.2 新增 card 级微投影（白卡在灰底上的物理暗示，blur 2px 远低于 16px 幽灵卡红线），浮层用 overlay/modal 两级（1px 边框元素禁再叠 blur≥16px 阴影，card 除外——其 blur 仅 2px）。",
+    "card": {
+      "css": "0 1px 2px rgba(15, 17, 21, 0.05)",
+      "host": null,
+      "light": "0 1px 2px rgba(15, 17, 21, 0.05)",
+      "dark": "0 1px 2px rgba(0, 0, 0, 0.40)",
+      "type": "boxShadow",
+      "usage": "卡片级微投影（v0.2 新增）：bg-page 灰底上的白卡（文章卡/输入卡/启动卡/预览画布/门禁滑出面板），blur 2px 物理暗示不越幽灵卡红线",
+      "darkOverride": true
+    },
     "overlay": {
       "css": "0 8px 24px rgba(15, 17, 21, 0.12)",
       "host": null,
@@ -386,12 +412,14 @@
   },
 
   "layout": {
-    "$comment": "面板级布局常量（面板寄生在 DSH 中心栏，无自有视口，不设 container-max）。",
-    "header-h":    { "value": "48px", "type": "dimension", "usage": "面板顶栏（二级 Tab 条）高度" },
+    "$comment": "面板级布局常量（面板寄生在 DSH 中心栏，无自有视口，不设 container-max）。v0.2 新增 toolrow-h / content-pad-bottom（uiux-redesign-v2 §2-2）；header-h 语义待 v0.2 前端落 40px 顶栏时同步改值 40px（本表当前值 48px 对应 v0.1 现状，改值归前端施工批次）。",
+    "header-h":    { "value": "48px", "type": "dimension", "usage": "面板顶栏（二级 Tab 条）高度（v0.1 现状；v0.2 新 IA 定稿为 40px，与 toolrow-h 合流后由前端同步改值）" },
     "row-h":       { "value": "44px", "type": "dimension", "usage": "列表行高（触摸目标底线，44×44px WCAG 2.5.5）" },
     "canvas-w":    { "value": "375px", "type": "dimension", "usage": "微信预览画布固定宽（iPhone 基准）" },
     "page-pad":    { "value": "24px", "type": "dimension", "usage": "页面内容区左右内边距" },
-    "editor-pad":  { "value": "20px", "type": "dimension", "usage": "编辑器双栏各自内边距" }
+    "editor-pad":  { "value": "20px", "type": "dimension", "usage": "编辑器双栏各自内边距" },
+    "toolrow-h":   { "value": "40px", "type": "dimension", "usage": "页头工具行高（v0.2 新增）：顶栏（4 导航对象）与各页 pagebar 共用的紧凑行高——页头与动作合并一行" },
+    "content-pad-bottom": { "value": "96px", "type": "dimension", "usage": "内容区底部兜底（v0.2 新增）：吸收宿主 composer 遮挡（实测 60-80px）+ 呼吸位；Toast 抬高与进度卡锚点同源此值" }
   },
 
   "breakpoint": {

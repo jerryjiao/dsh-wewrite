@@ -5,16 +5,40 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ARTICLE_STATUS_LABEL, RUN_STATUS_LABEL } from '../lib/format';
 import type { ArticleStatus, RunStatus } from '../lib/format';
 import { Icon } from './Icon';
+import type { IconName } from './Icon';
 
 /**
  * 通用四态件与小组件（官方缺位处自建，全部挂 --ww-* token）。
  * 状态点语言（DESIGN §4.4）：形状+颜色双重冗余，StateDot aria-hidden 配文字。
  */
 
-export function EmptyState({ icon, title, action }: { icon: ReactNode; title: string; action?: ReactNode }) {
+/**
+ * 空态（v2 §3-03 组合 glyph）：40px 圆形容器（sunken 底）承载主 icon 20px，
+ * 右下角叠次 icon 12px（--ww-bg-page 描边圆）；hero = 大居中版（空页面主舞台）。
+ */
+export function EmptyState({
+  icon,
+  title,
+  action,
+  subIcon,
+  hero,
+}: {
+  icon: ReactNode;
+  title: string;
+  action?: ReactNode;
+  subIcon?: IconName;
+  hero?: boolean;
+}) {
   return (
-    <div className="ww-empty">
-      <span className="ww-empty__icon">{icon}</span>
+    <div className={hero ? 'ww-empty ww-empty--hero' : 'ww-empty'}>
+      <span className="ww-empty__glyph">
+        {icon}
+        {subIcon ? (
+          <span className="ww-empty__glyph-sub">
+            <Icon name={subIcon} size={12} />
+          </span>
+        ) : null}
+      </span>
       <p className="ww-empty__title">{title}</p>
       {action ? <div className="ww-empty__actions">{action}</div> : null}
     </div>
@@ -117,14 +141,4 @@ export function runStatusBadge(status: RunStatus): { tone: BadgeTone; label: str
     case 'interrupted':
       return { tone: 'warning', label: RUN_STATUS_LABEL.interrupted };
   }
-}
-
-/** 页内区块标题（左标题 + 右侧辅助行）。 */
-export function SectionHeader({ title, aside }: { title: string; aside?: ReactNode }) {
-  return (
-    <div className="ww-section-head">
-      <h3 className="ww-section-head__title">{title}</h3>
-      {aside ? <div className="ww-section-head__aside">{aside}</div> : null}
-    </div>
-  );
 }

@@ -7,6 +7,8 @@ import {
   rpcContract,
   RunParamsSchema,
   HotspotItemSchema,
+  HotspotDigestItemSchema,
+  HotspotItemDigestSchema,
   ArticleListItemSchema,
   ArticleDetailSchema,
   RunSummarySchema,
@@ -16,9 +18,9 @@ import {
 } from '@/shared/contract';
 
 /**
- * 契约测试：Spec §5 端点清单（18 行表格，实际 20 个端点）的可执行形态。
+ * 契约测试：Spec §5 端点清单的可执行形态（20 个 + uiux v0.3 增补 hotspots/digestItem、article/rewrite = 22）。
  * 本文件钉定 src/shared/contract.ts 必须导出的形状——Phase 3 按此实现。
- * 断言依据：docs/spec.md §5、docs/tech-architecture.md §6。
+ * 断言依据：docs/spec.md §5、docs/tech-architecture.md §6、docs/redesign/uiux-v0.3.md §1/§3。
  */
 
 const runParams = () => ({
@@ -100,11 +102,13 @@ const snapshotResponse = () => ({
 const EXPECTED_ENDPOINTS = [
   'snapshot',
   'hotspots/fetch',
+  'hotspots/digestItem',
   'article/list',
   'article/get',
   'article/save',
   'article/delete',
   'article/preview',
+  'article/rewrite',
   'run/start',
   'run/cancel',
   'schedule/save',
@@ -135,9 +139,10 @@ describe('RPC 通道常量（Spec §5 头部 + 架构 F13）', () => {
     expect(CONTRACT_VERSION).toBe(1);
   });
 
-  it('端点全集精确等于 Spec §5 的 20 个端点，无增无减', () => {
+  it('端点全集精确等于 Spec §5 的 20 个端点 + uiux v0.3 增补 2 个，无增无减', () => {
     expect([...RPC_ENDPOINTS].sort()).toEqual([...EXPECTED_ENDPOINTS].sort());
     expect(Object.keys(rpcContract).sort()).toEqual([...EXPECTED_ENDPOINTS].sort());
+    expect(EXPECTED_ENDPOINTS.length).toBe(22);
   });
 
   it('每个端点同时具备 request 与 response schema', () => {
@@ -177,6 +182,29 @@ const CASES: EndpointCase[] = [
     invalidRequests: [{ limit: 0 }, { limit: -1 }, { limit: 101 }, { limit: '20' }, { limit: 1.5 }],
     validResponse: [{ title: '某热榜标题', source: 'hackernews', rank: 1, url: 'https://news.ycombinator.com/item?id=1' }],
     invalidResponse: [{ title: '缺 url', source: 'hackernews', rank: 1 }],
+  },
+  {
+    endpoint: 'hotspots/digestItem',
+    name: 'hotspots/digestItem：rank/title/url 三键，响应 digest/source/model/generatedAtIso',
+    validRequests: [
+      { rank: 1, title: '某热榜标题', url: 'https://news.ycombinator.com/item?id=1' },
+      { rank: 100, title: '标题百', url: 'https://a.test/100' },
+      { rank: 42, title: '标题', url: 'http://plain.http/also-ok' },
+    ],
+    invalidRequests: [
+      {},
+      { rank: 0, title: '标题', url: 'https://a.test/1' },
+      { rank: 101, title: '标题', url: 'https://a.test/1' },
+      { rank: 1.5, title: '标题', url: 'https://a.test/1' },
+      { rank: 1, title: '', url: 'https://a.test/1' },
+      { rank: 1, title: 'x'.repeat(501), url: 'https://a.test/1' },
+      { rank: 1, title: '标题' },
+      { rank: 1, title: '标题', url: 5 },
+      { rank: 1, title: '标题', url: 'not-a-url' },
+      { rank: 1, title: '标题', url: 'ftp://scheme-not-allowed/' },
+    ],
+    validResponse: { digest: '这条在讲什么：某引擎开源。', source: 'article', model: 'glm-4.5-flash', generatedAtIso: '2026-08-20T12:00:00.000Z' },
+    invalidResponse: { digest: '', source: 'rss', model: 'glm-4.5-flash', generatedAtIso: 'not-a-date' },
   },
   {
     endpoint: 'article/list',
@@ -230,6 +258,29 @@ const CASES: EndpointCase[] = [
     ],
     validResponse: { html: '<section style="...">hi</section>' },
     invalidResponse: { html: 42 },
+  },
+  {
+    endpoint: 'article/rewrite',
+    name: 'article/rewrite：text/instruction 必填、title 可选，响应只含改写文本',
+    validRequests: [
+      { text: '一段待改写文本。', instruction: '更口语' },
+      { text: '一段待改写文本。', instruction: '更口语', title: '文章题名' },
+      { text: 'x'.repeat(8000), instruction: 'y'.repeat(200) },
+      { text: '一段待改写文本。', instruction: '更口语', title: '' },
+    ],
+    invalidRequests: [
+      {},
+      { text: 'x' },
+      { instruction: 'x' },
+      { text: '', instruction: '更口语' },
+      { text: 'x'.repeat(8001), instruction: '更口语' },
+      { text: 'x', instruction: '' },
+      { text: 'x', instruction: 'y'.repeat(201) },
+      { text: 'x', instruction: 'y', title: 't'.repeat(201) },
+      { text: 'x', instruction: 'y', title: 7 },
+    ],
+    validResponse: { text: '改写后的文本，可含 Markdown 结构。' },
+    invalidResponse: { text: '' },
   },
   {
     endpoint: 'run/start',
@@ -465,6 +516,26 @@ describe('视图模型 schema 细项', () => {
     expect(HotspotItemSchema.safeParse(item).success).toBe(true);
     expect(HotspotItemSchema.safeParse({ ...item, extra: 1 }).success).toBe(false);
     expect(HotspotItemSchema.safeParse({ title: 't', source: 's', rank: 1 }).success).toBe(false);
+  });
+
+  it('HotspotDigestItemSchema：rank 1-100 整数、title 非空、多余键拒（v0.3 digestItem 请求条目）', () => {
+    const item = { rank: 1, title: '某热榜标题', url: 'https://x.example.test/a' };
+    expect(HotspotDigestItemSchema.safeParse(item).success).toBe(true);
+    expect(HotspotDigestItemSchema.safeParse({ ...item, extra: 1 }).success).toBe(false);
+    expect(HotspotDigestItemSchema.safeParse({ rank: 1, title: 't' }).success).toBe(false);
+    expect(HotspotDigestItemSchema.safeParse({ ...item, rank: 0 }).success).toBe(false);
+    expect(HotspotDigestItemSchema.safeParse({ ...item, rank: 1.5 }).success).toBe(false);
+  });
+
+  it('HotspotItemDigestSchema：digest 非空、source 仅 article|title、generatedAtIso 必须 ISO（v0.3 §1）', () => {
+    const digest = { digest: '这条在讲什么：某引擎开源。', source: 'article', model: 'glm-4.5-flash', generatedAtIso: '2026-08-20T12:00:00.000Z' };
+    expect(HotspotItemDigestSchema.safeParse(digest).success).toBe(true);
+    expect(HotspotItemDigestSchema.safeParse({ ...digest, source: 'title' }).success).toBe(true);
+    expect(HotspotItemDigestSchema.safeParse({ ...digest, digest: '' }).success).toBe(false);
+    expect(HotspotItemDigestSchema.safeParse({ ...digest, source: 'rss' }).success).toBe(false);
+    expect(HotspotItemDigestSchema.safeParse({ ...digest, generatedAtIso: '2026-08-20 12:00' }).success).toBe(false);
+    expect(HotspotItemDigestSchema.safeParse({ ...digest, extra: 1 }).success).toBe(false);
+    expect(HotspotItemDigestSchema.safeParse({ digest: 'd', source: 'article', model: 'm' }).success).toBe(false);
   });
 
   it('ArticleListItemSchema：status 枚举 editing|rendered|pushed|failed', () => {

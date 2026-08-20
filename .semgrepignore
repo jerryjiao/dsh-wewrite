@@ -1,0 +1,3 @@
+# dist-committed 构建产物（esbuild 压缩 bundle）：CodeMirror/zod 压缩码触发 parse/readNode 注入污点误报
+# 源码真身在 src/，产物由 CI 与本地 build 再生
+lib/

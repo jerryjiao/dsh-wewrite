@@ -7,14 +7,14 @@ const base = import.meta.env.BASE_URL;
 const smallFeatures = [
   {
     icon: 'flame',
-    title: '热榜选题',
-    body: '内置 Hacker News（官方 API，无需 key），可配 DailyHotApi 兼容的自建聚合源。单源失败只标记该源，不清空面板。',
+    title: '热榜选题 + 逐条 AI 速览',
+    body: '内置 Hacker News（官方 API，无需 key），可配自建聚合源。点开任意条目，AI 抓取原文给出中文速览（这条在讲什么 + 具体要点），抓不到原文自动降级为标题解读；点开才生成，当日缓存。',
     wide: false,
   },
   {
     icon: 'file-pen',
-    title: '编辑器与微信预览',
-    body: 'CodeMirror 改稿，右侧 375px 微信预览，预览 HTML 与推送载荷字节一致——所见即所推。三套排版主题可换。',
+    title: '编辑器 + AI 选中改写',
+    body: 'CodeMirror 改稿，右侧微信预览与推送载荷字节一致——所见即所推。选中一段文字点「AI 改写」，一句话指令只重写选中段，Ctrl+Z 可撤销，全文其余部分不动。',
     wide: false,
   },
   {
@@ -32,7 +32,7 @@ const smallFeatures = [
   {
     icon: 'cpu',
     title: '模型原生复用',
-    body: '不另建模型账号体系。管线文本步直接用 DSH 配置的模型，单次运行可覆盖 provider / model。',
+    body: '不另建模型账号体系。管线文本步、逐条速览、AI 改写全部直接用 DSH 配置的模型，单次运行可覆盖 provider / model。侧边栏底部「打开写作台」可跳过会话一键全屏进入。',
     wide: true,
   },
 ];
@@ -68,12 +68,12 @@ const flowSteps = ['选题', '大纲', '成稿', '门禁', '渲染', '配图'];
     <figure class="feat-shot">
       <img
         src={`${base}screenshots/04-editor.png`}
-        alt="编辑器界面：左栏 Markdown 改稿，右栏微信预览显示同名文章的排版效果，顶部有门禁报告与推草稿箱按钮"
+        alt="编辑器双栏视图：左 Markdown 改稿，右微信预览，顶栏一行含标题、三视图切换与推草稿箱按钮"
         width="1440"
         height="900"
         loading="lazy"
       />
-      <figcaption>编辑器双栏实景（v0.1.4 真机）：左侧 CodeMirror Markdown，右侧微信预览——预览 HTML 与推送载荷字节一致。</figcaption>
+      <figcaption>编辑器双栏实景（v0.2.0 真机）：左侧 CodeMirror Markdown，右侧微信预览——预览 HTML 与推送载荷字节一致。</figcaption>
     </figure>
 
     <div class="feat-grid">

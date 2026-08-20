@@ -4,12 +4,14 @@ import type { HotspotItem } from '@/shared/contract';
 import { describeRpcFailure, WewriteRpcError } from '../lib/rpc';
 import { domainOf, formatTime, hotspotSourceLabel } from '../lib/format';
 import { EmptyState, ErrorNote, SkeletonRow } from '../components/bits';
+import { HotspotItemDigest } from '../components/HotspotItemDigest';
 import { Icon } from '../components/Icon';
 import { useStore } from '../store';
 
 /**
  * 选题中心（DESIGN §9.2）：左热榜列表（行 44px 按热度排序）+ 右「我的选题关键词」窄栏。
  * 命中关键词的行底 --ww-accent-subtle；「写这个」带 topic 直进生成流程。
+ * v0.3 R1：行展开区 = 原文链接行 + 逐条 AI 速览块（HotspotItemDigest，懒加载+逐条缓存）。
  */
 
 const KEYWORDS_STORAGE_KEY = 'dsh-wewrite.hotspot-keywords';
@@ -85,16 +87,19 @@ export function HotspotsPanel() {
   return (
     <div className={store.narrow ? 'ww-hotspots ww-hotspots--narrow' : 'ww-hotspots'}>
       <div className="ww-hotspots__main">
-        <div className="ww-page-head">
-          <h2 className="ww-page-title">选题中心 · 热门榜</h2>
-          <div className="ww-page-head__aside">
-            {state.status === 'ready' ? <span className="ww-page-meta">更新于 {formatTime(state.fetchedAtIso)}</span> : null}
-            <Button variant="ghost" size="sm" icon={<Icon name={state.status === 'loading' ? 'loader-circle' : 'refresh-cw'} size={16} className={state.status === 'loading' ? 'ww-spin' : undefined} />} onClick={() => void fetchHotspots()}>
-              {t('action.refresh')}
-            </Button>
-          </div>
+        <div className="ww-pagebar">
+          <h2 className="ww-pagebar__title">热门榜</h2>
+          {state.status === 'ready' ? (
+            <>
+              <span className="ww-pagebar__count">· {visible.length}</span>
+              <span className="ww-pagebar__meta">更新于 {formatTime(state.fetchedAtIso)}</span>
+            </>
+          ) : null}
+          <div className="ww-pagebar__spacer" />
+          <Button variant="ghost" size="sm" icon={<Icon name={state.status === 'loading' ? 'loader-circle' : 'refresh-cw'} size={16} className={state.status === 'loading' ? 'ww-spin' : undefined} />} onClick={() => void fetchHotspots()}>
+            {t('action.refresh')}
+          </Button>
         </div>
-
         {state.status === 'idle' || state.status === 'loading' ? (
           <div>
             <SkeletonRow />
@@ -119,6 +124,7 @@ export function HotspotsPanel() {
           ) : (
             <EmptyState
               icon={<Icon name="inbox" size={20} />}
+              subIcon="sparkles"
               title="热榜还没拉取。点击刷新，或检查设置里的数据源配置。"
               action={<Button variant="outline" size="sm" onClick={() => navigate({ kind: 'settings' })}>{t('action.goSettings')}</Button>}
             />
@@ -127,32 +133,38 @@ export function HotspotsPanel() {
           <ul className="ww-hotspot-list">
             {visible.map((item) => (
               <li key={`${item.source}-${item.rank}-${item.title}`} className={hit(item) ? 'ww-hotspot ww-hotspot--hit' : 'ww-hotspot'}>
-                <button
-                  type="button"
-                  className="ww-hotspot__row"
-                  aria-expanded={expanded === item.title}
-                  onClick={() => setExpanded(expanded === item.title ? null : item.title)}
-                >
-                  <span className="ww-hotspot__rank">#{item.rank}</span>
-                  <span className="ww-hotspot__title">{item.title}</span>
-                  <span className="ww-hotspot__meta">
-                    {hotspotSourceLabel(item.source)} · {domainOf(item.url)}
-                  </span>
-                  <Icon name={expanded === item.title ? 'chevron-down' : 'chevron-right'} size={16} />
-                </button>
+                <div className="ww-hotspot__liner">
+                  <button
+                    type="button"
+                    className="ww-hotspot__row"
+                    aria-expanded={expanded === item.title}
+                    onClick={() => setExpanded(expanded === item.title ? null : item.title)}
+                  >
+                    <span className="ww-hotspot__rank">#{item.rank}</span>
+                    <span className="ww-hotspot__title">{item.title}</span>
+                    <span className="ww-hotspot__meta">
+                      {hotspotSourceLabel(item.source)} · {domainOf(item.url)}
+                    </span>
+                    <Icon name={expanded === item.title ? 'chevron-down' : 'chevron-right'} size={16} />
+                  </button>
+                  {/* L5 动作前置：hover/键盘聚焦行时可见「写这个」，单击即以该条目为题启动管线 */}
+                  <button
+                    type="button"
+                    className="ww-hotspot__write"
+                    aria-label={`写这个：${item.title}`}
+                    onClick={() => void startGeneration({ topicMode: 'fixed', topic: item.title }, item.title)}
+                  >
+                    <Icon name="pen-line" size={16} />
+                    <span>{t('action.writeThis')}</span>
+                  </button>
+                </div>
                 {expanded === item.title ? (
                   <div className="ww-hotspot__expand">
+                    {/* 展开区垂直秩序：原文链接（确定性信息）在上，AI 速览（机器生成）在下 */}
                     <a className="ww-link" href={item.url} target="_blank" rel="noreferrer">
                       <Icon name="external-link" size={16} /> 原文链接（{domainOf(item.url)}）
                     </a>
-                    <div className="ww-hotspot__actions">
-                      <Button variant="ghost" size="sm" icon={<Icon name="pen-line" size={16} />} onClick={() => void startGeneration({ topicMode: 'fixed', topic: item.title }, item.title)}>
-                        {t('action.writeThis')}
-                      </Button>
-                      <Button variant="ghost" size="sm" icon={<Icon name="bookmark" size={16} />}>
-                        {t('action.bookmark')}
-                      </Button>
-                    </div>
+                    <HotspotItemDigest item={item} />
                   </div>
                 ) : null}
               </li>
@@ -165,10 +177,21 @@ export function HotspotsPanel() {
         <h3 className="ww-aside-title">我的选题关键词</h3>
         <div className="ww-keywords">
           {keywords.map((word) => (
-            <Pill key={word} onClick={() => setKeywords((current) => current.filter((item) => item !== word))}>
-              {word}
-              <Icon name="x" size={16} />
-            </Pill>
+            /* P5：Pill 本体不再整删（静态 chip），删除收敛到独立 × 按钮（真 button + aria-label） */
+            <span className="ww-keyword" key={word}>
+              <Pill>
+                {word}
+                <button
+                  type="button"
+                  className="ww-keyword__x"
+                  aria-label={`移除关键词「${word}」`}
+                  data-testid="ww-keyword-remove"
+                  onClick={() => setKeywords((current) => current.filter((item) => item !== word))}
+                >
+                  <Icon name="x" size={16} />
+                </button>
+              </Pill>
+            </span>
           ))}
           {keywords.length === 0 ? <p className="ww-aside-empty">还没有订阅关键词。添加后命中的条目会高亮。</p> : null}
         </div>

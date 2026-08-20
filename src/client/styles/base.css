@@ -19,6 +19,7 @@
 
 .ww-root,
 .ww-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -29,115 +30,48 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--ww-space-6);
-  padding-top: var(--ww-space-5);
+  /* v0.2 底色分区（uiux-redesign-v2 §1a-2）：冷灰工作台底，白卡浮其上 */
+  background: var(--ww-bg-page);
+  padding: var(--ww-space-5) var(--ww-space-6) var(--ww-content-pad-bottom);
+  scroll-padding-bottom: var(--ww-content-pad-bottom);
 }
 
-/* ---------- 顶栏 Tab 条 ---------- */
+/* 工作区路由满铺态（uiux-workbench-delta §2-3）：padding 归零，左栏与主区各自管理内边距与滚动 */
+.ww-content--flush {
+  padding: 0;
+  display: flex;
+  overflow: hidden;
+  background: var(--ww-bg-page);
+}
 
-.ww-tabbar {
+/* ---------- 页头工具行（v2 §1a-2：标题与动作合并 40px 单行，无独立大标题行） ---------- */
+
+.ww-pagebar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  height: var(--ww-header-h);
-  min-height: var(--ww-header-h);
-  padding: 0 var(--ww-space-4) 0 var(--ww-space-6);
-  border-bottom: var(--ww-border-width) solid var(--ww-border-strong);
-  background: var(--ww-bg);
-  position: sticky;
-  top: 0;
-  z-index: var(--ww-z-sticky);
-}
-
-.ww-tabbar__nav {
-  display: flex;
-  gap: var(--ww-space-2);
-  min-width: 0;
-}
-
-.ww-tab {
-  appearance: none;
-  border: none;
-  background: none;
-  color: var(--ww-fg-secondary);
-  font: inherit;
-  padding: 0 var(--ww-space-3);
-  height: var(--ww-header-h);
-  display: inline-flex;
-  align-items: center;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: color var(--ww-motion-base) var(--ww-ease), border-color var(--ww-motion-base) var(--ww-ease);
-}
-
-.ww-tab:hover { color: var(--ww-fg); }
-
-.ww-tab--active {
-  color: var(--ww-fg);
-  font-weight: var(--ww-weight-medium);
-  border-bottom-color: var(--ww-accent);
-}
-
-.ww-tabbar__conn {
-  appearance: none;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: var(--ww-text-sm);
-  color: var(--ww-fg-secondary);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ww-space-2);
-  padding: var(--ww-space-2) var(--ww-space-3);
-  border-radius: var(--ww-radius-md);
-  cursor: pointer;
-  transition: background var(--ww-motion-fast) var(--ww-ease);
-}
-
-.ww-tabbar__conn:hover { background: var(--ww-interactive-hover); }
-
-/* ---------- 页面骨架通用 ---------- */
-
-.ww-page-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: var(--ww-space-3);
+  min-height: var(--ww-toolrow-h);
   margin-bottom: var(--ww-space-4);
 }
 
-.ww-page-title {
-  margin: 0;
-  font-size: var(--ww-text-lg);
-  font-weight: var(--ww-weight-medium);
-  letter-spacing: var(--ww-tracking-none);
-}
-
-.ww-page-head__aside {
-  display: flex;
-  align-items: center;
-  gap: var(--ww-space-2);
-}
-
-.ww-page-meta {
-  font-size: var(--ww-text-sm);
-  color: var(--ww-fg-tertiary);
-}
-
-.ww-section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: var(--ww-space-3);
-}
-
-.ww-section-head__title {
+.ww-pagebar__title {
   margin: 0;
   font-size: var(--ww-text-md);
   font-weight: var(--ww-weight-medium);
 }
 
-.ww-section-head__aside { font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); }
+.ww-pagebar__count {
+  font-family: var(--ww-font-code);
+  font-size: var(--ww-text-sm);
+  color: var(--ww-fg-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ww-pagebar__meta { font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); }
+
+.ww-pagebar__spacer { flex: 1; }
+
+.ww-pagebar__aside { display: flex; align-items: center; gap: var(--ww-space-2); }
 
 .ww-link {
   appearance: none;
@@ -195,7 +129,8 @@
 .dsh-wewrite-panel [tabindex]:focus-visible {
   outline: none;
   box-shadow: var(--ww-focus-ring);
-  border-radius: var(--ww-radius-sm);
+  /* v0.2（uiux-redesign-v2 §3-10）：inherit 跟随元素自身圆角，消除聚焦瞬间 4px 跳变 */
+  border-radius: inherit;
 }
 
 @keyframes ww-spin { to { transform: rotate(360deg); } }
