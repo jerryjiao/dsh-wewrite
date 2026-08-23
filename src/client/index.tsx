@@ -1,9 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { WewriteApp } from './App';
 import type { ClientContext, SidebarFooterActionProps, WewriteViewProps } from './lib/context';
 import { createRpc } from './lib/rpc';
 import { Icon } from './components/Icon';
 import { LOCALE_NAMESPACE, en, zh } from './lib/i18n';
+import {
+  focusOverlayEntry,
+  isOverlayOpen,
+  markOverlayAvailable,
+  setOverlayEntryButtonEl,
+  setOverlayOpen,
+  useOverlayOpen,
+} from './chat/overlay-bridge';
+import { registerChat } from './chat/register-chat';
+import { registerComposer } from './composer/register-composer';
 
 /**
  * WeWrite client 入口（宿主 Cordis 调 apply(ctx)）。
@@ -14,41 +24,22 @@ import { LOCALE_NAMESPACE, en, zh } from './lib/i18n';
  *   3) shell.overlay：写作台全屏浮层（closed 渲染 null，open 内嵌完整 WewriteApp）。
  *   各注册独立 try/catch，失败降级 console.warn（平台防御：宿主 slot 面变化不炸插件）。
  * - ctx.locale.register：zh/en 词典（zh 为主，en 结构预留）。
+ * - chat/composer 装配（chat-integration M2/M3）：registerChat/registerComposer
+ *   各自内部全 try/catch 降级（D3-D5/D7-D10），失败不影响写作台三入口。
  * - ctx.effect 登记清理：宿主停用时反注册全部 slot 与词典。
+ * - 浮层开合/定位意图桥抽至 chat/overlay-bridge.ts（M2，无 intent 路径行为等价）。
  */
 
 function warnDegraded(action: string, error: unknown): void {
   console.warn(`[dsh-wewrite] ${action} 失败，已降级跳过`, error);
 }
 
-// ── 浮层开合桥（v0.3 R2） ──────────────────────────────────────────────────────
-// 入口按钮（sidebar footer）与浮层（shell.overlay）由宿主挂在不同容器，不共享
-// React 树——用最小模块级事件桥同步开合态（自选最朴素方案，无状态库）。
-let overlayOpen = false;
-const overlayListeners = new Set<() => void>();
-/** 入口按钮 DOM 引用：浮层关闭时还原焦点（设计师 advisory）。 */
-let entryButtonEl: HTMLButtonElement | null = null;
-
-function setOverlayOpen(next: boolean): void {
-  if (overlayOpen === next) return;
-  overlayOpen = next;
-  overlayListeners.forEach((listener) => listener());
-}
-
-function useOverlayOpen(): boolean {
-  const [open, setOpen] = useState(overlayOpen);
-  useEffect(() => {
-    const listener = () => setOpen(overlayOpen);
-    overlayListeners.add(listener);
-    return () => {
-      overlayListeners.delete(listener);
-    };
-  }, []);
-  return open;
-}
-
 // 宿主 loader 契约（dsh-automation 真身同款）：ctx 服务访问权由 inject 数组授予，
 // 缺声明即 "cannot get property X without inject"（2026-08-19 实拍踩中）。
+// P0-1 教训（2026-08-20 QA 打回）：rc.7 cordis 不解析 `?` 可选后缀，静态声明
+// conversationEvents?/inputTriggers? 会被当真服务名永久等待 → 整个 client 不激活。
+// 故保持 v0.1.4 已验证的最小集；两服务改在 registerChat/registerComposer 内经
+// ctx.inject 动态子 fiber 探测（缺服务休眠不炸 boot，方案 b，见各自注释）。
 export const name = 'dsh-wewrite-client';
 export const inject = ['slots', 'locale', 'connection'];
 
@@ -86,9 +77,9 @@ export function apply(ctx: ClientContext): void {
           aria-label="打开写作台"
           aria-expanded={open}
           ref={(node) => {
-            entryButtonEl = node;
+            setOverlayEntryButtonEl(node);
           }}
-          onClick={() => setOverlayOpen(!overlayOpen)}
+          onClick={() => setOverlayOpen(!isOverlayOpen())}
         >
           <Icon name="pen-line" size={wide ? 16 : 20} />
           {wide ? <span className="ww-sidebar-entry__label">{fallbackT('panel.label')}</span> : null}
@@ -105,7 +96,7 @@ export function apply(ctx: ClientContext): void {
 
     useEffect(() => {
       if (open) closeRef.current?.focus();
-      else entryButtonEl?.focus();
+      else focusOverlayEntry();
     }, [open]);
 
     if (!open) return null;
@@ -174,8 +165,24 @@ export function apply(ctx: ClientContext): void {
       { name: 'shell.overlay', id: 'wewrite', order: 100, label: () => fallbackT('panel.label') },
       WewriteOverlay,
     );
+    markOverlayAvailable(true);
   } catch (error) {
     warnDegraded('slots.register（shell.overlay）', error);
+    // D3：overlay 槽缺失 → 聊天卡「打开写作台」按钮隐藏（openOverlayWithArticle 不可达）。
+    markOverlayAvailable(false);
+  }
+
+  // chat-integration 装配（M2 聊天卡/产物行 + M3 composer/命令/引用）：
+  // 全部在各自 register 内 try/catch 降级，任一失败不影响上方三槽与词典。
+  try {
+    registerChat(ctx, rpc);
+  } catch (error) {
+    warnDegraded('registerChat', error);
+  }
+  try {
+    registerComposer(ctx, rpc);
+  } catch (error) {
+    warnDegraded('registerComposer', error);
   }
 
   ctx.effect(

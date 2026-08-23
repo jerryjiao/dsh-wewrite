@@ -28,9 +28,14 @@
 /* ============================================================
  * 1. 颜色 — accent（宿主 deepseek 品牌蓝，纯色平涂）
  * ========================================================== */
+/* chat-integration（M2/M3，uiux §3.2）：.ww-chatcard（对话流卡片）与
+ * .ww-composer-entry（composer 工具行控件）并入同一选择器组——同一份定义、
+ * 多挂载域，单一真源不分裂（不带 dsh-wewrite-panel 类，理由同 sidebar/overlay）。 */
 .dsh-wewrite-panel,
 .ww-sidebar-entry,
-.ww-overlay {
+.ww-overlay,
+.ww-chatcard,
+.ww-composer-entry {
   /* 主操作色：主 CTA / 选中 Tab。宿主 light=deepseek-500 #4176E6 / dark=deepseek-400 #679EFE */
   --ww-accent: var(--dsw-alias-button-info-fill);
   /* 悬停态（宿主深浅主题下明暗方向相反，自动跟随）。light #679EFE / dark #4176E6 */
@@ -232,7 +237,9 @@
  * ========================================================== */
 body[data-ds-dark-theme] .dsh-wewrite-panel,
 body[data-ds-dark-theme] .ww-sidebar-entry,
-body[data-ds-dark-theme] .ww-overlay {
+body[data-ds-dark-theme] .ww-overlay,
+body[data-ds-dark-theme] .ww-chatcard,
+body[data-ds-dark-theme] .ww-composer-entry {
   /* 焦点环换 deepseek-400 基调提亮 */
   --ww-accent-ring: rgba(103, 158, 254, 0.40);
   /* 浮层阴影加深（深色下浅阴影不可见） */
@@ -250,7 +257,11 @@ body[data-ds-dark-theme] .ww-overlay {
   .ww-sidebar-entry,
   .ww-sidebar-entry *,
   .ww-overlay,
-  .ww-overlay * {
+  .ww-overlay *,
+  .ww-chatcard,
+  .ww-chatcard *,
+  .ww-composer-entry,
+  .ww-composer-entry * {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

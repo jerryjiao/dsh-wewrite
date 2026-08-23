@@ -8,6 +8,7 @@ import { PipelineStepper } from './components/PipelineStepper';
 import { ProgressCard } from './components/ProgressCard';
 import { ToastHost } from './components/Toast';
 import { useStore, WewriteProvider } from './store';
+import { useOverlayIntent } from './chat/overlay-bridge';
 import { WorkbenchPanel } from './panels/workbench-panel';
 import { HotspotsPanel } from './panels/hotspots-panel';
 import { SchedulePanel } from './panels/schedule-panel';
@@ -137,6 +138,9 @@ function PanelChrome() {
   const store = useStore();
   const { route, navigate, snapshot, refreshSnapshot, toastMessages, dismissToast, generation, activeRun } = store;
   const [progressCardOpen, setProgressCardOpen] = useState(true);
+
+  // 聊天卡点击 → 写作台定位（AC-M2-04）：消费一次性 overlayIntent，路由到该文章。
+  useOverlayIntent(navigate);
 
   useEffect(() => {
     void refreshSnapshot();
