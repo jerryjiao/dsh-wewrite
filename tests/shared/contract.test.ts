@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   RPC_AUTHORITY,
   RPC_CHANNEL,
@@ -16,11 +16,15 @@ import {
   ConfigViewSchema,
   SnapshotResponseSchema,
 } from '@/shared/contract';
+import type { ConnectionRpcService } from '@/host/platform';
+import type { WeWriteService } from '@/host/service';
+import { registerWewriteRpc } from '@/host/rpc';
 
 /**
- * 契约测试：Spec §5 端点清单的可执行形态（20 个 + uiux v0.3 增补 hotspots/digestItem、article/rewrite = 22）。
- * 本文件钉定 src/shared/contract.ts 必须导出的形状——Phase 3 按此实现。
- * 断言依据：docs/spec.md §5、docs/tech-architecture.md §6、docs/redesign/uiux-v0.3.md §1/§3。
+ * 契约测试：Spec §5 端点清单的可执行形态（20 个 + uiux v0.3 增补 2 个 = 22；
+ * chat-integration 增补 run/detail = 23）。本文件钉定 src/shared/contract.ts 必须导出的
+ * 形状——Phase 3 按此实现。断言依据：docs/pipeline-chat/spec.md §5、
+ * docs/pipeline-chat/architecture.md §2/§7（run/detail 纯新增，22 端点原样）、坑#dsh-rpc-envelope。
  */
 
 const runParams = () => ({
@@ -111,6 +115,7 @@ const EXPECTED_ENDPOINTS = [
   'article/rewrite',
   'run/start',
   'run/cancel',
+  'run/detail',
   'schedule/save',
   'schedule/delete',
   'schedule/toggle',
@@ -139,10 +144,10 @@ describe('RPC 通道常量（Spec §5 头部 + 架构 F13）', () => {
     expect(CONTRACT_VERSION).toBe(1);
   });
 
-  it('端点全集精确等于 Spec §5 的 20 个端点 + uiux v0.3 增补 2 个，无增无减', () => {
+  it('端点全集精确等于 22 既有端点 + chat-integration 增补 run/detail，无增无减（AC-M2-01）', () => {
     expect([...RPC_ENDPOINTS].sort()).toEqual([...EXPECTED_ENDPOINTS].sort());
     expect(Object.keys(rpcContract).sort()).toEqual([...EXPECTED_ENDPOINTS].sort());
-    expect(EXPECTED_ENDPOINTS.length).toBe(22);
+    expect(EXPECTED_ENDPOINTS.length).toBe(23);
   });
 
   it('每个端点同时具备 request 与 response schema', () => {
@@ -307,6 +312,37 @@ const CASES: EndpointCase[] = [
     invalidRequests: [{}, { runId: 42 }],
     validResponse: { ok: true },
     invalidResponse: { ok: 'true' },
+  },
+  {
+    endpoint: 'run/detail',
+    name: 'run/detail：runId/callId 二选一，响应 = RunSummary + steps[] + topic（AC-M2-01 运行卡消费面）',
+    // 联调返工修正：request 扩 {runId?}|{callId?} 二选一——M2 运行卡 callId 兜底链
+    // （presentCall 先于 execute 拿不到 runId，前端按 args.runId→rawInput.runId→callId 兜底）。
+    validRequests: [
+      { runId: 'run_42' },
+      { runId: 'run_x' },
+      { callId: 'call_9' },
+      { callId: 'toolu_01ABC' },
+    ],
+    invalidRequests: [
+      {},
+      { runId: 42 },
+      { runId: '' },
+      { runId: 'run_42', includeSteps: true },
+      { runId: 'run_42', callId: 'call_9' },
+      { callId: '' },
+    ],
+    validResponse: {
+      ...runSummary(),
+      topic: 'AI 写作管线',
+      steps: [
+        { name: 'topic', status: 'succeeded', startedAt: '2026-08-18T04:00:01.000Z', finishedAt: '2026-08-18T04:00:20.000Z', metrics: { topicSource: 'hackernews', topicUrl: 'https://x.example.test/1' } },
+        { name: 'outline', status: 'running', startedAt: '2026-08-18T04:00:20.000Z' },
+        { name: 'draft', status: 'pending' },
+        { name: 'gates', status: 'failed', startedAt: '2026-08-18T04:02:00.000Z', finishedAt: '2026-08-18T04:03:00.000Z', error: { code: 'gates-failed', message: '质量门禁未通过' } },
+      ],
+    },
+    invalidResponse: { ...runSummary(), topic: '缺 steps 的裸 RunSummary' },
   },
   {
     endpoint: 'schedule/save',
@@ -608,5 +644,84 @@ describe('ConfigViewSchema 脱敏面（AC-5 契约层防御）', () => {
     expect(ConfigViewSchema.safeParse(mk(1000)).success).toBe(true);
     expect(ConfigViewSchema.safeParse(mk(0)).success).toBe(false);
     expect(ConfigViewSchema.safeParse(mk(1001)).success).toBe(false);
+  });
+});
+
+describe('RPC 信封契约（坑#dsh-rpc-envelope：{ok,value}/{ok,error} + 通道前导斜杠，run/detail 同规）', () => {
+  // 信封是 client/host 之间的 wire 契约，唯一实现点在 src/host/rpc.ts 的 handler——
+  // 用假 ConnectionRpcService 捕获 handler 直测（既有「契约钉死」风格，不打真 DSH）。
+
+  const runDetailResponse = () => ({
+    ...runSummary(),
+    topic: 'AI 写作管线',
+    steps: [{ name: 'topic', status: 'succeeded', startedAt: '2026-08-18T04:00:01.000Z' }],
+  });
+
+  function captureHandler() {
+    let handler: ((endpoint: string, payload: unknown, signal: AbortSignal) => Promise<unknown>) | undefined;
+    let channel = '';
+    let authority: string | undefined;
+    const rpc: ConnectionRpcService = {
+      handle: vi.fn((ch: string, h: typeof handler, options: { authority: 'loopback' | 'trusted-host' }) => {
+        channel = ch;
+        authority = options.authority;
+        handler = h;
+        return () => undefined;
+      }) as unknown as ConnectionRpcService['handle'],
+    };
+    const service = {
+      runDetail: vi.fn(async () => runDetailResponse()),
+    } as unknown as WeWriteService;
+    return {
+      rpc,
+      service,
+      call: (endpoint: string, payload: unknown) => {
+        if (!handler) throw new Error('handler 未被注册');
+        return handler(endpoint, payload, new AbortController().signal);
+      },
+      registered: () => ({ channel, authority, hasHandler: typeof handler === 'function' }),
+    };
+  }
+
+  it('通道前导斜杠 + authority=loopback：run/detail 与既有 22 端点共用同一通道注册', async () => {
+    const cap = captureHandler();
+    await registerWewriteRpc(cap.rpc, cap.service);
+    expect(cap.registered().channel).toBe('/dsh-wewrite');
+    expect(cap.registered().authority).toBe('loopback');
+  });
+
+  it('AC-M2-01: run/detail 合法请求 → 信封 {ok:true,value}，value 过响应 schema，service.runDetail 透传选择器', async () => {
+    const cap = captureHandler();
+    await registerWewriteRpc(cap.rpc, cap.service);
+    const envelope = (await cap.call('run/detail', { runId: 'run_42' })) as { ok: boolean; value?: unknown };
+    expect(cap.service.runDetail).toHaveBeenCalledWith({ runId: 'run_42' });
+    expect(envelope.ok).toBe(true);
+    expect(rpcContract['run/detail'].response.safeParse(envelope.value).success).toBe(true);
+  });
+
+  it('M2 callId 兜底链: run/detail 按 callId 查询 → 透传 {callId} 选择器（runId 直查路径不受影响）', async () => {
+    const cap = captureHandler();
+    await registerWewriteRpc(cap.rpc, cap.service);
+    const envelope = (await cap.call('run/detail', { callId: 'call_9' })) as { ok: boolean; value?: unknown };
+    expect(cap.service.runDetail).toHaveBeenCalledWith({ callId: 'call_9' });
+    expect(envelope.ok).toBe(true);
+    expect(rpcContract['run/detail'].response.safeParse(envelope.value).success).toBe(true);
+  });
+
+  it('既有失败面回归：未知端点按现状契约抛错（不返回裸值——裸值会在客户端 result 联合校验处炸）', async () => {
+    const cap = captureHandler();
+    await registerWewriteRpc(cap.rpc, cap.service);
+    await expect(cap.call('endpoint/does-not-exist', {})).rejects.toThrow(/未知端点/);
+  });
+
+  it('既有失败面回归：请求 schema 不符按现状契约抛错（错误信息含端点名）', async () => {
+    const cap = captureHandler();
+    await registerWewriteRpc(cap.rpc, cap.service);
+    await expect(cap.call('run/start', {})).rejects.toThrow(/run\/start/);
+  });
+
+  it('rpc 服务缺失 → 降级 no-op 不抛错（D 系降级骨架回归，warn 而非炸）', async () => {
+    const service = { runDetail: vi.fn() } as unknown as WeWriteService;
+    await expect(registerWewriteRpc(undefined, service)).resolves.toBeTypeOf('function');
   });
 });

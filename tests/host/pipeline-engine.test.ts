@@ -400,3 +400,82 @@ describe('runHistoryLimit 修剪（Spec §6 runs 表约束）', () => {
     expect(pruneTerminalRuns(runs, 200).map((r: RunRecord) => r.id)).toEqual(['a']);
   });
 });
+
+describe('await done 句柄（chat-integration M1：service.runCompletion 的 engine 侧句柄，architecture §3/§8）', () => {
+  // 钉定 PipelineEngine 新增面：awaitDone(runId): Promise<RunRecord | undefined>
+  // —— 活跃 run 在终态时 resolve 出该 run 的 RunRecord；未知 runId resolve undefined（不挂起不抛错）。
+  // 消费方：service.runCompletion（wewrite_run 工具 execute 等终态用）。六步编排零改（§7 保证 3）。
+
+  /** 第二次 llm 调用（draft 步）挂起直至 release 的可控引擎。 */
+  function makeGatedDeps() {
+    const gate: { release: () => void } = { release: () => undefined };
+    const opened = new Promise<void>((resolve) => {
+      gate.release = resolve;
+    });
+    const llmStream = vi.fn(async () => {
+      if ((llmStream as unknown as { mock: { calls: unknown[][] } }).mock.calls.length === 1) return okTextStream('大纲内容');
+      await opened;
+      return okTextStream('成稿文本，长度足够。');
+    });
+    const deps = makeDeps();
+    return { deps: { ...deps, llm: { stream: llmStream as unknown as PipelineLlm['stream'] } }, release: () => gate.release() };
+  }
+
+  it('begin→done 顺序：done 只在 run 到终态后 resolve，resolve 值为 runId（startRun 即时返回语义不变）', async () => {
+    const { deps, release } = makeGatedDeps();
+    const engine = makeEngine(deps);
+    const { runId, done } = engine.begin({ trigger: 'manual', params: baseParams });
+    expect(typeof runId).toBe('string');
+    expect(deps.store.get(runId)?.status).toBe('running');
+
+    let settled = false;
+    const tracked = done.then((id) => {
+      settled = true;
+      return id;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(settled, 'draft 步挂起期间 done 不得 resolve').toBe(false);
+
+    release();
+    await expect(tracked).resolves.toBe(runId);
+    expect(deps.store.get(runId)?.status).toBe('succeeded');
+  });
+
+  it('cancel 后 done 仍 settle（不悬挂）：run 终态 cancelled', async () => {
+    const { deps, release } = makeGatedDeps();
+    const engine = makeEngine(deps);
+    const { runId, done } = engine.begin({ trigger: 'manual', params: baseParams });
+    engine.cancel(runId);
+    release();
+    await expect(done).resolves.toBe(runId);
+    expect(deps.store.get(runId)?.status).toBe('cancelled');
+  });
+
+  it('runId 未知的 awaitDone 返回 undefined（不挂起、不抛错）', async () => {
+    const engine = makeEngine(makeDeps());
+    await expect(engine.awaitDone('run_never_existed')).resolves.toBeUndefined();
+  });
+
+  it('活跃期 awaitDone(runId) → 终态时 resolve 出该 run 的 RunRecord（与 begin().done 终态一致）', async () => {
+    const { deps, release } = makeGatedDeps();
+    const engine = makeEngine(deps);
+    const { runId } = engine.begin({ trigger: 'manual', params: baseParams });
+    const awaited = engine.awaitDone(runId);
+    release();
+    const record = await awaited;
+    expect(record).toBeDefined();
+    expect(record?.id).toBe(runId);
+    expect(record?.status).toBe('succeeded');
+  });
+
+  it('awaitDone 与 done 双句柄同终态：先 await 任一，另一句柄仍可 settle（工具与 RPC 并行消费）', async () => {
+    const { deps, release } = makeGatedDeps();
+    const engine = makeEngine(deps);
+    const { runId, done } = engine.begin({ trigger: 'manual', params: baseParams });
+    const viaAwaitDone = engine.awaitDone(runId);
+    release();
+    const [record, doneId] = await Promise.all([viaAwaitDone, done]);
+    expect(record?.status).toBe('succeeded');
+    expect(doneId).toBe(runId);
+  });
+});

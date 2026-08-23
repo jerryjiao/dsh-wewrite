@@ -52,7 +52,8 @@ describe('AC-5 凭据 write-only：service 层（qa-test-plan §10-1 补齐）',
 
     const globalState = domain.global.get() as Record<string, unknown>;
     expect(JSON.stringify(globalState)).not.toContain(WECHAT_SECRET);
-    expect(Object.keys(globalState).sort()).toEqual(['claimedOccurrences', 'settings', 'v']);
+    // AC-M1-12 闸门真源标记 agentToolsTouched（非机密布尔）随 v1 global 落库，键集同步
+    expect(Object.keys(globalState).sort()).toEqual(['agentToolsTouched', 'claimedOccurrences', 'settings', 'v']);
     const settingsKeys = Object.keys(globalState.settings as Record<string, unknown>).sort();
     expect(settingsKeys).toEqual(
       [
