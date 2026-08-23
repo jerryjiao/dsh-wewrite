@@ -3,7 +3,7 @@
  * 响应面严格对齐 strict schema：不携带 schema 外字段（credentials 描述符剥 source）。
  */
 
-import type { ArticleDetail, ArticleListItem, ConfigView, CredentialsDescriptor, RunSummary, ScheduleViewModel } from '../shared/contract';
+import type { ArticleDetail, ArticleListItem, ConfigView, CredentialsDescriptor, RunDetail, RunSummary, ScheduleViewModel } from '../shared/contract';
 import type { ArticleRecord, RunRecord, ScheduleRecord, SettingsRecord } from './domain';
 
 export function articleToListItem(record: ArticleRecord): ArticleListItem {
@@ -42,6 +42,22 @@ export function runToSummary(record: RunRecord): RunSummary {
     startedAt: record.startedAt,
     ...(record.finishedAt ? { finishedAt: record.finishedAt } : {}),
     ...(record.error ? { error: { code: record.error.code, message: record.error.message } } : {}),
+  };
+}
+
+/** chat-integration M2：run 详情投影（RunSummary + steps + topic；run/detail RPC 响应形状）。 */
+export function runToDetail(record: RunRecord): RunDetail {
+  return {
+    ...runToSummary(record),
+    topic: record.paramsSnapshot.topic ?? '',
+    steps: record.steps.map((step) => ({
+      name: step.name,
+      status: step.status,
+      ...(step.startedAt ? { startedAt: step.startedAt } : {}),
+      ...(step.finishedAt ? { finishedAt: step.finishedAt } : {}),
+      ...(step.error ? { error: { code: step.error.code, message: step.error.message } } : {}),
+      ...(step.metrics ? { metrics: step.metrics } : {}),
+    })),
   };
 }
 

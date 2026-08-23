@@ -2,18 +2,25 @@
  * dsh-wewrite 宿主插件入口（架构 §3）：只装配，零业务（<100 行纪律）。
  * inject 声明缺失时 Cordis 拒载（loud failure）；服务面在 apply 内再做 feature detection
  * 降级（§9.1）。凭据只经 ctx.credentials，storage 只走 domain（ADR-005/006）。
+ *
+ * inject 含 'commands'（M3 /wewrite）：cordis getter 对未声明服务直接抛
+ * "cannot get property ... without inject"，ctx.commands?. 可选链防不住——必须静态声明。
+ * pending 风险评估（conversationEvents 教训）：dsh-base 是「every dsh profile 的 shared
+ * core」（宿主 dsh-base/cordis.patch.yml 头注释），commands 行在其 bundle 内恒在，
+ * 静态声明不会永久 pending——与 client 侧动态子 fiber 模式的取舍依据即此。
  */
 
 import { z } from 'zod';
 import { domainSpec } from './domain';
 import { resolveLogger, type CredentialsService, type HostContext, type LlmService } from './platform';
+import { registerAgentTools } from './agent-tools';
+import { registerWewriteCommand } from './agent-tools/commands';
 import { registerWewriteRpc } from './rpc';
 import { WeWriteService } from './service';
-import { registerWewriteTools } from './tools';
 
 export const name = 'dsh-wewrite';
 
-export const inject = ['storageDomain', 'agents', 'sessions', 'connection', 'llm', 'credentials', 'tools'];
+export const inject = ['storageDomain', 'agents', 'sessions', 'connection', 'llm', 'credentials', 'tools', 'commands'];
 
 export const Config = z.object({
   agentToolsEnabled: z.boolean().default(false),
@@ -65,6 +72,8 @@ export async function apply(ctx: HostContext, rawConfig: unknown): Promise<void>
       credentials: ctx.credentials ?? fallbackCredentials(logger),
       llm: ctx.llm ?? fallbackLlm(logger),
       logger,
+      // AC-M1-12：插件 config 层默认（patch 值）注入闸门——用户未显式设置时回落它
+      agentToolsConfigDefault: config.agentToolsEnabled,
     });
     const disposers: Array<() => void | Promise<void>> = [];
     try {
@@ -72,9 +81,12 @@ export async function apply(ctx: HostContext, rawConfig: unknown): Promise<void>
       disposers.push(() => {
         void Promise.resolve(stopRpc).then((dispose) => dispose?.());
       });
-      for (const stop of registerWewriteTools(ctx, service, { enabled: config.agentToolsEnabled })) {
+      // AC-M1-12：注册初值与运行期闸门统一走 service.agentToolsEnabled()（单一真源，可热翻转）
+      for (const stop of registerAgentTools(ctx, service, { enabled: service.agentToolsEnabled() })) {
         disposers.push(stop);
       }
+      const stopCommand = registerWewriteCommand(ctx, service);
+      if (stopCommand) disposers.push(stopCommand);
       service.startScheduler();
     } catch (error) {
       logger.warn(`dsh-wewrite: 贡献装配部分降级：${error instanceof Error ? error.message : String(error)}`);

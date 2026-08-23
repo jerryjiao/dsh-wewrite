@@ -23,6 +23,7 @@ import {
   HotspotDigestItemSchema,
   HotspotItemDigestSchema,
   HotspotItemSchema,
+  RunDetailSchema,
   ScheduleViewModelSchema,
   SnapshotResponseSchema,
 } from './view-schemas';
@@ -48,6 +49,7 @@ export const RPC_ENDPOINTS = [
   'article/rewrite',
   'run/start',
   'run/cancel',
+  'run/detail',
   'schedule/save',
   'schedule/delete',
   'schedule/toggle',
@@ -139,6 +141,13 @@ export const rpcContract: Record<string, { readonly request: z.ZodType; readonly
   'run/cancel': {
     request: z.strictObject({ runId: z.string().min(1) }),
     response: z.strictObject({ ok: z.boolean() }),
+  },
+  // chat-integration 增补（AC-M2-01 运行卡消费面）：纯新增端点，22 端点原样（§7 保证 1）。
+  // runId/callId 二选一（M2 运行卡 runId 断链修复：presentCall 先于 execute 拿不到 runId，
+  // 前端推导链 args.runId→rawInput.runId→callId 兜底——callId 由 host 侧 execute 时绑定）。
+  'run/detail': {
+    request: z.union([z.strictObject({ runId: z.string().min(1) }), z.strictObject({ callId: z.string().min(1) })]),
+    response: RunDetailSchema,
   },
   'schedule/save': {
     request: z.strictObject({

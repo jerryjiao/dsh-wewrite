@@ -70,6 +70,8 @@ export interface PipelineEngine {
   /** 立即取 runId，终态 promise 由调用方决定是否等待（RPC run/start 语义）。 */
   begin(opts: StartOptions): { runId: string; done: Promise<string> };
   cancel(runId: string): boolean;
+  /** chat-integration M1：等指定 run 到终态并 resolve RunRecord；未知 runId → undefined（不挂起不抛错）。 */
+  awaitDone(runId: string): Promise<RunRecord | undefined>;
   resumeInterrupted(): Promise<number>;
 }
 
@@ -99,6 +101,7 @@ export function pruneTerminalRuns(runs: readonly RunRecord[], limit: number): Ru
 export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
   const nowIso = () => (deps.now ? deps.now().toISOString() : new Date().toISOString());
   const controllers = new Map<string, AbortController>();
+  const completionWaiters = new Map<string, Set<(record: RunRecord | undefined) => void>>();
   const ABORT_SENTINEL = Symbol('wewrite-abort');
   function throwAborted(): never {
     throw ABORT_SENTINEL;
@@ -270,13 +273,30 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
       startedAt: nowIso(),
     };
     deps.store.put(run);
-    const done = execute(runId, opts, controller.signal).then(() => runId);
+    const done = execute(runId, opts, controller.signal).then(() => {
+      const record = deps.store.get(runId);
+      const waiters = completionWaiters.get(runId);
+      completionWaiters.delete(runId);
+      if (waiters) for (const resolve of waiters) resolve(record);
+      return runId;
+    });
     return { runId, done };
   };
+
+  function awaitDone(runId: string): Promise<RunRecord | undefined> {
+    const current = deps.store.get(runId);
+    if (!current || TERMINAL_STATUSES.has(current.status)) return Promise.resolve(current);
+    const waiters = completionWaiters.get(runId) ?? new Set<(record: RunRecord | undefined) => void>();
+    completionWaiters.set(runId, waiters);
+    return new Promise((resolve) => {
+      waiters.add(resolve);
+    });
+  }
 
   const api: PipelineEngine = {
     begin,
     start: (opts: StartOptions): Promise<string> => begin(opts).done,
+    awaitDone,
 
     cancel(runId: string): boolean {
       const controller = controllers.get(runId);

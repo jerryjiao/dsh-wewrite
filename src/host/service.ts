@@ -1,15 +1,17 @@
 /** WeWriteService（架构 §3）：host 级唯一服务；写操作串行化。重活已拆 images/wechat-flow/articles-store/schedules-store/views。 */
 
-import { CONTRACT_VERSION, type ArticleDetail, type ArticleListItem, type ConfigView, type HotspotDigestItem, type HotspotItem, type HotspotItemDigest, type RunParams, type RunSummary, type ScheduleViewModel, type SnapshotResponse } from '../shared/contract';
+import { CONTRACT_VERSION, type ArticleDetail, type ArticleListItem, type ConfigView, type HotspotDigestItem, type HotspotItem, type HotspotItemDigest, type RunDetail, type RunParams, type RunSummary, type ScheduleViewModel, type SnapshotResponse } from '../shared/contract';
 import { CREDENTIAL_REFS, DEFAULT_IMAGE_PROVIDER_CHAIN } from '../shared/image-provider-ids';
 import { convertArticle } from '../render/convert';
-import { SettingsRecordSchema } from './domain';
+import { SettingsRecordSchema, type RunRecord } from './domain';
 import { rewriteSystemPrompt, rewriteUserPrompt, streamLlmText, type PipelineLlm } from './pipeline/llm';
 import { digestHotspotItem as runHotspotDigest } from './hotspot-digest';
 import { createPipelineEngine, pruneTerminalRuns, type PipelineEngine, type RunStore } from './pipeline/engine';
 import { aggregateHotspots, buildHotspotSources } from './pipeline/steps/topic';
 import { qualityGatesRunner } from './pipeline/steps/gates';
 import { resolveLogger, type CredentialsService, type HostLogger, type LlmService, type StorageDomainHandle } from './platform';
+import { createAgentToolsGate, type AgentToolsGate } from './agent-tools-gate';
+import { createCallRunBindings, type CallRunBindings } from './call-run-bindings';
 import { createSchedulerService } from './scheduler/service';
 import { createDomainRunStore, openTables, parseGlobalState, type DomainTables, type GlobalState } from './store';
 import { createImagesGenerator } from './images';
@@ -17,7 +19,7 @@ import { ArticleStore } from './articles-store';
 import { ScheduleStore } from './schedules-store';
 import { diagnoseWeChat, pushArticleDraft, type WeChatFlowDeps } from './wechat-flow';
 import { truncateMessage } from './redaction';
-import { buildConfigView, runToSummary, scheduleToView } from './views';
+import { buildConfigView, runToDetail, runToSummary, scheduleToView } from './views';
 import { toServiceError, WewriteServiceError } from './service-errors';
 import type { DiagnoseResult } from './wechat/client';
 
@@ -34,6 +36,7 @@ export interface ServiceDeps {
   readonly digestTimeoutMs?: number;
   /** AI 改写 LLM 调用超时毫秒（默认 45s；测试注入缩短值验证 abort 分支）。 */
   readonly rewriteTimeoutMs?: number;
+  readonly agentToolsConfigDefault?: boolean; // AC-M1-12 插件 config 默认（patch 值；未显式设置时闸门回落它）
 }
 
 /** 热榜逐条速览与 AI 改写的单次 LLM 调用上限（uiux v0.3 拍板各 45s）。 */
@@ -52,12 +55,17 @@ export class WeWriteService {
   private readonly articles: ArticleStore;
   private readonly schedules: ScheduleStore;
   private readonly scheduler: ReturnType<typeof createSchedulerService>;
+  /** callId→runId 内存映射（M2 运行卡 callId 兜底链；有界 FIFO，dispose 清空）+ AC-M1-12 单一真源闸门。 */
+  private readonly callBindings: CallRunBindings;
+  private readonly agentToolsGate: AgentToolsGate;
 
   private constructor(private readonly deps: ServiceDeps) {
     this.tables = openTables(deps.domain);
     this.logger = deps.logger ?? resolveLogger({}, 'dsh-wewrite');
     this.nowFn = deps.now ?? (() => new Date());
     this.state = parseGlobalState(deps.domain.global.get(), this.logger);
+    this.callBindings = createCallRunBindings();
+    this.agentToolsGate = createAgentToolsGate({ touched: () => this.state.agentToolsTouched, explicit: () => this.state.settings.agentToolsEnabled, configDefault: deps.agentToolsConfigDefault ?? false });
     this.runStore = createDomainRunStore(this.tables.runs, this.logger);
     this.articles = new ArticleStore({
       tables: this.tables,
@@ -234,6 +242,28 @@ export class WeWriteService {
     return { ok: this.engine.cancel(runId) };
   }
 
+  /** chat-integration M1：等待 run 到终态（wewrite_run 工具 execute 等终态用；未知 runId → undefined）。 */
+  async runCompletion(runId: string): Promise<RunRecord | undefined> {
+    return this.engine.awaitDone(runId);
+  }
+
+  /** chat-integration M2 消费面：run 详情（RunSummary + steps + topic，run/detail RPC 透传）。runId/callId 二选一。 */
+  runDetail(selector: { runId?: string; callId?: string }): RunDetail {
+    const runId = selector.runId ?? (selector.callId ? this.callBindings.resolve(selector.callId) : undefined);
+    const record = runId ? this.runStore.get(runId) : undefined;
+    const hint = selector.callId ? `callId: ${selector.callId}` : `runId: ${selector.runId ?? ''}`;
+    if (!record) throw new WewriteServiceError('run-not-found', `运行记录不存在（${hint}）`);
+    return runToDetail(record);
+  }
+
+  /** M2 callId 兜底链锚点：工具 execute 绑宿主 callId → runId。 */
+  bindRunCall(callId: string, runId: string): void { this.callBindings.bind(callId, runId); }
+
+  lookupArticleTitle(articleId: string): string { // 推送审批 reason 同步内存查（architecture §4.4）
+    const record = articleId ? (this.tables.articles.get(articleId) as { title?: unknown } | undefined) : undefined;
+    return typeof record?.title === 'string' ? record.title : '';
+  }
+
   // ── articles / schedules（委托 store）─────────────────────────────────────
 
   listArticles(): ArticleListItem[] {
@@ -275,18 +305,25 @@ export class WeWriteService {
     });
   }
 
-  async getConfig(): Promise<ConfigView> {
-    return buildConfigView(this.settings, await this.describeCredentials());
+  /** AC-M1-12 单一真源总开关（显式设置 > 插件 config 默认）；翻转通知供热回收。 */
+  agentToolsEnabled(): boolean { return this.agentToolsGate.enabled(); }
+  onAgentToolsChanged(listener: (enabled: boolean) => void): () => void { return this.agentToolsGate.subscribe(listener); }
+
+  async getConfig(): Promise<ConfigView> { // AC-M1-12：投影闸门真值（未显式设置时= config 默认，非物化 false）
+    return buildConfigView({ ...this.settings, agentToolsEnabled: this.agentToolsEnabled() }, await this.describeCredentials());
   }
 
   async setConfig(patch: Record<string, unknown>): Promise<ConfigView> {
     return this.serialize(async () => {
+      const gateBefore = this.agentToolsEnabled();
       const parsed = SettingsRecordSchema.safeParse({ ...this.state.settings, ...patch });
       if (!parsed.success) {
         throw new WewriteServiceError('config-invalid', `设置校验失败：${parsed.error.issues[0]?.message ?? '未知问题'}`);
       }
-      this.state = { ...this.state, settings: parsed.data };
+      this.state = { ...this.state, settings: parsed.data, ...(Object.prototype.hasOwnProperty.call(patch, 'agentToolsEnabled') ? { agentToolsTouched: true } : {}) }; // AC-M1-12：显式写开关即打 touched
       await this.persistState();
+      const gateAfter = this.agentToolsEnabled();
+      if (gateAfter !== gateBefore) this.agentToolsGate.notify(gateAfter);
       return this.getConfig();
     });
   }
@@ -365,6 +402,7 @@ export class WeWriteService {
 
   async dispose(): Promise<void> {
     this.scheduler.stop();
+    this.callBindings.clear();
     await this.deps.domain.close().catch(() => undefined);
   }
 }

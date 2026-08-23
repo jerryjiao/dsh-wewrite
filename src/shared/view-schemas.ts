@@ -74,6 +74,34 @@ export const RunSummarySchema = z.strictObject({
 });
 export type RunSummary = z.infer<typeof RunSummarySchema>;
 
+/** run 详情步骤投影（chat-integration M2：run/detail 响应内嵌，形状对齐 host StepRecord）。 */
+export const STEP_VIEW_STATUSES = ['pending', 'running', 'succeeded', 'failed', 'cancelled'] as const;
+
+export const StepViewSchema = z.strictObject({
+  name: z.string(),
+  status: z.enum(STEP_VIEW_STATUSES),
+  startedAt: z.string().optional(),
+  finishedAt: z.string().optional(),
+  error: z.strictObject({ code: z.string(), message: z.string() }).optional(),
+  metrics: z.record(z.string(), z.unknown()).optional(),
+});
+export type StepView = z.infer<typeof StepViewSchema>;
+
+/** run/detail 响应（chat-integration M2 运行卡消费面）：RunSummary + steps + topic（全量手写保 strict）。 */
+export const RunDetailSchema = z.strictObject({
+  id: z.string(),
+  trigger: z.enum(['manual', 'schedule']),
+  scheduleId: z.string().optional(),
+  articleId: z.string().optional(),
+  status: z.enum(RUN_STATUSES),
+  startedAt: z.string(),
+  finishedAt: z.string().optional(),
+  error: z.strictObject({ code: z.string(), message: z.string() }).optional(),
+  topic: z.string(),
+  steps: z.array(StepViewSchema),
+});
+export type RunDetail = z.infer<typeof RunDetailSchema>;
+
 export const ScheduleViewModelSchema = z.strictObject({
   id: z.string(),
   revision: z.number().int().min(1),

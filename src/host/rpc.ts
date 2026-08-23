@@ -13,6 +13,7 @@ type ContractEntry = { readonly request: { safeParse(input: unknown): { success:
 interface RpcPayload {
   readonly id?: string;
   readonly runId?: string;
+  readonly callId?: string;
   readonly articleId?: string;
   readonly enabled?: boolean;
   readonly limit?: number;
@@ -78,6 +79,9 @@ async function dispatch(service: WeWriteService, endpoint: RpcEndpoint, payload:
       });
     case 'run/cancel':
       return service.cancelRun(String(payload.runId));
+    case 'run/detail':
+      // runId/callId 二选一（M2 运行卡 callId 兜底链）；request schema 已保证其一非空
+      return service.runDetail(payload.runId ? { runId: String(payload.runId) } : { callId: String(payload.callId) });
     case 'schedule/save':
       return service.saveSchedule({
         ...(payload.id ? { id: payload.id } : {}),

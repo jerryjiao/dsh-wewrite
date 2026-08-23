@@ -3,5 +3,5 @@
     - id: wewrite
       name: dsh-wewrite
       config:
-        agentToolsEnabled: false
+        agentToolsEnabled: true
         schedulerTickSeconds: 30

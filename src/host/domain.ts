@@ -126,6 +126,8 @@ export const GlobalStateSchema = z.strictObject({
   v: z.literal(1),
   settings: SettingsRecordSchema,
   claimedOccurrences: z.array(z.string()).default([]),
+  /** AC-M1-12：用户是否显式设置过 agentToolsEnabled（闸门真源标记；缺省=从未设置，回落插件 config 默认）。 */
+  agentToolsTouched: z.boolean().default(false),
 });
 export type GlobalState = z.infer<typeof GlobalStateSchema>;
 
@@ -139,6 +141,7 @@ export const INITIAL_GLOBAL: GlobalState = {
   v: 1,
   settings: SettingsRecordSchema.parse({}),
   claimedOccurrences: [],
+  agentToolsTouched: false,
 };
 
 export const domainSpec = {
