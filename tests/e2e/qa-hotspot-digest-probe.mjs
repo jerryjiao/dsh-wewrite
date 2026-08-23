@@ -11,7 +11,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium as _chromium } from 'playwright';
 import { launchBrowser, openPanel, sleep } from './session.mjs';
 import { clickTab, pollUntil } from './lib.mjs';
 
@@ -57,7 +56,7 @@ async function probeHostFetch(url) {
   const started = Date.now();
   try {
     const controller = new AbortController();
-    const _timer = setTimeout(() => controller.abort(), 8000);
+    setTimeout(() => controller.abort(), 8000);
     const res = await fetch(url, { signal: controller.signal, redirect: 'follow' });
     const contentType = res.headers.get('content-type') ?? '';
     if (!res.ok) return { ok: false, reason: `HTTP ${res.status}`, ms: Date.now() - started, contentType };

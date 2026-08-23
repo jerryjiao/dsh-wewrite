@@ -9,10 +9,12 @@ import { MemoryDomain, makeCredentials, silentLogger } from './service-harness';
  * 热榜逐条 AI 速览测试（uiux v0.3 §1）。
  *
  * 本文件钉定 src/host/hotspot-digest.ts 消费面：
- * - fetchArticleText：text/html 白名单、script/style 等噪音剥除、article/main 优先、
- *   2MB 截断不炸、8s 超时归 null、正文 <300 字符降级 null（不抛错）
- * - digestHotspotItem：article 模式提示含正文节选 / title 降级；purpose 与 maxTokens 800 契约；
- *   llm error 透传、abort/超时归一 digest-timeout、空输出 digest-empty、未配模型 llm-not-configured
+ * - fetchArticleText：text/html 白名单、浏览器式请求头（Chrome UA + text/html accept）、
+ *   script/style 等噪音剥除、article/main 优先、块 <300 字回退整页剥壳文本、
+ *   2MB 截断不炸、8s 超时归 null、整页剥壳 <300 字符降级 null（不抛错）
+ * - digestHotspotItem：article 模式提示含正文节选 / title 降级；purpose 与 maxTokens 33000 契约
+ *   （bigmodel 1214 规则）；防幻觉约束行；llm error 透传、abort/超时归一 digest-timeout、
+ *   空输出 digest-empty、未配模型 llm-not-configured
  * LLM 按宿主真实 chunk 协议 mock（text-delta + finish.reason），非 mock streamLlmText 本身。
  */
 
@@ -118,6 +120,25 @@ describe('fetchArticleText（uiux v0.3 §1 抓取抽取）', () => {
     expect(text).toContain('A & B <tag> 商');
   });
 
+  it('请求头：带主流 Chrome UA 与 text/html accept（治 403 反爬）', async () => {
+    const spy = vi.fn(async (): Promise<Response> => htmlResponse(`<html><body><article>${LONG_BODY}</article></body></html>`));
+    await fetchArticleText('https://a.test/1', spy as unknown as typeof fetch);
+    const init = (spy.mock.calls[0] as unknown[])[1] as RequestInit;
+    const headers = init.headers as Record<string, string>;
+    expect(headers['user-agent']).toMatch(/Mozilla\/5\.0 .*AppleWebKit\/537\.36 \(KHTML, like Gecko\) Chrome\/\d+/);
+    expect(headers.accept).toContain('text/html');
+  });
+
+  it('块文本 <300 字但整页剥壳 ≥300 字：回退用整页文本（Mastodon 型页面不白降级）', async () => {
+    // QA 2026-08-20 实测形状：grapheneos.social 首 article 块只装头像/时间戳，正文在块外
+    const html = `<html><body><article><span>某账号</span><time>2 小时</time></article>
+      <div>${LONG_BODY}</div></body></html>`;
+    const text = await fetchArticleText('https://a.test/1', fetchOf(html));
+    expect(text).toBeTruthy();
+    expect(text).toContain('推理成本');
+    expect(text).toContain('某账号');
+  });
+
   it('正文不足 300 字符：返回 null（降级信号）', async () => {
     const html = '<html><body><article>太短了</article></body></html>';
     expect(await fetchArticleText('https://a.test/1', fetchOf(html))).toBeNull();
@@ -177,7 +198,7 @@ describe('digestHotspotItem（uiux v0.3 §1 服务层）', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  it('LLM 调用参数：purpose/maxTokens 800/provider/model 按契约，article 提示含标题域名正文与行结构锚点', async () => {
+  it('LLM 调用参数：purpose/maxTokens 33000/provider/model 按契约，article 提示含标题域名正文、行结构锚点与防幻觉约束', async () => {
     const llm = makeScriptedLlm(async function* () {
       yield { type: 'text-delta', index: 0, text: '这条在讲什么：参数面校验稿。' };
       yield { type: 'finish', reason: { kind: 'stop' } };
@@ -191,7 +212,8 @@ describe('digestHotspotItem（uiux v0.3 §1 服务层）', () => {
     expect(options.purpose).toBe('wewrite-hotspot-item-digest');
     expect(options.provider).toBe('zhipu');
     expect(options.model).toBe('glm-4.5-flash');
-    expect(options.maxTokens).toBe(800);
+    // bigmodel 1214 规则：带 thinking 参数的请求 max_tokens 必须 >32000（宿主 reasoning 可被用户调高）
+    expect(options.maxTokens).toBe(33000);
     expect(String(options.system)).toContain('选题编辑');
     const user = userTextOf(options);
     expect(user).toContain('某推理引擎开源');
@@ -199,6 +221,7 @@ describe('digestHotspotItem（uiux v0.3 §1 服务层）', () => {
     expect(user).toContain('推理成本');
     expect(user).toContain('这条在讲什么：');
     expect(user).toContain('· 要点：');
+    expect(user).toContain('不得补充外部信息');
     expect(user).not.toContain('标题解读：');
   });
 
@@ -219,6 +242,7 @@ describe('digestHotspotItem（uiux v0.3 §1 服务层）', () => {
     expect(user).toContain('blog.example.test');
     expect(user).toContain('标题解读：');
     expect(user).toContain('· 角度：');
+    expect(user).toContain('不得虚构原文没有的事实');
     expect(user).not.toContain('正文节选');
   });
 

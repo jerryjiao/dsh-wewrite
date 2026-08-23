@@ -21,10 +21,12 @@ import type { WeWriteService } from '@/host/service';
 import { registerWewriteRpc } from '@/host/rpc';
 
 /**
- * 契约测试：Spec §5 端点清单的可执行形态（20 个 + uiux v0.3 增补 2 个 = 22；
- * chat-integration 增补 run/detail = 23）。本文件钉定 src/shared/contract.ts 必须导出的
+ * 契约测试：Spec §5 端点清单的可执行形态（20 个基础
+ * + uiux v0.3 增补 hotspots/digestItem、article/rewrite
+ * + chat-integration 增补 run/detail = 23）。本文件钉定 src/shared/contract.ts 必须导出的
  * 形状——Phase 3 按此实现。断言依据：docs/pipeline-chat/spec.md §5、
- * docs/pipeline-chat/architecture.md §2/§7（run/detail 纯新增，22 端点原样）、坑#dsh-rpc-envelope。
+ * docs/pipeline-chat/architecture.md §2/§7（run/detail 纯新增）、
+ * docs/redesign/uiux-v0.3.md §1/§3、坑#dsh-rpc-envelope。
  */
 
 const runParams = () => ({
@@ -144,7 +146,7 @@ describe('RPC 通道常量（Spec §5 头部 + 架构 F13）', () => {
     expect(CONTRACT_VERSION).toBe(1);
   });
 
-  it('端点全集精确等于 22 既有端点 + chat-integration 增补 run/detail，无增无减（AC-M2-01）', () => {
+  it('端点全集精确等于 20 基础 + v0.3 增补 2 + chat 增补 run/detail = 23，无增无减（AC-M2-01）', () => {
     expect([...RPC_ENDPOINTS].sort()).toEqual([...EXPECTED_ENDPOINTS].sort());
     expect(Object.keys(rpcContract).sort()).toEqual([...EXPECTED_ENDPOINTS].sort());
     expect(EXPECTED_ENDPOINTS.length).toBe(23);

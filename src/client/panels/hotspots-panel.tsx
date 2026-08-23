@@ -88,6 +88,8 @@ export function HotspotsPanel() {
     <div className={store.narrow ? 'ww-hotspots ww-hotspots--narrow' : 'ww-hotspots'}>
       <div className="ww-hotspots__main">
         <div className="ww-pagebar">
+          {/* Bluewash §4-2：选题域页头识别点（橙） */}
+          <span className="ww-pagebar__dot" data-view="topics" />
           <h2 className="ww-pagebar__title">热门榜</h2>
           {state.status === 'ready' ? (
             <>
@@ -140,7 +142,7 @@ export function HotspotsPanel() {
                     aria-expanded={expanded === item.title}
                     onClick={() => setExpanded(expanded === item.title ? null : item.title)}
                   >
-                    <span className="ww-hotspot__rank">#{item.rank}</span>
+                    <span className={item.rank <= 3 ? 'ww-hotspot__rank ww-hotspot__rank--top' : 'ww-hotspot__rank'}>#{item.rank}</span>
                     <span className="ww-hotspot__title">{item.title}</span>
                     <span className="ww-hotspot__meta">
                       {hotspotSourceLabel(item.source)} · {domainOf(item.url)}

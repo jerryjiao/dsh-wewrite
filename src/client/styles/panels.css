@@ -98,6 +98,14 @@
 
 .ww-hotspot__rank { font-family: var(--ww-font-code); font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); min-width: 2.5em; }
 
+/* Bluewash §4-3（uiux-color-theme-design）：Top3 名次橙 + 500 字重；
+ * 4+ 保持 fg-tertiary/400。双色数据节奏：蓝=命中行底，橙=热度名次。
+ * Top3 同色不分金银铜（反廉价 §6-9，不做奖牌色系）。 */
+.ww-hotspot__rank--top {
+  color: var(--ww-rank-top);
+  font-weight: var(--ww-weight-medium);
+}
+
 .ww-hotspot__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .ww-hotspot__meta { font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); white-space: nowrap; }
@@ -239,8 +247,8 @@
 
 /* ---------- 逐条 AI 速览块（v0.3 R1，uiux-v0.3-design §D1） ----------
  * 行内嵌入件：无卡框无阴影无 hover——分层由 .ww-hotspot__expand 的
- * border-top 提供。source 徽记纯文字+icon（--ww-accent-subtle 是 static
- * 值不随主题翻转，深色下底色方案有对比度风险，故不用底色）。 */
+ * border-top 提供。QA qa-digest 修复（2026-08-20）+ Bluewash v1.2.0：
+ * accent-subtle 转 dark 双态后徽记底色方案解锁（原 static 值深色刺眼风险解除）。 */
 
 .ww-hotspot__digest {
   display: flex;
@@ -265,22 +273,29 @@
   color: var(--ww-fg-secondary);
 }
 
-/* source 徽记：article = 读过原文（success icon 语义「已核实」）；
- * title = 仅标题降级（eye-off 语义「没看正文」，icon 降三级传降级感）。
- * 文字两态统一 fg-secondary（12px 徽记文字须达 4.5:1，fg-tertiary 仅 ≈3.9:1 不作小字正文色）；
- * 区分度 = icon 色 + 文案自说明。纯文字档无底色，深浅双主题零对比度风险。 */
+/* source 徽记（QA 修复升级底色档）：article = 读过原文（success 语义色——
+ * 「已核实」状态用语义色不用识别色）；title = 仅凭标题降级（中性 sunken 底 +
+ * 三级字 + eye-off icon 传降级感，非警示——降级是常态路径不是错误）。
+ * 有底色后补内距成 pill；文案自说明 + icon 形状冗余承载语义。 */
 .ww-hotspot__digest-source {
   display: inline-flex;
   align-items: center;
   gap: var(--ww-space-1);
   font-size: var(--ww-text-xs);
-  color: var(--ww-fg-secondary);
+  padding: 2px var(--ww-space-2);
+  border-radius: var(--ww-radius-full);
   white-space: nowrap;
 }
 
-.ww-hotspot__digest-source--article svg { color: var(--ww-success); }
+.ww-hotspot__digest-source--article {
+  background: var(--ww-success-subtle);
+  color: var(--ww-success);
+}
 
-.ww-hotspot__digest-source--title svg { color: var(--ww-fg-tertiary); }
+.ww-hotspot__digest-source--title {
+  background: var(--ww-surface-sunken);
+  color: var(--ww-fg-tertiary);
+}
 
 .ww-hotspot__digest-time {
   font-size: var(--ww-text-xs);
@@ -297,6 +312,20 @@
   line-height: var(--ww-leading-body);
   color: var(--ww-fg);
   overflow-wrap: break-word;  /* 长英文标题/域名安全断行 */
+}
+
+/* loading 预期提示（QA 修复）：骨架下方一行小字给时长预期，缓解「卡死感」 */
+.ww-hotspot__digest-wait {
+  margin: 0;
+  font-size: var(--ww-text-xs);
+  color: var(--ww-fg-caption);
+}
+
+/* 仅凭标题 caption（QA 修复）：未读原文的解读参考性声明，防误导 */
+.ww-hotspot__digest-note {
+  margin: var(--ww-space-1) 0 0;
+  font-size: var(--ww-text-xs);
+  color: var(--ww-fg-tertiary);
 }
 
 .ww-hotspot__digest-lead { margin: 0; }

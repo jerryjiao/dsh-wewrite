@@ -62,15 +62,17 @@
   border-color: var(--ww-border-strong);
 }
 
+/* Bluewash §4-4（uiux-color-theme-design）：启动卡 glyph 升级品牌——
+ * 首屏零文章时的品牌浸染时刻（accent-subtle 底 + accent icon） */
 .ww-startup__glyph {
   position: relative;
   width: 40px;
   height: 40px;
   border-radius: var(--ww-radius-full);
-  background: var(--ww-surface-sunken);
+  background: var(--ww-accent-subtle);
   display: grid;
   place-items: center;
-  color: var(--ww-fg-secondary);
+  color: var(--ww-accent);
 }
 
 .ww-startup__glyph-sub {

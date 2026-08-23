@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import type { HotspotItem, HotspotItemDigest as HotspotItemDigestDto } from '@/shared/contract';
-import { describeRpcFailure, WewriteRpcError } from '../lib/rpc';
+import { WewriteRpcError } from '../lib/rpc';
+import {
+  clearDigestFailure,
+  describeDigestError,
+  recallDigestFailure,
+  rememberDigestFailure,
+} from '../lib/digest-errors';
 import { formatTime } from '../lib/format';
 import { ErrorNote, SkeletonBlock } from './bits';
 import { Icon } from './Icon';
@@ -12,6 +18,12 @@ import { useStore } from '../store';
  * 行内嵌入件（无卡框），挂在 .ww-hotspot__expand 内原文链接行之后。
  * 首次展开自动生成（懒加载），loading 骨架 / 错误 ErrorNote+重试 / ready 全量渲染。
  * 逐条缓存 localStorage dsh-wewrite.hotspot-item-digests，键 = URL，当日有效（次日重生成）。
+ *
+ * QA qa-digest 修复（2026-08-20）：
+ * - 错误文案走 describeDigestError（LLM 错误人话映射，JSON 墙兜底）；
+ * - 当日失败记忆（模块级 Map）：命中失败的条目挂载直接呈现错误态，不自动重打 RPC，
+ *   只有用户点「重试」才再打（重试清记录）——终结「展开即 5s 一堵 JSON 墙」的循环；
+ * - loading 骨架下给时长预期；source=title 时徽记改「仅凭标题」并附参考性 caption。
  */
 
 const DIGEST_ITEM_STORAGE_KEY = 'dsh-wewrite.hotspot-item-digests';
@@ -102,11 +114,15 @@ function DigestLine({ line }: { line: string }) {
 
 export function HotspotItemDigest({ item }: { item: HotspotItem }) {
   const { rpc, t } = useStore();
-  // 挂载时读一次缓存：命中直接 ready（不调 RPC），未命中进 loading 并自动触发生成
+  // 挂载时读一次缓存与失败记忆：缓存命中直接 ready；当日失败过的条目直接错误态
+  // （不自动重打 RPC，防重试风暴）；两者皆无才进 loading 自动触发生成。
   const cachedRef = useRef<DigestCacheEntry | null>(readCachedDigest(item.url));
+  const failedMessageRef = useRef<string | undefined>(recallDigestFailure(item.url));
   const [entry, setEntry] = useState<DigestCacheEntry | null>(cachedRef.current);
-  const [phase, setPhase] = useState<ItemDigestPhase>(cachedRef.current ? 'idle' : 'loading');
-  const [message, setMessage] = useState('');
+  const [phase, setPhase] = useState<ItemDigestPhase>(
+    cachedRef.current ? 'idle' : failedMessageRef.current ? 'error' : 'loading',
+  );
+  const [message, setMessage] = useState(failedMessageRef.current ?? '');
 
   const generate = useCallback(async () => {
     const cached = readCachedDigest(item.url);
@@ -129,23 +145,28 @@ export function HotspotItemDigest({ item }: { item: HotspotItem }) {
         generatedAtIso: result.generatedAtIso,
       };
       writeCachedDigest(item.url, next);
+      clearDigestFailure(item.url);
       setEntry(next);
       setPhase('idle');
     } catch (error) {
-      setMessage(error instanceof WewriteRpcError ? error.message : String(error));
+      const failureMessage = error instanceof WewriteRpcError ? error.message : String(error);
+      rememberDigestFailure(item.url, failureMessage);
+      setMessage(failureMessage);
       setPhase('error');
     }
   }, [rpc, item.rank, item.title, item.url]);
 
-  // 首次展开自动生成（懒加载）；缓存命中不调 RPC
+  // 首次展开自动生成（懒加载）；缓存命中或当日失败记忆命中都不调 RPC
+  // （失败条目只有用户点「重试」才再打，重试在 onClick 里先清失败记录）。
   useEffect(() => {
     if (cachedRef.current) return;
+    if (recallDigestFailure(item.url)) return;
     void generate();
-  }, [generate]);
+  }, [generate, item.url]);
 
   const busy = phase === 'loading';
-  const failure = phase === 'error' ? describeRpcFailure(new Error(message)) : undefined;
-  const sourceLabel = entry?.source === 'article' ? '读了原文' : '仅标题';
+  const failure = phase === 'error' ? describeDigestError(message) : undefined;
+  const sourceLabel = entry?.source === 'article' ? '读了原文' : '仅凭标题';
 
   return (
     <div className="ww-hotspot__digest" data-testid="ww-hotspot-digest">
@@ -167,28 +188,39 @@ export function HotspotItemDigest({ item }: { item: HotspotItem }) {
       </div>
       <div className="ww-hotspot__digest-body" data-testid="ww-hotspot-digest-body">
         {busy ? (
-          <SkeletonBlock lines={3} />
+          <>
+            <SkeletonBlock lines={3} />
+            <p className="ww-hotspot__digest-wait">AI 生成中，约 5–10 秒</p>
+          </>
         ) : phase === 'error' ? (
           <ErrorNote
-            title={failure?.title ?? '速览生成失败。'}
+            title={failure?.title ?? '速览生成失败，请重试。'}
             hint={failure?.hint}
             action={
               <Button
                 variant="outline"
                 size="sm"
                 data-testid="ww-hotspot-digest-retry"
-                onClick={() => void generate()}
+                onClick={() => {
+                  clearDigestFailure(item.url);
+                  void generate();
+                }}
               >
                 {t('action.retry')}
               </Button>
             }
           />
         ) : entry ? (
-          entry.digest
-            .split('\n')
-            .map((line) => line.trim())
-            .filter((line) => line.length > 0)
-            .map((line, index) => <DigestLine key={`d${index}`} line={line} />)
+          <>
+            {entry.digest
+              .split('\n')
+              .map((line) => line.trim())
+              .filter((line) => line.length > 0)
+              .map((line, index) => <DigestLine key={`d${index}`} line={line} />)}
+            {entry.source === 'title' ? (
+              <p className="ww-hotspot__digest-note">未读原文，解读仅供参考，请以原文为准</p>
+            ) : null}
+          </>
         ) : null}
       </div>
     </div>

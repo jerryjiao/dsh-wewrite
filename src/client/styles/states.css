@@ -62,6 +62,13 @@
   color: var(--ww-fg-secondary);
 }
 
+/* Bluewash §4-4（uiux-color-theme-design）：hero 空态 glyph 同语言（启动卡品牌浸染时刻）；
+ * 次级空态 glyph 保持 sunken（安静）。修饰类由 EmptyState hero 态附加。 */
+.ww-empty__glyph--brand {
+  background: var(--ww-accent-subtle);
+  color: var(--ww-accent);
+}
+
 .ww-empty__glyph-sub {
   position: absolute;
   right: -4px;

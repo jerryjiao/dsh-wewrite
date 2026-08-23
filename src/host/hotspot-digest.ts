@@ -83,19 +83,39 @@ function matchBlock(html: string, tag: string): string | null {
   return match ? match[1] : null;
 }
 
-/** 启发式抽正文：剥噪音块与注释 → article/main 优先 → 剥标签解码实体 → 折叠空白。 */
+/**
+ * 浏览器式请求头：部分站点（QA 2026-08-20：casio.com）对无 UA 的裸请求直接 403，
+ * 用主流 Chrome UA + HTML accept 模拟浏览器首包治反爬。
+ */
+const BROWSER_REQUEST_HEADERS: Readonly<Record<string, string>> = {
+  'user-agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+  accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+};
+
+/** 剥标签 → 解码实体 → 折叠空白，产出候选正文文本。 */
+function stripToText(html: string): string {
+  return decodeEntities(html.replace(/<[^>]*>/g, ' '))
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** 启发式抽正文：剥噪音块与注释 → article/main 优先 → 块文本过短回退整页剥壳文本。 */
 export function extractArticleText(html: string): string | null {
   let working = html.replace(/<!--[\s\S]*?-->/g, ' ');
   for (const tag of ['script', 'style', 'noscript', 'nav', 'header', 'footer', 'aside', 'svg']) {
     working = working.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}\\s*>`, 'gi'), ' ');
   }
   const block = matchBlock(working, 'article') ?? matchBlock(working, 'main');
-  if (block !== null) working = block;
-  const text = decodeEntities(working.replace(/<[^>]*>/g, ' '))
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (text.length < MIN_BODY_CHARS) return null;
-  return text.slice(0, MAX_BODY_CHARS);
+  if (block !== null) {
+    const blockText = stripToText(block);
+    if (blockText.length >= MIN_BODY_CHARS) return blockText.slice(0, MAX_BODY_CHARS);
+  }
+  // 回退整页：社交平台（QA 2026-08-20：grapheneos.social Mastodon 帖）首个 article 块
+  // 只装头像/时间戳 <300 字，正文在块外——剥壳整页 9860 字，按块判失败白白降级 title 模式。
+  const pageText = stripToText(working);
+  if (pageText.length >= MIN_BODY_CHARS) return pageText.slice(0, MAX_BODY_CHARS);
+  return null;
 }
 
 /**
@@ -110,7 +130,11 @@ export async function fetchArticleText(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetchImpl(url, { signal: controller.signal, redirect: 'follow' });
+    const response = await fetchImpl(url, {
+      signal: controller.signal,
+      redirect: 'follow',
+      headers: BROWSER_REQUEST_HEADERS,
+    });
     if (!response.ok) return null;
     const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
     if (!contentType.startsWith('text/html')) return null;
@@ -144,6 +168,7 @@ function digestItemArticleUserPrompt(title: string, domain: string, body: string
     '请严格按以下行结构输出纯文本（不加 Markdown 记号、不加额外说明）：',
     '这条在讲什么：一句话概括核心事件',
     '· 要点：具体事实或数字（2 到 4 行，每行一个）',
+    '要点只能来自给定正文，不得补充外部信息，不得虚构数字与事实。',
   ].join('\n');
 }
 
@@ -156,6 +181,7 @@ function digestItemTitleUserPrompt(title: string, domain: string): string {
     '请严格按以下行结构输出纯文本（不加 Markdown 记号、不加额外说明）：',
     '标题解读：中文译名，加一句话说明在讲什么',
     '· 角度：从公众号选题视角给一个可写的角度，一行',
+    '只有标题与域名可用：不得虚构原文没有的事实；角度只做方向性建议，不提具体功能、数字或参数。',
   ].join('\n');
 }
 
@@ -183,7 +209,11 @@ export async function digestHotspotItem(deps: HotspotDigestDeps, item: HotspotDi
             : digestItemTitleUserPrompt(item.title, domain),
         provider,
         model,
-        maxTokens: 800,
+        // bigmodel 实测规则：带 thinking 参数的请求（宿主 reasoning≥low 时宿主会注入）
+        // max_tokens 必须 >32000，否则 HTTP 400 code 1214——reasoning=off 时 800 可过，
+        // 但用户把宿主 reasoning 调高后所有条目必炸。33000 两态都安全：输出长度由
+        // 行结构提示词约束，45s 超时兜底。
+        maxTokens: 33_000,
       },
       controller.signal,
     );

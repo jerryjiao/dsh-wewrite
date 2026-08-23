@@ -14,7 +14,8 @@ import type { IconName } from './Icon';
 
 /**
  * 空态（v2 §3-03 组合 glyph）：40px 圆形容器（sunken 底）承载主 icon 20px，
- * 右下角叠次 icon 12px（--ww-bg-page 描边圆）；hero = 大居中版（空页面主舞台）。
+ * 右下角叠次 icon 12px（--ww-bg-page 描边圆）；hero = 大居中版（空页面主舞台），
+ * hero glyph 附加 --brand 修饰类升级品牌浸染（Bluewash §4-4，states.css）。
  */
 export function EmptyState({
   icon,
@@ -31,7 +32,7 @@ export function EmptyState({
 }) {
   return (
     <div className={hero ? 'ww-empty ww-empty--hero' : 'ww-empty'}>
-      <span className="ww-empty__glyph">
+      <span className={hero ? 'ww-empty__glyph ww-empty__glyph--brand' : 'ww-empty__glyph'}>
         {icon}
         {subIcon ? (
           <span className="ww-empty__glyph-sub">

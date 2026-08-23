@@ -17,7 +17,7 @@ export interface HotspotDigestDeps {
     readonly timeoutMs: number;
     readonly nowIso: () => string;
 }
-/** 启发式抽正文：剥噪音块与注释 → article/main 优先 → 剥标签解码实体 → 折叠空白。 */
+/** 启发式抽正文：剥噪音块与注释 → article/main 优先 → 块文本过短回退整页剥壳文本。 */
 export declare function extractArticleText(html: string): string | null;
 /**
  * 抓 url 并抽正文：8s 超时、跟随重定向、只收 text/html、2MB 截断。

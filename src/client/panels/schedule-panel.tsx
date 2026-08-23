@@ -104,6 +104,8 @@ export function SchedulePanel() {
   return (
     <div className="ww-schedule">
       <div className="ww-pagebar">
+        {/* Bluewash §4-2：定时域页头识别点（青） */}
+        <span className="ww-pagebar__dot" data-view="schedule" />
         <h2 className="ww-pagebar__title">定时任务</h2>
         {schedules ? <span className="ww-pagebar__count">· {queue.length}</span> : null}
         <div className="ww-pagebar__spacer" />

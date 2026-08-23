@@ -169,6 +169,11 @@
   white-space: nowrap;
 }
 
+/* Bluewash §4-5（uiux-color-theme-design）：
+ * 入口 icon 染品牌蓝——宿主灰 footer 里的品牌锚点（Linear/Slack 嵌入面板先例）。
+ * 文字保持 --ww-fg（chrome 语境不整行变色）；hover/active 态不变。 */
+.ww-sidebar-entry__btn svg { color: var(--ww-accent); }
+
 /* rail 形态（wide=false，宿主 56px rail 列）：36×36 圆 icon-only */
 .ww-sidebar-entry--rail { width: auto; }
 

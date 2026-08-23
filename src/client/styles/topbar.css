@@ -34,7 +34,8 @@
   gap: 2px;
   padding: 2px;
   background: var(--ww-surface-sunken);
-  /* 槽边框必带：sunken 与 bg-page 同值（浅 #F9FAFB / 深 #1B1B1C），无边框槽不可见 */
+  /* 槽边框必带：sunken 槽与 bg-page 台面同为 Bluewash 冷调相邻档（v1.2.0 各自分值），
+   * 无边框时槽不可见——border 双保险构造仍是必要 */
   border: var(--ww-border-width) solid var(--ww-border);
   border-radius: var(--ww-radius-full);
   min-width: 0;
@@ -187,3 +188,16 @@
 @container (max-width: 900px) {
   .ww-tab { padding: 0 var(--ww-space-2); }
 }
+
+/* Bluewash §4-1（uiux-color-theme-design）：
+ * 激活段按域分色：写作=accent 蓝（默认，含设置页兜底）/ 选题=热力橙 / 定时=青。
+ * 激活片本身仍是 surface 白底+微影（识别色只染文字与 icon，微面积纪律）。 */
+.ww-tab--active[data-view='topics'] { color: var(--ww-view-topics); }
+.ww-tab--active[data-view='topics'] svg { color: var(--ww-view-topics); }
+.ww-tab--active[data-view='topics']:hover { color: var(--ww-view-topics); }
+.ww-tab--active[data-view='topics']:hover svg { color: var(--ww-view-topics); }
+
+.ww-tab--active[data-view='schedule'] { color: var(--ww-view-schedule); }
+.ww-tab--active[data-view='schedule'] svg { color: var(--ww-view-schedule); }
+.ww-tab--active[data-view='schedule']:hover { color: var(--ww-view-schedule); }
+.ww-tab--active[data-view='schedule']:hover svg { color: var(--ww-view-schedule); }

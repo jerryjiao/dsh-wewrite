@@ -44,8 +44,10 @@
   --ww-accent-active: var(--dsw-static-deepseek-600);
   /* accent 上的前景文字。宿主 static neutral-bluish-00 #FFFFFF（不裸写 #fff） */
   --ww-accent-on: var(--dsw-static-neutral-bluish-00);
-  /* 大面积浅 accent（选中行底/命中标签底）。宿主 static deepseek-50 #EDF3FE */
-  --ww-accent-subtle: var(--dsw-static-deepseek-50);
+  /* 大面积浅 accent（选中行底/命中标签底）。light 保留 deepseek-50 同值；dark 换深蓝选中底
+     （修复 static 值深色刺眼风险，v0.3 §D1 绕开项自此解除）。
+     自有 Bluewash 双态值，v1.2.0 起脱离宿主换肤（uiux-color-theme-design §2-B） */
+  --ww-accent-subtle: #EDF3FE;
   /* focus ring 色（自有值，dark 覆盖块覆写）。light rgba(65,118,230,.32) */
   --ww-accent-ring: rgba(65, 118, 230, 0.32);
 
@@ -58,14 +60,14 @@
   --ww-surface: var(--dsw-alias-bg-layer-2);
   /* 浮层表面（下拉/悬浮卡）。light #FFFFFF / dark #353638（宿主 --dsw-specific-menu 同源） */
   --ww-surface-raised: var(--dsw-alias-bg-layer-3);
-  /* 嵌套凹区（画布外圈/表头/阶段视图底）。light #F9FAFB / dark #1B1B1C */
-  --ww-surface-sunken: var(--dsw-specific-sidebar-fill);
-  /* 工作台底（v0.2 增量）：非编辑器页面的内容区底色（白卡浮其上）；rail 导航家具同源。
-     宿主引用：specific-sidebar-fill。light #F9FAFB / dark #1B1B1C。
-     与 --ww-surface-sunken 同源宿主 primitive 但语义槽不同（页面底 vs 凹区），日后宿主换肤可各自分叉 */
-  --ww-bg-page: var(--dsw-specific-sidebar-fill);
-  /* 骨架屏底。light rgba(0,0,0,.04) / dark rgba(255,255,255,.08) */
-  --ww-skeleton: var(--dsw-alias-bg-skeleton);
+  /* 凹区/槽：随台面同 hue 深一档（segmented 槽仍有 border 双保险）。
+     自有 Bluewash 台面值，v1.2.0 起脱离宿主换肤（uiux-color-theme-design §2-B） */
+  --ww-surface-sunken: #EBEEF5;
+  /* L1 台面：品牌冷调蓝灰 hsl(219,33%,96%)。原宿主 sidebar-fill 为无彩灰，
+     v1.2.0 分叉为自有主题资产（uiux-color-theme-design §2-B） */
+  --ww-bg-page: #F2F4F8;
+  /* 骨架品牌灰（与 divider 同语言）。自有 Bluewash 值，v1.2.0 起脱离宿主换肤 */
+  --ww-skeleton: rgba(38, 54, 94, 0.08);
 
   /* 主文字。light #0F1115 / dark #F9FAFB（对比度 ≈17:1 / ≈15:1） */
   --ww-fg: var(--dsw-alias-label-primary);
@@ -79,12 +81,11 @@
   /* ============================================================
    * 3. 颜色 — 边框（线框分层语言：全部 1px，层级靠 l1/l2/l3）
    * ========================================================== */
-  /* 默认边框（卡片/输入框/画布框）。light rgba(0,0,0,.10) / dark rgba(255,255,255,.12) */
-  --ww-border: var(--dsw-alias-border-l2);
-  /* 强调边框（focus 边/表头下沿/顶栏下沿）。light rgba(0,0,0,.12) / dark rgba(255,255,255,.16) */
-  --ww-border-strong: var(--dsw-alias-border-l3);
-  /* 内部分隔线（列表行间）。light rgba(0,0,0,.04) / dark rgba(255,255,255,.06) */
-  --ww-divider: var(--dsw-alias-border-l1);
+  /* 边框三档：蓝灰笔触 rgb(38,54,94)，叠白 ≈ #E3E5EA 与旧值等可见度。
+     自有 Bluewash 值，v1.2.0 起脱离宿主换肤（uiux-color-theme-design §2-B） */
+  --ww-border: rgba(38, 54, 94, 0.13);
+  --ww-border-strong: rgba(38, 54, 94, 0.19);
+  --ww-divider: rgba(38, 54, 94, 0.07);
 
   /* ============================================================
    * 4. 颜色 — 交互态
@@ -117,10 +118,9 @@
    * ========================================================== */
   /* 等宽信息带底（slug/模型名/RRULE/规则 ID）。light #EBEEF2 / dark #2C2C2E */
   --ww-code-bg: var(--dsw-alias-markdown-inline-code);
-  /* 预览画布井（v0.2 增量）：比 sunken 深一档，制造「画布立在井上」。
-     借宿主 alias-markdown-inline-code（唯一近似档）。light #EBEEF2 / dark #2C2C2E。
-     与 --ww-code-bg 同源但语义槽不同（画布井 vs 等宽带），分立不算重复 */
-  --ww-canvas-well: var(--dsw-alias-markdown-inline-code);
+  /* 画布井（v0.2 增量）：v0.2 借用 code 槽转正为自有槽，加入台面色温。
+     比 sunken 深半档，制造「画布立在井上」（uiux-color-theme-design §2-B） */
+  --ww-canvas-well: #E7EBF3;
   /* 画布底：固定浅色（公众号文章永远浅底，UGC 域不随宿主主题翻转） */
   --ww-canvas-bg: #ffffff;
   /* 画布外框 */
@@ -191,12 +191,14 @@
 
   /* ============================================================
    * 10. 阴影（自有 primitive：宿主无 shadow token，实测勘误）
-   *     卡片默认 border 分层无阴影；仅浮层用以下两级
+   *     卡片默认 border 分层无阴影；仅浮层用以下两级。
+   *     v1.2.0 light 侧三值蓝黑化（纯黑阴影在 tint 台面上显「脏」；
+   *     dark 覆写纯黑系不变——暗色下阴影 hue 无感知）
    * ========================================================== */
   /* 卡片级微投影（v0.2 增量）：白卡在灰底上的物理暗示；blur 2px 远低于 16px 幽灵卡红线 */
-  --ww-shadow-card: 0 1px 2px rgba(15, 17, 21, 0.05);
-  --ww-shadow-overlay: 0 8px 24px rgba(15, 17, 21, 0.12);  /* 下拉/Tooltip */
-  --ww-shadow-modal: 0 16px 48px rgba(15, 17, 21, 0.16);   /* 模态/抽屉/生成视图 */
+  --ww-shadow-card: 0 1px 2px rgba(30, 44, 76, 0.06);
+  --ww-shadow-overlay: 0 8px 24px rgba(23, 34, 60, 0.14);  /* 下拉/Tooltip */
+  --ww-shadow-modal: 0 16px 48px rgba(23, 34, 60, 0.18);   /* 模态/抽屉/生成视图 */
 
   /* ============================================================
    * 11. 动效（全盘宿主值 100/200/300ms + 宿主缓动）
@@ -229,20 +231,49 @@
    * 13. 焦点环（统一 :focus-visible）
    * ========================================================== */
   --ww-focus-ring: 0 0 0 3px var(--ww-accent-ring);
+
+  /* ============================================================
+   * 14. 视图识别色（Bluewash L3，uiux-color-theme-design §2-A）
+   *     微面积专用：Tab 激活文字+icon / 页头识别点 / 热榜 Top3 名次。
+   *     永不染大面积底（反廉价 §6-7）。设置页无识别色（中性先例）。
+   * ========================================================== */
+  /* 选题域（热榜）：热力橙深档，与 warn #F59E0B 保持色距、路径不重叠 */
+  --ww-view-topics: #C2410C;
+  /* 定时域：青（时间/规律语义），与 success 绿距离充分 */
+  --ww-view-schedule: #0F766E;
+  /* 热榜 Top3 名次数字（4+ 保持 --ww-fg-tertiary）；与 view-topics
+     同值独立槽：同属「热度」语义，日后可独立调档 */
+  --ww-rank-top: #C2410C;
 }
 
 /* ============================================================
- * 深色主题覆写 — 仅自有值且随主题变的 3 个 token；
- * 其余全部经 var(--dsw-*) 引用由宿主自动翻转
+ * 深色主题覆写 — Bluewash 自有 token 全集（v1.2.0 扩容，15 个）；
+ * 其余仍经 var(--dsw-*) 由宿主自动翻转
  * ========================================================== */
 body[data-ds-dark-theme] .dsh-wewrite-panel,
 body[data-ds-dark-theme] .ww-sidebar-entry,
 body[data-ds-dark-theme] .ww-overlay,
 body[data-ds-dark-theme] .ww-chatcard,
 body[data-ds-dark-theme] .ww-composer-entry {
-  /* 焦点环换 deepseek-400 基调提亮 */
+  /* L1 台面（蓝黑系，Linear dark 式色温） */
+  --ww-bg-page: #1A1E26;
+  --ww-surface-sunken: #20242E;
+  --ww-canvas-well: #222734;
+  --ww-border: rgba(151, 176, 231, 0.15);
+  --ww-border-strong: rgba(151, 176, 231, 0.21);
+  --ww-divider: rgba(151, 176, 231, 0.08);
+  --ww-skeleton: rgba(151, 176, 231, 0.09);
+
+  /* L2 选中底深蓝档 */
+  --ww-accent-subtle: #1E2B4D;
+
+  /* L3 识别色提亮档 */
+  --ww-view-topics: #FB923C;
+  --ww-view-schedule: #2DD4BF;
+  --ww-rank-top: #FB923C;
+
+  /* 既有 4 项不变 */
   --ww-accent-ring: rgba(103, 158, 254, 0.40);
-  /* 浮层阴影加深（深色下浅阴影不可见） */
   --ww-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.40);
   --ww-shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.50);
   --ww-shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.60);

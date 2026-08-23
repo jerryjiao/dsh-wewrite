@@ -9,12 +9,14 @@ import type { IconName } from './Icon';
  * 4 导航对象 = 3 Tab（写作/选题/定时）+ 设置齿轮；右端区 = 进度点(运行中) + 公众号连接状态。
  * 高 40px（--ww-toolrow-h）；Tab 激活 = 500 字重 + 下沿 2px accent 指示条；
  * 页面导航用 nav + aria-current="page"（无 tabpanel 配对，不用 tablist）。
+ * Bluewash（uiux-color-theme-design §4-1）：button.ww-tab 带 data-view 域属性，
+ * 激活段按域分色（写作=accent 蓝 / 选题=橙 / 定时=青，topbar.css）。
  */
 
-const TABS: ReadonlyArray<{ key: 'home' | 'hotspots' | 'schedule'; labelKey: 'topbar.write' | 'topbar.hotspots' | 'topbar.schedule'; icon: IconName }> = [
-  { key: 'home', labelKey: 'topbar.write', icon: 'pen-line' },
-  { key: 'hotspots', labelKey: 'topbar.hotspots', icon: 'flame' },
-  { key: 'schedule', labelKey: 'topbar.schedule', icon: 'calendar-clock' },
+const TABS: ReadonlyArray<{ key: 'home' | 'hotspots' | 'schedule'; labelKey: 'topbar.write' | 'topbar.hotspots' | 'topbar.schedule'; icon: IconName; view: 'writing' | 'topics' | 'schedule' }> = [
+  { key: 'home', labelKey: 'topbar.write', icon: 'pen-line', view: 'writing' },
+  { key: 'hotspots', labelKey: 'topbar.hotspots', icon: 'flame', view: 'topics' },
+  { key: 'schedule', labelKey: 'topbar.schedule', icon: 'calendar-clock', view: 'schedule' },
 ];
 
 export interface WechatConnection {
@@ -53,6 +55,7 @@ export function TopBar({
               type="button"
               className={isActive ? 'ww-tab ww-tab--active' : 'ww-tab'}
               aria-current={isActive ? 'page' : undefined}
+              data-view={tab.view}
               data-testid={`ww-topbar-tab-${tab.key}`}
               onClick={() => onNavigate({ kind: tab.key })}
             >

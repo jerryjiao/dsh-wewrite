@@ -60,6 +60,19 @@
   font-weight: var(--ww-weight-medium);
 }
 
+/* Bluewash §4-2（uiux-color-theme-design）：8px 域识别点，圆点不是侧条。
+ * 写作域默认 accent；data-view 变体覆盖（选题=橙 / 定时=青）。
+ * 纯 CSS 圆点，非图标、非 emoji；只给域页加，设置页不加。 */
+.ww-pagebar__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--ww-radius-full);
+  background: var(--ww-accent);
+}
+.ww-pagebar__dot[data-view='topics'] { background: var(--ww-view-topics); }
+.ww-pagebar__dot[data-view='schedule'] { background: var(--ww-view-schedule); }
+
 .ww-pagebar__count {
   font-family: var(--ww-font-code);
   font-size: var(--ww-text-sm);
