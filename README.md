@@ -230,6 +230,20 @@ npm run build        # 产出 lib/（提交前必跑，产物入库）
 
 项目文档在 `docs/`（PRD / Spec / 技术架构 / QA 测试计划），测试即契约（Spec EARS 验收标准的可执行形态）。
 
+### Playwright（e2e 真机驱动）
+
+本仓库**不自带** playwright 安装（避免重复下载浏览器与依赖膨胀）。在 worktree 跑 e2e 真机驱动（`npm run test:e2e`）时，复用 workspace 主仓的安装，两种方式任选：
+
+```bash
+# 方式一：NODE_PATH 指向 workspace 的 node_modules（runner 从那里解析 playwright）
+NODE_PATH=/Users/mac/Documents/workspace/node_modules npm run test:e2e
+
+# 方式二：直接用 workspace 里 playwright CLI 的绝对路径起驱动/装浏览器
+/Users/mac/Documents/workspace/node_modules/.bin/playwright install chromium
+```
+
+策略原因：worktree 是共享 .git 的轻检出，浏览器二进制与依赖全局只留一份（workspace）；CI 侧由流水线自行安装，与本地策略互不干扰。
+
 ## CI 与发版
 
 三条 GitHub Actions 流水线，全绿是合入与发版的前置：
