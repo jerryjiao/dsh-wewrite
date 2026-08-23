@@ -66,6 +66,63 @@ export interface AgentScope {
         readonly events?: readonly unknown[];
     };
 }
+/** S2 词汇表最小子集（ADR-012：只用 generic 卡 + text content，最稳定面）。 */
+export interface ToolCallView {
+    readonly card: 'generic';
+    readonly kind: 'execute' | 'edit';
+    readonly title: string;
+    readonly rawInput?: Readonly<Record<string, unknown>>;
+}
+export interface TextBlock {
+    readonly type: 'text';
+    readonly text: string;
+}
+export interface ToolResultView {
+    readonly card: 'generic';
+    readonly title: string;
+    readonly content: readonly TextBlock[];
+}
+/**
+ * rc.7 ToolRunContext 窄面：execute 依赖 signal（D11）+ callId（M2 运行卡 runId 断链修复：
+ * ToolExecutionInput.callId 是宿主必填字段，前端运行卡 args.runId→rawInput.runId→callId 兜底链的终点）。
+ * 字段按可选防御——测试假件与降级路径不保证携带。
+ */
+export interface ToolRunContext {
+    readonly signal: AbortSignal;
+    readonly callId?: string;
+    readonly rootCallId?: string;
+    readonly name?: string;
+    readonly agent?: {
+        readonly id?: unknown;
+        readonly session?: unknown;
+    };
+}
+export interface WewriteToolOutputDefinition {
+    /** object-root JsonSchemaNode（canonical value 的形状声明）。 */
+    readonly schema: Record<string, unknown>;
+    /** 模型面文本（纯函数，禁访问 service；流式与回放共用）。 */
+    render(args: unknown, value: unknown): TextBlock[];
+    /** E2 meta（纯函数；产物过 shared/agent-tool-contract 的 meta schema）。 */
+    presentationMeta?(args: unknown, value: unknown): unknown;
+}
+export interface WewriteToolDefinition {
+    readonly name: string;
+    readonly description: string;
+    readonly parameters: Record<string, unknown>;
+    readonly output: WewriteToolOutputDefinition;
+    readonly timeoutMs?: number;
+    execute(args: unknown, exec: ToolRunContext): Promise<unknown>;
+    presentCall?(args: unknown): ToolCallView | undefined;
+    presentResult?(args: unknown, result: {
+        readonly content: readonly unknown[];
+        readonly isError: boolean;
+        readonly meta?: unknown;
+    }): ToolResultView | undefined;
+}
+/** M3 slash 命令 seam（S9：handler 不进模型，command/run 是 known 事件）。 */
+export interface CommandsService {
+    register(definition: unknown): unknown;
+}
 export interface AgentsService {
     roots?(): readonly AgentScope[];
     on?(event: 'agent/created', listener: (event: {
@@ -89,6 +146,7 @@ export interface HostContext {
     readonly llm?: LlmService;
     readonly tools?: ToolsService;
     readonly agents?: AgentsService;
+    readonly commands?: CommandsService;
     readonly logger?: HostLogger | ((name: string) => HostLogger);
     readonly on?: (event: string, listener: (...args: unknown[]) => unknown) => (() => void) | undefined;
     readonly effect?: (body: HostEffectBody, label?: string) => unknown;

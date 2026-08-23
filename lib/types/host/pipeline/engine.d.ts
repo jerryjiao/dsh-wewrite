@@ -83,6 +83,8 @@ export interface PipelineEngine {
         done: Promise<string>;
     };
     cancel(runId: string): boolean;
+    /** chat-integration M1：等指定 run 到终态并 resolve RunRecord；未知 runId → undefined（不挂起不抛错）。 */
+    awaitDone(runId: string): Promise<RunRecord | undefined>;
     resumeInterrupted(): Promise<number>;
 }
 export declare class PipelineStepError extends Error {

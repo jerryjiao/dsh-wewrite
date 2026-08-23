@@ -1,5 +1,6 @@
 /** WeWriteService（架构 §3）：host 级唯一服务；写操作串行化。重活已拆 images/wechat-flow/articles-store/schedules-store/views。 */
-import { type ArticleDetail, type ArticleListItem, type ConfigView, type HotspotDigestItem, type HotspotItem, type HotspotItemDigest, type RunParams, type RunSummary, type ScheduleViewModel, type SnapshotResponse } from '../shared/contract';
+import { type ArticleDetail, type ArticleListItem, type ConfigView, type HotspotDigestItem, type HotspotItem, type HotspotItemDigest, type RunDetail, type RunParams, type RunSummary, type ScheduleViewModel, type SnapshotResponse } from '../shared/contract';
+import { type RunRecord } from './domain';
 import { type CredentialsService, type HostLogger, type LlmService, type StorageDomainHandle } from './platform';
 import { WewriteServiceError } from './service-errors';
 import type { DiagnoseResult } from './wechat/client';
@@ -15,6 +16,7 @@ export interface ServiceDeps {
     readonly digestTimeoutMs?: number;
     /** AI 改写 LLM 调用超时毫秒（默认 45s；测试注入缩短值验证 abort 分支）。 */
     readonly rewriteTimeoutMs?: number;
+    readonly agentToolsConfigDefault?: boolean;
 }
 export declare class WeWriteService {
     private readonly deps;
@@ -29,6 +31,9 @@ export declare class WeWriteService {
     private readonly articles;
     private readonly schedules;
     private readonly scheduler;
+    /** callId→runId 内存映射（M2 运行卡 callId 兜底链；有界 FIFO，dispose 清空）+ AC-M1-12 单一真源闸门。 */
+    private readonly callBindings;
+    private readonly agentToolsGate;
     private constructor();
     static open(deps: ServiceDeps): Promise<WeWriteService>;
     private serialize;
@@ -78,6 +83,16 @@ export declare class WeWriteService {
     cancelRun(runId: string): {
         ok: boolean;
     };
+    /** chat-integration M1：等待 run 到终态（wewrite_run 工具 execute 等终态用；未知 runId → undefined）。 */
+    runCompletion(runId: string): Promise<RunRecord | undefined>;
+    /** chat-integration M2 消费面：run 详情（RunSummary + steps + topic，run/detail RPC 透传）。runId/callId 二选一。 */
+    runDetail(selector: {
+        runId?: string;
+        callId?: string;
+    }): RunDetail;
+    /** M2 callId 兜底链锚点：工具 execute 绑宿主 callId → runId。 */
+    bindRunCall(callId: string, runId: string): void;
+    lookupArticleTitle(articleId: string): string;
     listArticles(): ArticleListItem[];
     getArticle(id: string): ArticleDetail;
     saveArticle(input: {
@@ -115,6 +130,9 @@ export declare class WeWriteService {
         runId: string;
     };
     private claimOccurrence;
+    /** AC-M1-12 单一真源总开关（显式设置 > 插件 config 默认）；翻转通知供热回收。 */
+    agentToolsEnabled(): boolean;
+    onAgentToolsChanged(listener: (enabled: boolean) => void): () => void;
     getConfig(): Promise<ConfigView>;
     setConfig(patch: Record<string, unknown>): Promise<ConfigView>;
     setCredential(ref: string, value: string): Promise<{

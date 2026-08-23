@@ -89,6 +89,69 @@ export declare const RunSummarySchema: z.ZodObject<{
     }, z.core.$strict>>;
 }, z.core.$strict>;
 export type RunSummary = z.infer<typeof RunSummarySchema>;
+/** run 详情步骤投影（chat-integration M2：run/detail 响应内嵌，形状对齐 host StepRecord）。 */
+export declare const STEP_VIEW_STATUSES: readonly ["pending", "running", "succeeded", "failed", "cancelled"];
+export declare const StepViewSchema: z.ZodObject<{
+    name: z.ZodString;
+    status: z.ZodEnum<{
+        failed: "failed";
+        running: "running";
+        succeeded: "succeeded";
+        cancelled: "cancelled";
+        pending: "pending";
+    }>;
+    startedAt: z.ZodOptional<z.ZodString>;
+    finishedAt: z.ZodOptional<z.ZodString>;
+    error: z.ZodOptional<z.ZodObject<{
+        code: z.ZodString;
+        message: z.ZodString;
+    }, z.core.$strict>>;
+    metrics: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
+}, z.core.$strict>;
+export type StepView = z.infer<typeof StepViewSchema>;
+/** run/detail 响应（chat-integration M2 运行卡消费面）：RunSummary + steps + topic（全量手写保 strict）。 */
+export declare const RunDetailSchema: z.ZodObject<{
+    id: z.ZodString;
+    trigger: z.ZodEnum<{
+        manual: "manual";
+        schedule: "schedule";
+    }>;
+    scheduleId: z.ZodOptional<z.ZodString>;
+    articleId: z.ZodOptional<z.ZodString>;
+    status: z.ZodEnum<{
+        failed: "failed";
+        queued: "queued";
+        running: "running";
+        succeeded: "succeeded";
+        cancelled: "cancelled";
+        interrupted: "interrupted";
+    }>;
+    startedAt: z.ZodString;
+    finishedAt: z.ZodOptional<z.ZodString>;
+    error: z.ZodOptional<z.ZodObject<{
+        code: z.ZodString;
+        message: z.ZodString;
+    }, z.core.$strict>>;
+    topic: z.ZodString;
+    steps: z.ZodArray<z.ZodObject<{
+        name: z.ZodString;
+        status: z.ZodEnum<{
+            failed: "failed";
+            running: "running";
+            succeeded: "succeeded";
+            cancelled: "cancelled";
+            pending: "pending";
+        }>;
+        startedAt: z.ZodOptional<z.ZodString>;
+        finishedAt: z.ZodOptional<z.ZodString>;
+        error: z.ZodOptional<z.ZodObject<{
+            code: z.ZodString;
+            message: z.ZodString;
+        }, z.core.$strict>>;
+        metrics: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
+    }, z.core.$strict>>;
+}, z.core.$strict>;
+export type RunDetail = z.infer<typeof RunDetailSchema>;
 export declare const ScheduleViewModelSchema: z.ZodObject<{
     id: z.ZodString;
     revision: z.ZodNumber;

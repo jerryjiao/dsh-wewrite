@@ -223,6 +223,7 @@ export declare const GlobalStateSchema: z.ZodObject<{
         hotspotAggregatorUrl: z.ZodDefault<z.ZodString>;
     }, z.core.$strict>;
     claimedOccurrences: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    agentToolsTouched: z.ZodDefault<z.ZodBoolean>;
 }, z.core.$strict>;
 export type GlobalState = z.infer<typeof GlobalStateSchema>;
 export declare const INITIAL_GLOBAL: GlobalState;
@@ -269,6 +270,7 @@ export declare const domainSpec: {
                 hotspotAggregatorUrl: z.ZodDefault<z.ZodString>;
             }, z.core.$strict>;
             claimedOccurrences: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            agentToolsTouched: z.ZodDefault<z.ZodBoolean>;
         }, z.core.$strict>;
         readonly initial: {
             v: 1;
@@ -293,6 +295,7 @@ export declare const domainSpec: {
                 hotspotAggregatorUrl: string;
             };
             claimedOccurrences: string[];
+            agentToolsTouched: boolean;
         };
     };
     readonly tables: {
