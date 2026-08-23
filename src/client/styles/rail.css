@@ -1,0 +1,258 @@
+/*
+ * 左栏文章列样式（v0.2，uiux-workbench-delta §1-3）：
+ * ArticleRail = 搜索 + 状态筛选 + 36px 紧凑行 + 底部新文章表单；折叠态 ww-rail--collapsed。
+ * 窄态（<900px）整体替换为编辑器页头文章下拉（ww-rail-select）。
+ * 非-token 布局常量（delta §3）：rail 宽 240 / rail 行高 36。颜色一律 var(--ww-*)。
+ */
+
+/* ---------- ArticleRail（§1-3） ---------- */
+
+.ww-rail {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  width: 240px;
+  height: 100%;
+  background: var(--ww-bg-page);
+  border-right: var(--ww-border-width) solid var(--ww-border);
+  opacity: 1;
+  overflow: hidden;
+  /* delta §1-9 #1：width 240↔0 + 内容 opacity，200ms 空间连续性例外 */
+  transition: width var(--ww-motion-base) var(--ww-ease), opacity var(--ww-motion-base) var(--ww-ease);
+}
+
+.ww-rail--collapsed {
+  width: 0;
+  opacity: 0;
+  border-right: none;
+}
+
+.ww-rail__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ww-space-2);
+  padding: var(--ww-space-3);
+  border-bottom: var(--ww-border-width) solid var(--ww-divider);
+}
+
+.ww-rail__search-wrap { position: relative; display: flex; align-items: center; }
+
+.ww-rail__search-icon {
+  position: absolute;
+  left: var(--ww-space-2);
+  color: var(--ww-fg-caption);
+  pointer-events: none;
+}
+
+.ww-rail__search {
+  appearance: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--ww-space-2) 0 calc(var(--ww-space-2) + 20px);
+  color: var(--ww-fg);
+  background: var(--ww-surface);
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-sm);
+}
+
+.ww-rail__search::placeholder { color: var(--ww-fg-caption); }
+.ww-rail__search:hover:not(:disabled) { border-color: var(--ww-border-strong); }
+.ww-rail__search:focus-visible { outline: none; border-color: var(--ww-border-strong); box-shadow: var(--ww-focus-ring); }
+.ww-rail__search:disabled { color: var(--ww-fg-caption); background: var(--ww-surface-sunken); cursor: default; }
+
+.ww-rail__filter { display: flex; flex-wrap: wrap; gap: var(--ww-space-1); }
+
+.ww-rail__filter-chip {
+  appearance: none;
+  font: inherit;
+  font-size: var(--ww-text-xs);
+  color: var(--ww-fg-secondary);
+  padding: 2px var(--ww-space-2);
+  background: none;
+  border: none;
+  border-radius: var(--ww-radius-full);
+  cursor: pointer;
+  transition: background var(--ww-motion-fast) var(--ww-ease), color var(--ww-motion-fast) var(--ww-ease);
+}
+
+.ww-rail__filter-chip:hover:not(:disabled) { background: var(--ww-interactive-hover); color: var(--ww-fg); }
+.ww-rail__filter-chip:disabled { color: var(--ww-fg-caption); cursor: default; }
+
+.ww-rail__filter-chip--on {
+  background: var(--ww-accent-subtle);
+  color: var(--ww-accent);
+}
+
+.ww-rail__list {
+  list-style: none;
+  margin: 0;
+  padding: var(--ww-space-1) 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ww-rail__row { margin: 0; }
+
+.ww-rail-btn {
+  appearance: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  width: 100%;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: var(--ww-space-2);
+  padding: 0 var(--ww-space-3);
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  color: var(--ww-fg);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--ww-motion-fast) var(--ww-ease);
+}
+
+.ww-rail-btn:hover { background: var(--ww-interactive-hover); }
+.ww-rail-btn:active { background: var(--ww-interactive-active); }
+
+.ww-rail-btn--active {
+  background: var(--ww-accent-subtle);
+  border-left-color: var(--ww-accent);
+}
+
+.ww-rail-btn__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ww-rail-btn__gate {
+  flex: none;
+  color: var(--ww-warn);
+  display: inline-flex;
+  align-items: center;
+  padding: var(--ww-space-1);
+  margin: calc(-1 * var(--ww-space-1));
+  border-radius: var(--ww-radius-sm);
+  cursor: pointer;
+}
+
+.ww-rail-btn__gate:hover { background: var(--ww-warn-subtle); }
+
+.ww-rail__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ww-space-1);
+  padding: var(--ww-space-6) var(--ww-space-3);
+  color: var(--ww-fg-secondary);
+}
+
+.ww-rail__empty-glyph {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ww-radius-full);
+  background: var(--ww-surface-sunken);
+  display: grid;
+  place-items: center;
+  color: var(--ww-fg-caption);
+}
+
+.ww-rail__empty-text { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-fg-secondary); }
+.ww-rail__empty-hint { margin: 0; font-size: var(--ww-text-xs); color: var(--ww-fg-caption); }
+
+.ww-rail__foot {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ww-space-2);
+  padding: var(--ww-space-2) var(--ww-space-3);
+  border-top: var(--ww-border-width) solid var(--ww-divider);
+  background: var(--ww-bg-page);
+}
+
+.ww-rail__new { width: 100%; height: 36px; justify-content: center; }
+
+.ww-rail-new {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ww-space-2);
+  animation: ww-rail-new-in var(--ww-motion-slow) var(--ww-ease);
+}
+
+@keyframes ww-rail-new-in {
+  /* §D4 R3：进入位移统一 8px 档（与进度卡 ww-progress-card-in 同语言） */
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ww-rail-new__input {
+  appearance: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--ww-space-2);
+  color: var(--ww-fg);
+  background: var(--ww-surface);
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-sm);
+}
+
+.ww-rail-new__input::placeholder { color: var(--ww-fg-caption); }
+.ww-rail-new__input:hover { border-color: var(--ww-border-strong); }
+.ww-rail-new__input:focus-visible { outline: none; border-color: var(--ww-border-strong); box-shadow: var(--ww-focus-ring); }
+
+.ww-rail-new__hotspots {
+  appearance: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ww-space-1);
+  height: 30px;
+  padding: 0 var(--ww-space-2);
+  color: var(--ww-fg-secondary);
+  background: none;
+  border: none;
+  border-radius: var(--ww-radius-md);
+  cursor: pointer;
+}
+
+.ww-rail-new__hotspots:hover { background: var(--ww-interactive-hover); color: var(--ww-fg); }
+
+/* ---------- 窄态文章下拉（§1-2） ---------- */
+
+.ww-rail-select {
+  appearance: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-1);
+  max-width: 220px;
+  height: 28px;
+  padding: 0 var(--ww-space-2);
+  color: var(--ww-fg);
+  background: var(--ww-surface);
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-md);
+  cursor: pointer;
+}
+
+.ww-rail-select:hover { background: var(--ww-interactive-hover); }
+
+.ww-rail-select__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

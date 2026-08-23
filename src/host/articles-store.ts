@@ -122,7 +122,7 @@ export class ArticleStore {
 }
 
 function deriveTitle(markdown: string): string {
-  const heading = /^#{0,2}\s*(.+)$/m.exec(markdown.trim());
+  const heading = markdown.trim().match(/^#{0,2}\s*(.+)$/m);
   return (heading?.[1] ?? '未命名稿件').slice(0, 40);
 }
 

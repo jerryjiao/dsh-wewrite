@@ -1,5 +1,5 @@
 /**
- * RPC 契约（Spec §5 / 架构 §6）：20 端点的 request/response zod schema。
+ * RPC 契约（Spec §5 / 架构 §6）：22 端点的 request/response zod schema。
  * client 与 host 之间的唯一契约载体——双端共用，payload/response 全过校验。
  * 端点集合与形状由 tests/shared/contract.test.ts 钉定，禁漂移。
  * 分层：schema-base（基础形状）→ view-schemas（视图投影）→ 本文件（端点表 + 汇总再导出）。
@@ -20,6 +20,8 @@ import {
   ArticleListItemSchema,
   ConfigViewSchema,
   CredentialsDescriptorSchema,
+  HotspotDigestItemSchema,
+  HotspotItemDigestSchema,
   HotspotItemSchema,
   ScheduleViewModelSchema,
   SnapshotResponseSchema,
@@ -37,11 +39,13 @@ export const CONTRACT_VERSION = 1;
 export const RPC_ENDPOINTS = [
   'snapshot',
   'hotspots/fetch',
+  'hotspots/digestItem',
   'article/list',
   'article/get',
   'article/save',
   'article/delete',
   'article/preview',
+  'article/rewrite',
   'run/start',
   'run/cancel',
   'schedule/save',
@@ -89,6 +93,10 @@ export const rpcContract: Record<string, { readonly request: z.ZodType; readonly
     request: z.strictObject({ limit: z.number().int().min(1).max(100).optional() }),
     response: z.array(HotspotItemSchema),
   },
+  'hotspots/digestItem': {
+    request: HotspotDigestItemSchema,
+    response: HotspotItemDigestSchema,
+  },
   'article/list': { request: EmptyRequest, response: z.array(ArticleListItemSchema) },
   'article/get': {
     request: z.strictObject({ id: z.string().min(1) }),
@@ -115,6 +123,14 @@ export const rpcContract: Record<string, { readonly request: z.ZodType; readonly
       z.strictObject({ markdown: z.string(), theme: z.string() }),
     ]),
     response: z.strictObject({ html: z.string() }),
+  },
+  'article/rewrite': {
+    request: z.strictObject({
+      text: z.string().min(1).max(8000),
+      instruction: z.string().min(1).max(200),
+      title: z.string().max(200).optional(),
+    }),
+    response: z.strictObject({ text: z.string().min(1).max(16000) }),
   },
   'run/start': {
     request: z.strictObject({ articleId: z.string().optional(), params: RunParamsWithTopicSchema }),

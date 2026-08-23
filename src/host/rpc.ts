@@ -16,6 +16,8 @@ interface RpcPayload {
   readonly articleId?: string;
   readonly enabled?: boolean;
   readonly limit?: number;
+  readonly rank?: number;
+  readonly url?: string;
   readonly ref?: string;
   readonly value?: string;
   readonly params?: RunParams;
@@ -23,6 +25,8 @@ interface RpcPayload {
   readonly title?: string;
   readonly digest?: string;
   readonly markdown?: string;
+  readonly text?: string;
+  readonly instruction?: string;
   readonly theme?: string;
   readonly name?: string;
   readonly rrule?: string;
@@ -35,6 +39,12 @@ async function dispatch(service: WeWriteService, endpoint: RpcEndpoint, payload:
       return service.snapshot();
     case 'hotspots/fetch':
       return service.fetchHotspots(payload.limit ?? 20);
+    case 'hotspots/digestItem':
+      return service.digestHotspotItem({
+        rank: Number(payload.rank),
+        title: String(payload.title),
+        url: String(payload.url),
+      });
     case 'article/list':
       return service.listArticles();
     case 'article/get':
@@ -54,6 +64,12 @@ async function dispatch(service: WeWriteService, endpoint: RpcEndpoint, payload:
       return service.previewArticle(
         payload.id ? { id: payload.id } : { markdown: String(payload.markdown), theme: String(payload.theme) },
       );
+    case 'article/rewrite':
+      return service.rewriteText({
+        text: String(payload.text),
+        instruction: String(payload.instruction),
+        ...(payload.title !== undefined ? { title: String(payload.title) } : {}),
+      });
     case 'run/start':
       return service.startRun({
         trigger: 'manual',
@@ -96,6 +112,55 @@ async function dispatch(service: WeWriteService, endpoint: RpcEndpoint, payload:
   }
 }
 
+/**
+ * 平台契约（P0，2026-08-20 QA 实测确诊）：DSH 宿主 dsh-client-connection 的
+ * rpcResultSchema 对 result 做联合校验，error.code 必须落在宿主 rpcErrorSchema 的
+ * code 枚举内，且**每个分支都必填 details 字段**（枚举清单从宿主包实测核对：
+ * ~/.dsh/profiles/node_modules/@deepseek-ai/dsh-client-connection/lib/client.js 的
+ * rpcErrorSchema discriminatedUnion，共 39 个——bad-request / cancelled /
+ * session-not-found / model-unavailable / session-conflict / invalid-time-zone /
+ * workspace-attach-failed / workspace-not-found / workspace-invalid-path /
+ * workspace-name-conflict / workspace-move-invalid / directory-unreadable /
+ * directory-exists / directory-create-failed / directory-picker-unavailable /
+ * agent-preset-read-only / agent-preset-locked / agent-preset-conflict /
+ * agent-preset-not-found / agent-preset-invalid / agent-busy / attachment-error /
+ * queue-item-not-found / steer-unavailable / command-error / unknown-command /
+ * settings-rejected / settings-conflict / credential-rejected /
+ * model-discovery-failed / title-invalid / fork-unavailable /
+ * subagent-parent-unavailable / subagent-not-found / subagent-catalog-diagnostic /
+ * subagent-not-resumable / subagent-unauthorized / subagent-delivery-unavailable /
+ * internal）。
+ * 除 internal / cancelled / command-error / unknown-command 四个 details:object({})
+ * 分支外，其余分支的 details 都带必填结构化字段（如 bad-request 要 {issues:[]}、
+ * session-not-found 要 {sessionId}），插件侧无法恒满足。插件自有码
+ * （PI_AI_ERROR / digest-timeout / llm-not-configured / …）不在枚举内 → 宿主整包
+ * 拒收，zod invalid_union 全文（~1.7KB）直接泄漏成用户看到的错误消息
+ * （tests/e2e/artifacts/qa-digest/qa-digest-report.json item-01）。
+ * 收敛策略：信封 code 统一 'internal' + details:{}（恒过校验），真实 code 以
+ * '[code] ' 前缀保留进 message——客户端按 message 展示，前端按前缀映射错误文案。
+ */
+/** 宿主枚举内且 details 形状插件恒能满足的 code（details: object({}) 分支）。 */
+const HOST_RPC_ERROR_CODE = 'internal';
+
+/** 插件错误 → 宿主白名单错误信封：code 收敛 internal，真实 code 进 message 前缀。 */
+function toHostRpcErrorEnvelope(
+  error: unknown,
+  truncate: (text: string) => string,
+): { ok: false; error: { code: typeof HOST_RPC_ERROR_CODE; message: string; details: Record<string, never> } } {
+  const rawCode = typeof (error as { code?: unknown })?.code === 'string' && (error as { code?: unknown }).code
+    ? (error as { code: string }).code
+    : 'rpc-failed';
+  const message = truncate(error instanceof Error ? error.message : String(error));
+  return {
+    ok: false,
+    error: {
+      code: HOST_RPC_ERROR_CODE,
+      message: rawCode === HOST_RPC_ERROR_CODE ? message : `[${rawCode}] ${message}`,
+      details: {},
+    },
+  };
+}
+
 /** 注册 loopback 通道；rpc 服务缺失时降级为 no-op + 警告（架构 §9.1）。 */
 export function registerWewriteRpc(
   rpc: ConnectionRpcService | undefined,
@@ -129,13 +194,7 @@ export function registerWewriteRpc(
         }
         return { ok: true as const, value: checked.data };
       } catch (error) {
-        return {
-          ok: false as const,
-          error: {
-            code: error instanceof Error && 'code' in error ? String((error as { code?: unknown }).code) : 'rpc-failed',
-            message: truncate(error instanceof Error ? error.message : String(error)),
-          },
-        };
+        return toHostRpcErrorEnvelope(error, truncate);
       }
     },
     { authority: RPC_AUTHORITY },

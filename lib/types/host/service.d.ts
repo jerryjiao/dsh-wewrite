@@ -1,5 +1,5 @@
 /** WeWriteService（架构 §3）：host 级唯一服务；写操作串行化。重活已拆 images/wechat-flow/articles-store/schedules-store/views。 */
-import { type ArticleDetail, type ArticleListItem, type ConfigView, type HotspotItem, type RunParams, type RunSummary, type ScheduleViewModel, type SnapshotResponse } from '../shared/contract';
+import { type ArticleDetail, type ArticleListItem, type ConfigView, type HotspotDigestItem, type HotspotItem, type HotspotItemDigest, type RunParams, type RunSummary, type ScheduleViewModel, type SnapshotResponse } from '../shared/contract';
 import { type CredentialsService, type HostLogger, type LlmService, type StorageDomainHandle } from './platform';
 import { WewriteServiceError } from './service-errors';
 import type { DiagnoseResult } from './wechat/client';
@@ -11,6 +11,10 @@ export interface ServiceDeps {
     readonly fetchImpl?: typeof fetch;
     readonly now?: () => Date;
     readonly logger?: HostLogger;
+    /** 热榜逐条速览 LLM 调用超时毫秒（默认 45s；测试注入缩短值验证 abort 分支）。 */
+    readonly digestTimeoutMs?: number;
+    /** AI 改写 LLM 调用超时毫秒（默认 45s；测试注入缩短值验证 abort 分支）。 */
+    readonly rewriteTimeoutMs?: number;
 }
 export declare class WeWriteService {
     private readonly deps;
@@ -53,6 +57,16 @@ export declare class WeWriteService {
     snapshot(): Promise<SnapshotResponse>;
     listRuns(): RunSummary[];
     fetchHotspots(limit?: number): Promise<HotspotItem[]>;
+    /** 热榜逐条 AI 速览（uiux v0.3 §1）：抓原文→抽取→LLM；抓取失败静默降级 title 模式。 */
+    digestHotspotItem(item: HotspotDigestItem): Promise<HotspotItemDigest>;
+    /** AI 改写选中段（uiux v0.3 §3）：只输出改写文本，maxTokens 随原文长度缩放。 */
+    rewriteText(input: {
+        text: string;
+        instruction: string;
+        title?: string;
+    }): Promise<{
+        text: string;
+    }>;
     startRun(input: {
         trigger: 'manual' | 'schedule';
         params: RunParams;

@@ -1,76 +1,8 @@
 /*
- * 面板页样式：写作台 / 选题中心 / 文章库 / 定时任务 / 设置。
+ * 面板页样式：选题中心 / 定时任务 / 通用表格。
  * 颜色一律 var(--ww-*)；线框分层；行高 44px 触摸底线。
+ * v0.2：写作台/文章库退役（工作区化），topic/article-card 样式已删。
  */
-
-/* ---------- 写作台 ---------- */
-
-.ww-topic { display: flex; flex-direction: column; gap: var(--ww-space-8); padding-bottom: var(--ww-space-12); }
-
-.ww-topic__section { display: flex; flex-direction: column; }
-
-.ww-topic__date { font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); font-variant-numeric: tabular-nums; }
-
-.ww-topic__todos { list-style: none; margin: 0; padding: 0; border-top: var(--ww-border-width) solid var(--ww-divider); }
-
-.ww-topic__todo {
-  display: flex;
-  align-items: center;
-  gap: var(--ww-space-3);
-  min-height: var(--ww-row-h);
-  border-bottom: var(--ww-border-width) solid var(--ww-divider);
-  color: var(--ww-fg);
-  transition: background var(--ww-motion-fast) var(--ww-ease);
-}
-
-.ww-topic__todo:hover { background: var(--ww-interactive-hover); }
-.ww-topic__todo > svg, .ww-topic__todo .ww-spin { color: var(--ww-fg-secondary); flex: none; }
-
-.ww-topic__todo-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ww-text-sm); }
-
-.ww-topic__articles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--ww-space-3); }
-
-.ww-article-card {
-  appearance: none;
-  font: inherit;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: var(--ww-space-2);
-  padding: var(--ww-space-4);
-  background: var(--ww-surface);
-  border: var(--ww-border-width) solid var(--ww-border);
-  border-radius: var(--ww-radius-lg);
-  cursor: pointer;
-  min-height: var(--ww-row-h);
-  transition: border-color var(--ww-motion-base) var(--ww-ease);
-}
-
-.ww-article-card:hover { border-color: var(--ww-border-strong); }
-
-.ww-article-card__title {
-  font-size: var(--ww-text-md);
-  font-weight: var(--ww-weight-medium);
-  color: var(--ww-fg);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ww-article-card__status { font-size: var(--ww-text-sm); color: var(--ww-fg-secondary); }
-.ww-article-card__gate { font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); font-variant-numeric: tabular-nums; }
-.ww-article-card__gate--fail { color: var(--ww-danger); font-weight: var(--ww-weight-medium); }
-
-.ww-topic__composer {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  gap: var(--ww-space-3);
-  padding: var(--ww-space-3) 0;
-  background: var(--ww-bg);
-  border-top: var(--ww-border-width) solid var(--ww-border);
-  z-index: var(--ww-z-sticky);
-}
 
 /* ---------- 选题中心 ---------- */
 
@@ -78,16 +10,35 @@
 
 .ww-hotspots--narrow { grid-template-columns: minmax(0, 1fr); }
 
-.ww-hotspot-list { list-style: none; margin: 0; padding: 0; border: var(--ww-border-width) solid var(--ww-border); border-radius: var(--ww-radius-lg); overflow: hidden; }
+/* 窄态（v2 §1b-2）：关键词栏折叠为列表上方单行横条（chips 横滚），不占下方黄金位 */
+.ww-hotspots--narrow .ww-hotspots__keywords {
+  order: -1;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: var(--ww-space-2) var(--ww-space-3);
+  gap: var(--ww-space-3);
+}
+
+.ww-hotspots--narrow .ww-keywords { flex-wrap: nowrap; }
+.ww-hotspots--narrow .ww-aside-title,
+.ww-hotspots--narrow .ww-aside-empty { display: none; }
+.ww-hotspots--narrow .ww-keywords__add { flex: none; }
+
+.ww-hotspot-list { list-style: none; margin: 0; padding: 0; border: var(--ww-border-width) solid var(--ww-border); border-radius: var(--ww-radius-lg); overflow: hidden; box-shadow: var(--ww-shadow-card); }
 
 .ww-hotspot { border-bottom: var(--ww-border-width) solid var(--ww-divider); background: var(--ww-surface); }
 .ww-hotspot:last-child { border-bottom: none; }
 .ww-hotspot--hit { background: var(--ww-accent-subtle); }
 
+.ww-hotspot__liner { position: relative; display: flex; align-items: center; }
+
 .ww-hotspot__row {
   appearance: none;
   font: inherit;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--ww-space-3);
@@ -98,20 +49,68 @@
   cursor: pointer;
   text-align: left;
   color: var(--ww-fg);
+  transition: background var(--ww-motion-fast) var(--ww-ease);
 }
 
 .ww-hotspot__row:hover { background: var(--ww-interactive-hover); }
-.ww-hotspot--hit .ww-hotspot__row:hover { background: var(--ww-interactive-hover); }
+
+/* L5 动作前置：默认隐形，行 hover / 键盘聚焦（:focus-within）时浮现 */
+.ww-hotspot__write {
+  appearance: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  position: absolute;
+  right: var(--ww-space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-1);
+  height: 28px;
+  padding: 0 var(--ww-space-2);
+  color: var(--ww-fg-secondary);
+  background: var(--ww-surface);
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-md);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(2px);
+  transition: opacity var(--ww-motion-fast) var(--ww-ease), transform var(--ww-motion-fast) var(--ww-ease), background var(--ww-motion-fast) var(--ww-ease);
+}
+
+.ww-hotspot__liner:hover .ww-hotspot__write,
+.ww-hotspot__liner:focus-within .ww-hotspot__write {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.ww-hotspot__write:hover { background: var(--ww-interactive-hover); color: var(--ww-fg); border-color: var(--ww-border-strong); }
+
+/* P6：触屏（hover:none）无悬停路径，「写这个」常显 fallback。
+ * 按钮自带 surface 实底 + 1px 边框，覆盖在行尾 meta/箭头上仍可读，无需改定位。 */
+@media (hover: none) {
+  .ww-hotspot__write {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+}
 
 .ww-hotspot__rank { font-family: var(--ww-font-code); font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); min-width: 2.5em; }
+
+/* Bluewash §4-3（uiux-color-theme-design）：Top3 名次橙 + 500 字重；
+ * 4+ 保持 fg-tertiary/400。双色数据节奏：蓝=命中行底，橙=热度名次。
+ * Top3 同色不分金银铜（反廉价 §6-9，不做奖牌色系）。 */
+.ww-hotspot__rank--top {
+  color: var(--ww-rank-top);
+  font-weight: var(--ww-weight-medium);
+}
 
 .ww-hotspot__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .ww-hotspot__meta { font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); white-space: nowrap; }
 
 .ww-hotspot__expand { padding: 0 var(--ww-space-4) var(--ww-space-3); display: flex; flex-direction: column; gap: var(--ww-space-2); border-top: var(--ww-border-width) solid var(--ww-divider); }
-
-.ww-hotspot__actions { display: flex; gap: var(--ww-space-2); }
 
 .ww-hotspots__keywords {
   border: var(--ww-border-width) solid var(--ww-border);
@@ -121,6 +120,13 @@
   flex-direction: column;
   gap: var(--ww-space-3);
   background: var(--ww-surface);
+  box-shadow: var(--ww-shadow-card);
+  /* v2 §2-3 白卡 hover 反馈：只提边框（hover 不换阴影档，§D4-0 总则） */
+  transition: border-color var(--ww-motion-base) var(--ww-ease);
+}
+
+.ww-hotspots__keywords:hover {
+  border-color: var(--ww-border-strong);
 }
 
 .ww-aside-title { margin: 0; font-size: var(--ww-text-md); font-weight: var(--ww-weight-medium); }
@@ -129,6 +135,29 @@
 
 .ww-keywords { display: flex; flex-wrap: wrap; gap: var(--ww-space-2); }
 .ww-keywords__add { display: flex; gap: var(--ww-space-2); align-items: center; }
+
+/* P5：Pill 本体不再整删；× 独立点击目标，Pill 悬停时才显色提示可点 */
+.ww-keyword { display: inline-flex; max-width: 100%; }
+
+.ww-keyword__x {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: var(--ww-space-1);              /* 16 icon + 4×2 = 24px 热区，负 margin 不撑大 Pill */
+  margin: 0 calc(-1 * var(--ww-space-1)) 0 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ww-fg-caption);
+  border-radius: var(--ww-radius-sm);
+  cursor: pointer;
+  transition: color var(--ww-motion-fast) var(--ww-ease);
+}
+
+/* 默认 × 半隐（caption 色）；Pill 悬停 / × 自身悬停 / 键盘聚焦时显色 */
+.ww-keyword:hover .ww-keyword__x,
+.ww-keyword__x:hover,
+.ww-keyword__x:focus-visible { color: var(--ww-fg); }
 
 .ww-filter-toggle {
   appearance: none;
@@ -147,68 +176,6 @@
 
 .ww-filter-toggle--on { background: var(--ww-accent-subtle); color: var(--ww-fg); border-color: var(--ww-accent); }
 
-/* ---------- 文章库表格 ---------- */
-
-.ww-articles { display: flex; flex-direction: column; gap: var(--ww-space-3); }
-
-.ww-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--ww-surface);
-  border: var(--ww-border-width) solid var(--ww-border);
-  border-radius: var(--ww-radius-lg);
-  overflow: hidden;
-  font-size: var(--ww-text-sm);
-}
-
-.ww-table th {
-  text-align: left;
-  font-weight: var(--ww-weight-medium);
-  color: var(--ww-fg-secondary);
-  background: var(--ww-surface-sunken);
-  padding: var(--ww-space-2) var(--ww-space-3);
-  border-bottom: var(--ww-border-width) solid var(--ww-border-strong);
-  white-space: nowrap;
-}
-
-.ww-table td {
-  padding: var(--ww-space-2) var(--ww-space-3);
-  border-bottom: var(--ww-border-width) solid var(--ww-divider);
-  vertical-align: middle;
-}
-
-.ww-table__row { transition: background var(--ww-motion-fast) var(--ww-ease); }
-.ww-table__row:hover { background: var(--ww-interactive-hover); }
-
-.ww-table__title-cell { min-width: 220px; }
-
-.ww-table__title {
-  appearance: none;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: var(--ww-text-base);
-  color: var(--ww-fg);
-  cursor: pointer;
-  padding: 0;
-  display: block;
-  max-width: 34em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ww-table__title:hover { color: var(--ww-accent-hover); }
-
-.ww-table__slug { display: inline-block; margin-top: 2px; }
-
-.ww-table__mono { font-family: var(--ww-font-code); font-size: var(--ww-text-xs); font-variant-numeric: tabular-nums; }
-.ww-table__muted { color: var(--ww-fg-caption); }
-.ww-table__gate-pass { display: inline-flex; align-items: center; gap: var(--ww-space-1); }
-.ww-table__danger { color: var(--ww-danger); display: inline-flex; align-items: center; gap: var(--ww-space-1); }
-.ww-table__actions { white-space: nowrap; display: flex; gap: var(--ww-space-1); justify-content: flex-end; }
-.ww-table__more { margin: var(--ww-space-2) 0 0; font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); }
-
 /* ---------- 定时任务 ---------- */
 
 .ww-schedule { display: flex; flex-direction: column; gap: var(--ww-space-4); }
@@ -223,10 +190,14 @@
   display: flex;
   flex-direction: column;
   gap: var(--ww-space-2);
+  box-shadow: var(--ww-shadow-card);
+  /* 白卡 hover 反馈：只提边框（hover 不换阴影档，§D4-0 总则） */
   transition: border-color var(--ww-motion-base) var(--ww-ease);
 }
 
-.ww-schedule-card:hover { border-color: var(--ww-border-strong); }
+.ww-schedule-card:hover {
+  border-color: var(--ww-border-strong);
+}
 .ww-schedule-card--paused { background: var(--ww-surface-sunken); }
 
 .ww-schedule-card__head { display: flex; align-items: center; gap: var(--ww-space-2); }
@@ -234,10 +205,26 @@
 
 .ww-schedule-card__body { display: flex; flex-direction: column; gap: var(--ww-space-1); }
 .ww-schedule-card__human { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-fg-secondary); }
-.ww-schedule-card__rrule { margin: 0; }
-.ww-schedule-card__rrule .ww-code { margin-left: calc(-1 * var(--ww-space-2)); }
+/* P4：可见 RRULE code 段已删（rrule 移入人话行 title attr），孤儿规则一并清除 */
 .ww-schedule-card__target { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); }
-.ww-schedule-card__actions { display: flex; gap: var(--ww-space-2); flex-wrap: wrap; }
+.ww-schedule-card__actions { display: flex; gap: var(--ww-space-2); flex-wrap: wrap; align-items: center; }
+
+.ww-schedule-card__more {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--ww-fg-secondary);
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ww-radius-md);
+  cursor: pointer;
+  transition: background var(--ww-motion-fast) var(--ww-ease), color var(--ww-motion-fast) var(--ww-ease);
+}
+
+.ww-schedule-card__more:hover { background: var(--ww-interactive-hover); color: var(--ww-fg); }
 
 .ww-history { list-style: none; margin: 0; padding: 0; border-top: var(--ww-border-width) solid var(--ww-divider); }
 
@@ -257,4 +244,102 @@
 .ww-history__topic { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ww-history__duration { font-family: var(--ww-font-code); font-size: var(--ww-text-xs); color: var(--ww-fg-secondary); }
 .ww-history__error { color: var(--ww-danger); font-size: var(--ww-text-sm); max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- 逐条 AI 速览块（v0.3 R1，uiux-v0.3-design §D1） ----------
+ * 行内嵌入件：无卡框无阴影无 hover——分层由 .ww-hotspot__expand 的
+ * border-top 提供。QA qa-digest 修复（2026-08-20）+ Bluewash v1.2.0：
+ * accent-subtle 转 dark 双态后徽记底色方案解锁（原 static 值深色刺眼风险解除）。 */
+
+.ww-hotspot__digest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ww-space-2);
+  min-width: 0;
+}
+
+.ww-hotspot__digest-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;            /* 窄态徽记/时间自然折次行，不溢出 */
+  gap: var(--ww-space-2);
+  min-height: 28px;
+}
+
+.ww-hotspot__digest-icon { color: var(--ww-fg-tertiary); display: inline-flex; }
+
+.ww-hotspot__digest-label {
+  font-size: var(--ww-text-sm);
+  font-weight: var(--ww-weight-medium);
+  color: var(--ww-fg-secondary);
+}
+
+/* source 徽记（QA 修复升级底色档）：article = 读过原文（success 语义色——
+ * 「已核实」状态用语义色不用识别色）；title = 仅凭标题降级（中性 sunken 底 +
+ * 三级字 + eye-off icon 传降级感，非警示——降级是常态路径不是错误）。
+ * 有底色后补内距成 pill；文案自说明 + icon 形状冗余承载语义。 */
+.ww-hotspot__digest-source {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-1);
+  font-size: var(--ww-text-xs);
+  padding: 2px var(--ww-space-2);
+  border-radius: var(--ww-radius-full);
+  white-space: nowrap;
+}
+
+.ww-hotspot__digest-source--article {
+  background: var(--ww-success-subtle);
+  color: var(--ww-success);
+}
+
+.ww-hotspot__digest-source--title {
+  background: var(--ww-surface-sunken);
+  color: var(--ww-fg-tertiary);
+}
+
+.ww-hotspot__digest-time {
+  font-size: var(--ww-text-xs);
+  color: var(--ww-fg-caption);
+  margin-left: auto;          /* 时间靠右，与头部行左侧信息形成呼吸 */
+  white-space: nowrap;
+}
+
+.ww-hotspot__digest-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ww-space-1);
+  font-size: var(--ww-text-sm);
+  line-height: var(--ww-leading-body);
+  color: var(--ww-fg);
+  overflow-wrap: break-word;  /* 长英文标题/域名安全断行 */
+}
+
+/* loading 预期提示（QA 修复）：骨架下方一行小字给时长预期，缓解「卡死感」 */
+.ww-hotspot__digest-wait {
+  margin: 0;
+  font-size: var(--ww-text-xs);
+  color: var(--ww-fg-caption);
+}
+
+/* 仅凭标题 caption（QA 修复）：未读原文的解读参考性声明，防误导 */
+.ww-hotspot__digest-note {
+  margin: var(--ww-space-1) 0 0;
+  font-size: var(--ww-text-xs);
+  color: var(--ww-fg-tertiary);
+}
+
+.ww-hotspot__digest-lead { margin: 0; }
+
+.ww-hotspot__digest-prefix { font-weight: var(--ww-weight-bold); }
+
+.ww-hotspot__digest-point {
+  margin: 0;
+  display: flex;
+  gap: var(--ww-space-2);
+  padding-left: var(--ww-space-2);
+}
+
+.ww-hotspot__digest-mark { color: var(--ww-fg-tertiary); flex: none; }
+
+.ww-hotspot__digest-body > p { margin: 0; }
 

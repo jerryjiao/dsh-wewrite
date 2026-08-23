@@ -105,6 +105,11 @@ export interface FailureNotice {
   ipWhitelist: boolean;
 }
 
+/** message 形如序列化 JSON（以 [ 或 { 开头且很长）——信封校验失败的透传墙，不给人看。 */
+function looksLikeSerializedJson(message: string): boolean {
+  return (message.startsWith('[') || message.startsWith('{')) && message.length > 200;
+}
+
 /** 推送/诊断失败的分类展示文案（AC-1 / AC-6 口径，文案来自 DESIGN.md §9.6）。 */
 export function describeRpcFailure(error: unknown): FailureNotice {
   const structured = extractStructured(error);
@@ -124,11 +129,17 @@ export function describeRpcFailure(error: unknown): FailureNotice {
       return { title: '无法访问微信接口（超时）。', hint: '检查代理地址是否可达。', ipWhitelist: false };
     case 'RATE_LIMIT':
       return { title: '触发微信接口限频，稍后自动恢复。', ipWhitelist: false };
-    default:
+    default: {
+      // QA qa-digest 兜底（2026-08-20）：宿主信封校验失败时 message 可能是
+      // ~1.7KB 的 zod JSON 墙——不透传给用户，回退通用标题。
+      if (structured.message && looksLikeSerializedJson(structured.message)) {
+        return { title: '请求失败。', hint: structured.hint, ipWhitelist: false };
+      }
       return {
         title: structured.message ?? '请求失败。',
         hint: structured.hint,
         ipWhitelist: false,
       };
+    }
   }
 }

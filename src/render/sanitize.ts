@@ -29,7 +29,7 @@ const URL_SCHEMES = new Set(['http', 'https', 'mailto']);
 export function sanitizeUrl(rawUrl: string): string | null {
   const url = rawUrl.trim();
   if (!url) return null;
-  const scheme = /^([A-Za-z][A-Za-z0-9+.-]*):/.exec(url);
+  const scheme = url.match(/^([A-Za-z][A-Za-z0-9+.-]*):/);
   if (scheme && !URL_SCHEMES.has(scheme[1].toLowerCase())) return null;
   if (!URL_SAFE_CHARS.test(url)) return null;
   return url;
@@ -53,7 +53,7 @@ const VOID_TAGS = new Set(['br', 'hr', 'img']);
  * 单个标签消毒：白名单内重建（属性白名单 + href/src 过 sanitizeUrl），否则返回 null。
  */
 export function sanitizeHtmlTag(rawTag: string): string | null {
-  const match = /^<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:[^>"']|"[^"]*"|'[^']*')*?)>$/s.exec(rawTag);
+  const match = rawTag.match(/^<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:[^>"']|"[^"]*"|'[^']*')*?)>$/s);
   if (!match) return null;
   const [, closing, rawName, attrText] = match;
   const name = rawName.toLowerCase();
@@ -61,8 +61,7 @@ export function sanitizeHtmlTag(rawTag: string): string | null {
   if (closing) return `</${name}>`;
   const attrs: string[] = [];
   const attrRe = /([a-zA-Z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
-  let attrMatch: RegExpExecArray | null;
-  while ((attrMatch = attrRe.exec(attrText))) {
+  for (const attrMatch of attrText.matchAll(attrRe)) {
     const attrName = attrMatch[1].toLowerCase();
     if (!ALLOWED_ATTRS.has(attrName) || attrName.startsWith('on')) continue;
     const rawValue = attrMatch[2] ?? attrMatch[3] ?? attrMatch[4] ?? '';

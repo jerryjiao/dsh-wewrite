@@ -45,7 +45,7 @@ workspace ADR 锁定的默认技术栈为 Astro + Cloudflare Workers/Hono/D1/R2�
 | F9 | **UI 挂载点 = 会话级视图环**：`conversation.view` slot 以 `{ id, order, label, locale }` 注册，渲染为会话页顶部 tab；官方明言「plugins such as ui-trajectory contribute tabs through `ctx.slots.register`」；dsh-automation 即以此注册 Automations tab | source: `packages/client/ui-conversation/README.md`；本机 dsh-automation `lib/types/client/contracts.d.ts`（`slots.register({ name: 'conversation.view', ... })`） |
 | F10 | 其他可用槽位：`conversation.session.header.actions` / `conversation.session.header.utilities`（会话头）、`conversation.input.dock` / `conversation.input.plan` / `conversation.input.model`（输入区）、`conversation.composer`（chain 型接管输入框）、`conversation.chat.node`（自定义会话事件行渲染器，配 `ctx.conversationEvents` 注册 ConversationNodeDefinition） | source: `packages/client/ui-conversation/README.md` |
 | F11 | ClientContext 可用服务面：`connection.rpc`、`sessions.refresh/open`、`locale.register/bind`（zh/en 词典）、`slots.inject/register`、`effect`（清理钩子） | source: 本机 dsh-automation `lib/types/client/contracts.d.ts` 实测 |
-| F12 | 是否存在**非会话级**的全局页面/路由槽位：UNKNOWN。文档只见会话作用域槽位与 root slot（引擎层）。探测方案：查 `packages/client/ui-layout`、`packages/client/web` 的 slot 声明（Phase 1 首日确认）。MVP 采用已证实的 `conversation.view` tab 形态即可满足需求 | — |
+| F12 | **已闭合（2026-08-20，v0.3 实测）**：非会话级 additive 槽位存在且公开——`sidebar.footer.action`（list/root，侧边栏底部 Settings 旁，官方 cordis-panel 先例，owner props `{wide}`）、`shell.overlay`（list/root，全 app 浮层层 z:20，层 pointer-events:none 子元素 auto）、`settings.section`（设置弹窗整页）；会话列表中区 `sidebar.workspaces` 为 single 型宿主独占，**无**插件贡献点，顶层 `sidebar` 不可注册（会顶掉官方侧边栏）。v0.3 起工作台双入口 = conversation.view tab + sidebar.footer.action 入口 + shell.overlay 全屏浮层 | source: `@deepseek-ai/dsh-client-ui-sidebar` slots.d.ts（0.1.0-rc.7）、`dsh-cordis-client-runner` SKILL/example；绑定 rc.7，宿主升级后应 `Slots.listSubTree` 复核 |
 
 ### 1.3 RPC（client ↔ host）
 
@@ -355,6 +355,8 @@ DomainSpec
 |---|---|---|---|
 | `snapshot` | `{}` | `Snapshot { articles[], runs[], schedules[], config: ConfigView, serverNow, capabilities }` | 首拉全量；capabilities 做版本协商（§8） |
 | `hotspots/fetch` | `{ limit? }` | `HotspotItem[] { title, source, rank, url }` | 微博/头条/百度聚合（F30 同源逻辑平移） |
+| `hotspots/digestItem` | `{ rank 1-100, title 1-500, url: http(s) }` | `{ digest 1-4000, source: 'article'\|'title', model, generatedAtIso }` | 逐条 AI 速览（v0.3）：host 抓原文（8s/2MB/text-html 白名单）→零依赖正文抽取（<300 字符判失败）→LLM 中文速览；抓取失败静默降级 title 模式，source 由 host 判定非模型自报 |
+| `article/rewrite` | `{ text 1-8000, instruction 1-200, title? 0-200 }` | `{ text 1-16000 }` | AI 选中改写（v0.3）：只重写传入选区文本，保 Markdown 结构，客户端单 transaction 替换可撤销 |
 | `article/list` | `{}` | `ArticleListItem[]` | 列表轻量视图 |
 | `article/get` | `{ id }` | `ArticleDetail` | 含 markdown |
 | `article/save` | `{ id?, slug, title, digest, markdown, theme }` | `ArticleDetail` | 创建/更新 |
@@ -488,7 +490,7 @@ Background：F5 allowBuilds 信任门槛。Consequences：发布流程要求 bui
 |---|---|---|---|
 | R1 | 图片 9 家 provider 全量实现（源 mjs 仅 2 家，C1） | 中（工作量） | 每家独立文件可并行开发；先交付 openai+doubao+dashscope 三家首发，其余按序补齐（fallback 矩阵渐进生效） |
 | R2 | gpt-image-2 API 形态未实测（参数/size 支持） | 低 | 开发首日 curl 探测校准 openai.ts；不行则以 doubao 顶首位并标注 |
-| R3 | UI 仅会话级 tab，无全局页（F12 UNKNOWN） | 低-中 | conversation.view 已被 dsh-automation/ui-trajectory 证实可用；工作台单 tab 内分面板即可承载；探测 root 级槽位留 Phase 2 |
+| R3 | ~~UI 仅会话级 tab，无全局页~~ **已消除**（F12 闭合，2026-08-20）：sidebar.footer.action + shell.overlay 双槽已实测可用，v0.3 起侧边栏直进全屏工作台 | 已消除 | 残余约束：入口落点只能在侧边栏底部（中区无贡献点）；浮层容器自管（宿主不给壳） |
 | R4 | 插件 storage 磁盘路径无文档（F18） | 低 | 架构只用 API 不碰路径（ADR-005），天然免疫 |
 | R5 | 微信代理依赖用户自备（F31） | 低（体验门槛） | 直连/relay 双模式 + docker 参考实现 + diagnose 端点 40164 指引 |
 | R6 | DSH pre-release breaking（F28 等） | 中（时间维度） | §9 六项防御 + README 版本声明 + CI 冒烟 |

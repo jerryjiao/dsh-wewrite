@@ -21,6 +21,24 @@ export const HotspotItemSchema = z.strictObject({
 });
 export type HotspotItem = z.infer<typeof HotspotItemSchema>;
 
+/** 热榜逐条 AI 速览请求条目（uiux v0.3 §1）：只要 rank/title/url，不带 source 投影。 */
+export const HotspotDigestItemSchema = z.strictObject({
+  rank: z.number().int().min(1).max(100),
+  title: z.string().min(1).max(500),
+  // Spec §1 只收 http(s)——fetch 侧同协议白名单，契约层先拒（QA v0.3 advisory-1 收紧）
+  url: z.string().regex(/^https?:\/\//, '必须是 http(s) URL'),
+});
+export type HotspotDigestItem = z.infer<typeof HotspotDigestItemSchema>;
+
+/** 热榜逐条 AI 速览响应（uiux v0.3 §1）：source 由 host 依抓取抽取结果判定，不由模型自报。 */
+export const HotspotItemDigestSchema = z.strictObject({
+  digest: z.string().min(1).max(4000),
+  source: z.enum(['article', 'title']),
+  model: z.string(),
+  generatedAtIso: z.iso.datetime(),
+});
+export type HotspotItemDigest = z.infer<typeof HotspotItemDigestSchema>;
+
 export const ArticleListItemSchema = z.strictObject({
   id: z.string(),
   slug: SlugSchema,

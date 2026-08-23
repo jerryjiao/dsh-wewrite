@@ -8,7 +8,7 @@
 一个 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 插件：把一整套微信公众号 AI 写作管线（选题 → 大纲 → 成稿 → 质量门禁 → 排版渲染 → 配图 → 草稿箱）产品化。任何 DSH 用户一条命令安装，在本地 Web UI 里完成从选题到草稿箱的全流程。模型与凭据全部走你自己的账号，数据只落本地。
 
 - 官网：https://jerryjiao.github.io/dsh-wewrite/
-- 版本：v0.1.4
+- 版本：v0.2.0
 - License：MIT
 - 适用 DSH：v0.1.x developer preview（见下方[版本兼容表](#版本兼容表)）
 
@@ -19,7 +19,7 @@
 **第 1 步：安装插件**
 
 ```bash
-npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.1.4
+npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.2.0
 ```
 
 安装完成后如需卸载：`npx @deepseek-ai/dsh plugin --profile web remove dsh-wewrite`。
@@ -45,41 +45,43 @@ npx @deepseek-ai/dsh web
 
 **第 4 步：出第一篇**
 
-「选题」面板选一条热榜（内置 Hacker News，可配自定义聚合源）点「以此为题」，或直接输入固定主题。管线自动执行六步（选题 → 大纲 → 成稿 → 门禁 → 渲染 → 配图），进度实时可见。完成后在编辑器里改稿，右侧微信预览与最终推送产物字节一致。确认后点「推草稿箱」，到微信公众平台后台「内容与互动 → 图文素材」里查看草稿。群发请你在公众平台后台人工执行（本插件 v0.1 没有任何群发调用路径，见[安全声明](#安全声明)）。
+「选题」面板选一条热榜（内置 Hacker News，可配自定义聚合源），点开条目先看一眼 AI 速览（抓原文后的中文要点总结，抓不到则给标题解读），合适就点「写这个」，或直接输入固定主题。管线自动执行六步（选题 → 大纲 → 成稿 → 门禁 → 渲染 → 配图），进度实时可见。完成后在编辑器里改稿——选中任意一段点「AI 改写」下一句指令即可局部重写（Ctrl+Z 可撤销），右侧微信预览与最终推送产物字节一致。确认后点「推草稿箱」，到微信公众平台后台「内容与互动 → 图文素材」里查看草稿。群发请你在公众平台后台人工执行（本插件 v0.1 没有任何群发调用路径，见[安全声明](#安全声明)）。
 
 ## 一步步用起来
 
-以下截图全部来自 v0.1.4 真机运行（本机 DSH Web 实拍），按使用动线排列。
+以下截图来自 v0.2.0 真机运行（本机 DSH Web 实拍），按使用动线排列；v0.3 起部分细节已演进（顶栏改胶囊分段、定时卡不再裸露 RRULE、热榜条目带 AI 速览、侧边栏底部可直进写作台），截图将随下个发版重拍。
 
-**写作台**
+另外两种进入方式：会话顶部 tab 环里的「写作台」（在会话里聊着写），或**侧边栏底部的「打开写作台」按钮**——不进任何会话，一键全屏铺开完整工作台，Esc 收起。
 
-<p><img src="assets/screenshots/01-dashboard.png" alt="写作台界面：今日待办计数与提示、最近文章列表（含门禁已过标签）、底部「输入主题，直接开写…」输入框" width="720"></p>
+**写作工作区**
 
-今日待办与最近文章一屏可见，底部输入主题直接开写；未配置凭据时第一步提示「配置公众号」。
+<p><img src="assets/screenshots/01-workbench.png" alt="写作工作区界面：左栏文章列表（搜索、状态筛选、门禁标记、新文章入口），主区编辑器默认载入最近一篇，顶部为写作/选题/定时导航与设置入口" width="720"></p>
+
+打开即工作区：左栏是你的全部文章（状态点 + 门禁标记 + 筛选搜索），主区直接进入最近一篇的编辑器——选文章、改稿一步到位，不再有「列表页 → 下钻」两跳。零文章时主区是启动卡（输入主题开写 / 去选题中心 / 先配置凭据）。
 
 **选题中心**
 
 <p><img src="assets/screenshots/02-hotspots.png" alt="选题中心界面：热门榜按序号列出多条 Hacker News 条目，每条带来源与「写这个」按钮" width="720"></p>
 
-热门榜实时拉取（上图为真实 Hacker News 数据），点「写这个」直接进管线。
+热门榜实时拉取（上图为真实 Hacker News 数据），行上直接「写这个」进管线，右栏管理你的选题关键词。点开任意条目，AI 会抓取原文给你一段中文速览——「这条在讲什么」加两三条具体要点（带「读了原文」徽记）；抓不到原文的站点自动降级为标题解读与写作角度。速览按条当日缓存，不点开不消耗。
 
-**文章库**
+**编辑器（双栏）**
 
-<p><img src="assets/screenshots/03-articles.png" alt="文章库界面：文章列表含标题、已排版状态、门禁已过标签与更新时间，顶部有筛选与搜索框" width="720"></p>
+<p><img src="assets/screenshots/04-editor.png" alt="编辑器双栏视图：左 Markdown 改稿，右微信预览显示同名文章排版效果，顶栏一行含标题、三视图切换（仅编辑/双栏/仅预览）与推草稿箱按钮" width="720"></p>
 
-每篇文章的状态、门禁结果、定时标记与更新时间集中一处，可搜索、可重推。
+顶部 chrome 压缩为两行；视图一键切换「仅编辑 / 双栏 / 仅预览」，双栏可拖拽调宽；门禁报告从右侧滑出（不再挤占视图位）；字数、门禁、保存状态全部归拢到底部状态条。改稿不顺手时**选中一段文字**，上方浮出「AI 改写」——输入一句话（更口语 / 精简一半 / 扩写细节 / 更有数据感，或自定义），AI 只重写选中段落并原位替换，Ctrl+Z 即可撤销；全文其余部分一个字不动。
 
-**编辑器**
+**编辑器（仅预览）**
 
-<p><img src="assets/screenshots/04-editor.png" alt="编辑器界面：左栏 Markdown 改稿，右栏微信预览显示同名文章的排版效果，顶部有门禁报告与推草稿箱按钮" width="720"></p>
+<p><img src="assets/screenshots/05-editor-preview.png" alt="仅预览视图：文章渲染在带边框圆角的白底画布上，外围井底色与手机 notch 装饰营造「这台手机」实感，支持 100/90/75% 缩放" width="720"></p>
 
-左侧 Markdown 改稿，右侧微信预览与最终推送产物字节一致；门禁报告与推草稿箱在顶部工具栏。
+预览画布立在井底之上，所见与推到草稿箱的产物字节一致；缩放只是视觉变换，不改载荷。
 
 **定时任务**
 
 <p><img src="assets/screenshots/06-schedule.png" alt="定时任务界面：计划卡片显示 RRULE 原文、人类可读翻译与下次运行时间，右上角有新建定时按钮" width="720"></p>
 
-RRULE 原文与人类可读翻译双行展示，下次运行时间可见，可暂停/恢复。
+RRULE 规则与下次运行时间人类可读展示（规则原文收进悬停提示，不再占版面），可暂停/恢复。
 
 **设置**
 
@@ -90,6 +92,9 @@ RRULE 原文与人类可读翻译双行展示，下次运行时间可见，可�
 ## 功能亮点
 
 - **主题写作 + 热门榜选题**：固定主题直写，或从热榜选题。内置 Hacker News（官方 Algolia 索引，无需 key），支持自定义聚合源（DailyHotApi 兼容形态，配 URL 即启用）。单源失败只标记该源，不影响其余源展示。
+- **逐条 AI 速览**：点开热榜条目，后台抓取原文（8 秒超时 / 2MB 上限 / 仅 text/html）、抽出正文，LLM 输出中文速览（这条在讲什么 + 具体要点）；抓不到原文自动降级为标题解读与写作角度。点开才生成，按条当日缓存。
+- **AI 选中改写**：编辑器里选中一段文字，浮条点「AI 改写」，一句话指令只重写选中段（四个快捷方向：更口语 / 精简一半 / 扩写细节 / 更有数据感），原位替换、Ctrl+Z 可撤销，全文其余部分不动。
+- **侧边栏直进**：不进任何会话，点侧边栏底部「打开写作台」即全屏铺开完整工作台，Esc 收起；会话内「写作台」tab 保留，双入口并存。
 - **Markdown 编辑器 + 微信预览**：CodeMirror 编辑器改稿，右侧实时微信预览（host 侧渲染，预览 HTML 与推送载荷字节一致，所见即所推）。三套排版主题：professional-clean / tech-dark / minimal-gray。
 - **质量门禁**：成稿先过门禁（内容质量校验 + 编号配图一致性校验），门禁未过会阻断默认推送路径；你可以改稿重过，或显式覆盖。
 - **RRULE 定时，默认进草稿箱**：RRULE 规则（如每个工作日 04:00）定时跑管线，产物恒定推草稿箱，运行历史完整可审计。错过计划时刻不补偿，下次启动时提示错过数。
@@ -107,8 +112,10 @@ RRULE 原文与人类可读翻译双行展示，下次运行时间可见，可�
 
 <pre>
 DSH Web UI（React 18，http://127.0.0.1:3080）
-  └─ wewrite 工作台 tab
-       │  选题 │ 编辑器 │ 微信预览 │ 运行历史 │ 定时计划 │ 设置
+  ├─ 侧边栏「打开写作台」入口（sidebar.footer.action）→ shell.overlay 全屏浮层
+  └─ wewrite 工作台 tab（conversation.view，双入口并存）
+       │  选题（热榜 + 逐条 AI 速览）│ 编辑器（Markdown + AI 选中改写）│ 微信预览
+       │  运行历史 │ 定时计划 │ 设置
        │  connection.rpc（仅 loopback 回环，authority 校验）
        ▼
 DSH Host（Node + Cordis）
@@ -152,6 +159,7 @@ DSH Host（Node + Cordis）
 
 - 内置：Hacker News（官方 Algolia API，无需 key，恒启用）。
 - 自定义：填一个 DailyHotApi 兼容的聚合 API URL 即并入选题面板（条目取 `title` / `url` / `name` 字段）。
+- 逐条 AI 速览的原文抓取由本插件进程发起（8 秒超时、2MB 截断、仅接受 text/html），不经过任何第三方中转；抓取失败只影响该条的速览降级，不影响榜单本身。
 
 **其他**
 
@@ -186,7 +194,7 @@ DSH Host（Node + Cordis）
 
 **群发功能在哪？**
 
-v0.1 没有，这是有意的安全默认（见安全声明）。Roadmap 的 v0.2 会以**显式 opt-in**（默认关闭，逐次确认）的形式评估提供。
+v0.1/v0.2 没有，这是有意的安全默认（见安全声明）。后续版本会以**显式 opt-in**（默认关闭，逐次确认）的形式评估提供。
 
 **管线失败会留下半成品草稿吗？**
 
@@ -196,13 +204,15 @@ v0.1 没有，这是有意的安全默认（见安全声明）。Roadmap 的 v0.
 
 | dsh-wewrite | DSH | Node | React | 状态 |
 |---|---|---|---|---|
+| v0.2.0+ | v0.1.x developer preview（2026-08-13 发布） | ^22.19.0 \|\| >=24.0.0 | 18（宿主提供，peer） | 已验证（2026-08-20 基线：358 单测 + E2E fresh/demo 52 用例全绿，含 v0.3 未发版改动） |
 | v0.1.0 – v0.1.4 | v0.1.x developer preview（2026-08-13 发布） | ^22.19.0 \|\| >=24.0.0 | 18（宿主提供，peer） | 已验证（2026-08 基线，DSH master@2026-08-17 实测） |
 
 DSH v0.1 是 developer preview，不承诺 API 稳定；DSH 升级后如插件失活，优先检查本表并升级插件版本。
 
 ## Roadmap
 
-- v0.2（评估中）
+- 已交付：v0.2.0 工作区化重设计（左栏文章列表 + 编辑器三视图 + 门禁右侧滑出）、v0.2.1 顶栏降级与细节打磨、v0.3 逐条 AI 速览 + 侧边栏直进 + AI 选中改写 + 全局视觉精修
+- 评估中
   - freepublish 显式 opt-in（默认关，逐次确认）
   - 多公众号账号（账号切换/凭据集）
   - 数据回流（已发文章阅读/点赞等统计拉回运行历史）
@@ -211,7 +221,7 @@ DSH v0.1 是 developer preview，不承诺 API 稳定；DSH 升级后如插件�
 
 ```bash
 npm install          # 独立克隆直接装（无 install 钩子）
-npm test             # 318 个测试（vitest）
+npm test             # 358 个测试（vitest）
 npm run lint         # eslint
 npm run typecheck    # tsc --noEmit
 npm run check:p0     # 视觉门禁扫描（emoji/渐变/占位文案）
@@ -234,9 +244,9 @@ npm run build        # 产出 lib/（提交前必跑，产物入库）
 
 ## English
 
-**What.** dsh-wewrite is a plugin for DeepSeek Harness (DSH) that turns a WeChat official-account AI writing pipeline—topic, outline, draft, quality gates, render, images, draft box—into a local web workbench. Models and credentials stay yours: text generation uses your DSH model config, secrets never leave `~/.dsh`.
+**What.** dsh-wewrite is a plugin for DeepSeek Harness (DSH) that turns a WeChat official-account AI writing pipeline—topic, outline, draft, quality gates, render, images, draft box—into a local web workbench. Models and credentials stay yours: text generation uses your DSH model config, secrets never leave `~/.dsh`. Since v0.3: per-item AI digest for trending topics (fetches the linked article and summarizes it in Chinese, falls back to title-only), selection-based AI rewrite in the editor (rewrites only what you highlight, undoable), and a sidebar entry that opens the full workbench as an overlay—no session required.
 
-**Install.** `npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.1.4`, then `npx @deepseek-ai/dsh web` and open http://127.0.0.1:3080 . Fill in your official-account AppID/AppSecret in the workbench settings, run the connection test, pick a topic, and push your first draft. Requires DSH v0.1.x developer preview and Node ^22.19.0 || >=24.0.0.
+**Install.** `npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.2.0`, then `npx @deepseek-ai/dsh web` and open http://127.0.0.1:3080 . Fill in your official-account AppID/AppSecret in the workbench settings, run the connection test, pick a topic, and push your first draft. Requires DSH v0.1.x developer preview and Node ^22.19.0 || >=24.0.0.
 
 **Safety.** v0.1 pushes to the draft box only; there is no code path for mass publishing (freepublish), by design. Credentials are stored locally via the DSH credentials service and masked in logs; no telemetry is collected. MIT licensed.
 

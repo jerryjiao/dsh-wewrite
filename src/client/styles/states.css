@@ -42,7 +42,43 @@
   color: var(--ww-fg-secondary);
 }
 
-.ww-empty__icon { color: var(--ww-fg-caption); display: inline-flex; }
+/* hero 居中版（v2 §3-02）：空页面主舞台 */
+.ww-empty--hero {
+  min-height: 240px;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+/* 组合 glyph 容器（v2 §3-03）：40px 圆 + 右下角次 icon 叠加 */
+.ww-empty__glyph {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ww-radius-full);
+  background: var(--ww-surface-sunken);
+  display: grid;
+  place-items: center;
+  color: var(--ww-fg-secondary);
+}
+
+/* Bluewash §4-4（uiux-color-theme-design）：hero 空态 glyph 同语言（启动卡品牌浸染时刻）；
+ * 次级空态 glyph 保持 sunken（安静）。修饰类由 EmptyState hero 态附加。 */
+.ww-empty__glyph--brand {
+  background: var(--ww-accent-subtle);
+  color: var(--ww-accent);
+}
+
+.ww-empty__glyph-sub {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  background: var(--ww-bg-page);
+  border-radius: var(--ww-radius-full);
+  padding: 2px;
+  color: var(--ww-fg-caption);
+  display: inline-flex;
+}
 
 .ww-empty__title {
   margin: 0;
@@ -76,8 +112,18 @@
   color: var(--ww-accent-on);
 }
 
-.dsh-wewrite-panel .ww-btn-accent:hover:not(:disabled) { background: var(--ww-accent-hover); }
-.dsh-wewrite-panel .ww-btn-accent:active:not(:disabled) { background: var(--ww-accent-active); }
+/* §D4 ST1：hover 位移是过度 hover 反馈——hover/active 只换底色（态稳定优先） */
+.dsh-wewrite-panel .ww-btn-accent:hover:not(:disabled) {
+  background: var(--ww-accent-hover);
+}
+
+.dsh-wewrite-panel .ww-btn-accent:active:not(:disabled) {
+  background: var(--ww-accent-active);
+}
+
+.dsh-wewrite-panel .ww-btn-accent:not(:disabled) {
+  transition: background var(--ww-motion-fast) var(--ww-ease);
+}
 
 .dsh-wewrite-panel .ww-danger-ghost { color: var(--ww-danger); }
 .dsh-wewrite-panel .ww-danger-ghost:hover:not(:disabled) { background: var(--ww-danger-subtle); }
@@ -101,6 +147,21 @@
 
 .ww-menu-trigger:hover { border-color: var(--ww-border-strong); background: var(--ww-interactive-hover); }
 
+/* 主 CTA 形态的菜单触发器（推草稿箱 ▾，v0.2 编辑器页头唯一 accent CTA） */
+.ww-menu-trigger--accent {
+  background: var(--ww-accent);
+  border-color: var(--ww-accent);
+  color: var(--ww-accent-on);
+}
+
+.ww-menu-trigger--accent:hover:not(:disabled) {
+  background: var(--ww-accent-hover);
+  border-color: var(--ww-accent-hover);
+}
+
+.ww-menu-trigger--accent:active:not(:disabled) { background: var(--ww-accent-active); border-color: var(--ww-accent-active); }
+.ww-menu-trigger--accent:disabled { opacity: 0.6; cursor: default; }
+
 .ww-menu-trigger__mono { font-family: var(--ww-font-code); font-size: var(--ww-text-xs); }
 
 .ww-view-tabs {
@@ -119,9 +180,13 @@
   font: inherit;
   font-size: var(--ww-text-sm);
   color: var(--ww-fg-secondary);
-  padding: var(--ww-space-1) var(--ww-space-3);
+  padding: var(--ww-space-1) var(--ww-space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-1);
   border-radius: var(--ww-radius-sm);
   cursor: pointer;
+  white-space: nowrap;
   transition: background var(--ww-motion-fast) var(--ww-ease), color var(--ww-motion-fast) var(--ww-ease);
 }
 
@@ -138,9 +203,10 @@
 /* ---------- Toast（自建；官方 primitives 0.0.1-rc.1 无 Toast） ---------- */
 
 .ww-toasts {
-  position: fixed;
+  position: absolute;
   right: var(--ww-space-6);
-  bottom: var(--ww-space-6);
+  /* v0.2（§3-09）：抬高到宿主 composer 遮挡带之上；与右下进度卡（bottom 144px）垂直错开 */
+  bottom: var(--ww-content-pad-bottom);
   z-index: var(--ww-z-toast);
   display: flex;
   flex-direction: column;
@@ -187,8 +253,9 @@
   border: none;
   background: none;
   color: var(--ww-fg-tertiary);
-  width: 24px;
-  height: 24px;
+  /* §D4 ST2：icon 钮热区归一 ghost 工具档 28 */
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

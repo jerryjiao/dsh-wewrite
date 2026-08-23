@@ -1,0 +1,144 @@
+/*
+ * 工作区范式样式（v0.2，uiux-workbench-delta §1）：
+ * TopBar（4 导航对象 40px）/ Workbench（rail + 主区满铺）/ ArticleRail（240px 可折叠）
+ * / StartupCard（零文章启动卡）/ ProgressCard（右下进度卡）/ GateOverlayPanel（右缘滑出）。
+ * 颜色一律 var(--ww-*)；零渐变；动效 100/200/300ms 三档（reduced-motion 全关于 tokens.css）。
+ * 非-token 布局常量（delta §3）：rail 宽 240 / rail 行高 36 / 门禁面板 360 / 进度卡 320。
+ */
+
+/* ---------- Workbench（§1-2） ---------- */
+
+.ww-workbench {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  /* v0.2 §1-2：宿主 composer 遮挡兜底带（96px），工作区满铺态的等价实现 */
+  padding-bottom: var(--ww-content-pad-bottom);
+}
+
+.ww-workbench__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--ww-bg);
+}
+
+/* 窄态零文章下拉位（A04 修复）：无编辑器页头可挂时，ww-rail-select 落在主区顶部窄条，
+ * 行高/线框语言与编辑器页头一致（min-height 40px + 1px 底线），保住窄态唯一文章入口。 */
+.ww-workbench__narrow-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ww-space-2);
+  min-height: var(--ww-toolrow-h);
+  box-sizing: border-box;
+  padding: var(--ww-space-2) var(--ww-space-4) var(--ww-space-2) var(--ww-space-2);
+  border-bottom: var(--ww-border-width) solid var(--ww-border);
+  background: var(--ww-bg);
+}
+
+/* ---------- StartupCard（§1-4） ---------- */
+
+.ww-workbench__main:has(.ww-startup) { background: var(--ww-bg-page); }
+
+.ww-startup {
+  width: min(560px, 100%);
+  margin: auto;
+  padding: var(--ww-space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ww-space-3);
+  background: var(--ww-surface);
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-lg);
+  box-shadow: var(--ww-shadow-card);
+  /* 白卡 hover 反馈：只提边框（hover 不换阴影档，§D4-0 总则；裸值阴影已删） */
+  transition: border-color var(--ww-motion-base) var(--ww-ease);
+}
+
+.ww-startup:hover {
+  border-color: var(--ww-border-strong);
+}
+
+/* Bluewash §4-4（uiux-color-theme-design）：启动卡 glyph 升级品牌——
+ * 首屏零文章时的品牌浸染时刻（accent-subtle 底 + accent icon） */
+.ww-startup__glyph {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ww-radius-full);
+  background: var(--ww-accent-subtle);
+  display: grid;
+  place-items: center;
+  color: var(--ww-accent);
+}
+
+.ww-startup__glyph-sub {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  background: var(--ww-bg-page);
+  border-radius: var(--ww-radius-full);
+  padding: 2px;
+  color: var(--ww-fg-caption);
+  display: inline-flex;
+}
+
+.ww-startup__title {
+  margin: var(--ww-space-2) 0 0;
+  font-size: var(--ww-text-xl);
+  font-weight: var(--ww-weight-medium);
+  letter-spacing: var(--ww-tracking-heading);
+}
+
+.ww-startup__subtitle { margin: 0; font-size: var(--ww-text-base); color: var(--ww-fg-secondary); }
+
+.ww-startup__form {
+  display: flex;
+  gap: var(--ww-space-2);
+  margin-top: var(--ww-space-2);
+}
+
+.ww-startup__input {
+  appearance: none;
+  font: inherit;
+  font-size: var(--ww-text-md);
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 var(--ww-space-3);
+  color: var(--ww-fg);
+  background: var(--ww-surface);
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-sm);
+}
+
+.ww-startup__input::placeholder { color: var(--ww-fg-caption); }
+.ww-startup__input:hover { border-color: var(--ww-border-strong); }
+.ww-startup__input:focus-visible { outline: none; border-color: var(--ww-border-strong); box-shadow: var(--ww-focus-ring); }
+
+.ww-startup__alts { display: flex; gap: var(--ww-space-2); margin-top: var(--ww-space-1); }
+
+.ww-startup__helper {
+  appearance: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-1);
+  align-self: flex-start;
+  margin-top: var(--ww-space-2);
+  padding: 0;
+  /* §D4 W4：warn 文字 on 白底 ≈2.2:1 不达标——文字降 secondary（≈4.9:1），
+   * 警示语义由 icon 保 --ww-warn 承载（形状+颜色冗余：icon 警示、文字可读） */
+  color: var(--ww-fg-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.ww-startup__helper svg { color: var(--ww-warn); }
+
+.ww-startup__helper:hover { text-decoration: underline; }

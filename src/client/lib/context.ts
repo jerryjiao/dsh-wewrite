@@ -33,6 +33,11 @@ export interface WewriteSlotRuntime {
   readonly sessionId: string;
 }
 
+/** sidebar.footer.action owner props（宿主 ui-sidebar slots 契约）：wide=false 为 56px rail。 */
+export interface SidebarFooterActionProps {
+  readonly wide: boolean;
+}
+
 export interface ClientContext {
   /** 副作用生命周期：factory 返回清理函数时，宿主在插件停用时调用。 */
   effect(factory: () => void | (() => void), label?: string): void;
@@ -47,6 +52,7 @@ export interface ClientContext {
     bind(namespace: string): Translate;
   };
   slots: {
+    /** conversation.view：会话内工作台 tab（主入口）。 */
     register(
       options: {
         readonly name: 'conversation.view';
@@ -57,6 +63,26 @@ export interface ClientContext {
         readonly inject: (sessionId: string) => WewriteSlotRuntime;
       },
       component: ComponentType<WewriteViewProps>,
+    ): () => void;
+    /** sidebar.footer.action：宿主侧栏 footer「写作台」入口（v0.3 R2）。 */
+    register(
+      options: {
+        readonly name: 'sidebar.footer.action';
+        readonly id: string;
+        readonly order?: number;
+        readonly label?: string | (() => string);
+      },
+      component: ComponentType<SidebarFooterActionProps>,
+    ): () => void;
+    /** shell.overlay：写作台全屏浮层挂载层（v0.3 R2）。 */
+    register(
+      options: {
+        readonly name: 'shell.overlay';
+        readonly id: string;
+        readonly order?: number;
+        readonly label?: string | (() => string);
+      },
+      component: ComponentType<Record<string, never>>,
     ): () => void;
   };
 }

@@ -1,0 +1,95 @@
+/*
+ * 生成进度与门禁报告样式（自 editor.css 拆出，v0.2）：
+ * PipelineStepper（全屏确认 Modal 内）/ 生成 Modal / GateReport（GateOverlayPanel 面板体复用）。
+ */
+
+/* ---------- 生成中 stepper ---------- */
+
+.ww-stepper { display: flex; flex-direction: column; gap: var(--ww-space-4); min-width: 0; }
+
+.ww-stepper__head { display: flex; align-items: baseline; gap: var(--ww-space-3); }
+.ww-stepper__title { margin: 0; font-size: var(--ww-text-md); font-weight: var(--ww-weight-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ww-stepper__meta { font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); white-space: nowrap; }
+
+.ww-stepper__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+
+.ww-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ww-space-1);
+  padding: var(--ww-space-2) var(--ww-space-3);
+  border-left: none;
+  border-bottom: var(--ww-border-width) solid var(--ww-divider);
+  min-height: 40px;
+  justify-content: center;
+}
+
+.ww-stage:last-child { border-bottom: none; }
+.ww-stage__lead { display: flex; align-items: center; gap: var(--ww-space-2); min-width: 0; }
+.ww-stage__lead > svg, .ww-stage__lead > span:first-child { flex: none; }
+
+.ww-stage__name { font-size: var(--ww-text-sm); font-weight: var(--ww-weight-regular); }
+.ww-stage--done .ww-stage__name { color: var(--ww-fg-secondary); }
+.ww-stage--done > .ww-stage__lead > svg { color: var(--ww-success); }
+
+.ww-stage__summary { font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ww-stage__time { margin-left: auto; font-family: var(--ww-font-code); font-size: var(--ww-text-xs); color: var(--ww-fg-caption); white-space: nowrap; }
+/* §D4 G1：padding-left 26→24 网格回归（对齐目标 = lead icon 16 + gap 8） */
+.ww-stage__sub { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-fg-secondary); padding-left: 24px; }
+
+.ww-stage--running { background: var(--ww-surface-sunken); }
+.ww-stage--running .ww-stage__name { font-weight: var(--ww-weight-medium); }
+
+.ww-stage--failed .ww-stage__name { color: var(--ww-danger); font-weight: var(--ww-weight-medium); }
+.ww-stage__hollow { width: 8px; height: 8px; border-radius: var(--ww-radius-full); border: var(--ww-border-width) solid var(--ww-border-strong); }
+
+.ww-stage__error { display: flex; flex-direction: column; align-items: flex-start; gap: var(--ww-space-2); padding-left: 24px; }
+.ww-stage__error p { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-danger); display: flex; align-items: center; gap: var(--ww-space-2); flex-wrap: wrap; }
+
+.ww-stepper__fallback { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); }
+.ww-stepper__foot { display: flex; gap: var(--ww-space-2); justify-content: flex-end; }
+
+.ww-generation-modal__pending { margin: 0; color: var(--ww-fg-secondary); }
+.ww-generation-modal__done { display: flex; justify-content: flex-end; margin-top: var(--ww-space-3); }
+
+/* ---------- 门禁报告（GateOverlayPanel 面板体 / .ww-gate 内容契约不变） ---------- */
+
+.ww-gate { display: flex; flex-direction: column; gap: var(--ww-space-4); max-width: 720px; }
+
+.ww-gate__head { display: flex; align-items: flex-start; gap: var(--ww-space-6); }
+
+.ww-gate__score {
+  font-size: var(--ww-text-3xl);
+  font-weight: var(--ww-weight-bold);
+  letter-spacing: var(--ww-tracking-heading);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+}
+
+.ww-gate__score--pass { color: var(--ww-success); }
+.ww-gate__score--fail { color: var(--ww-danger); }
+
+.ww-gate__denominator { font-size: var(--ww-text-md); color: var(--ww-fg-tertiary); margin-left: 2px; font-weight: var(--ww-weight-regular); }
+
+.ww-gate__verdict { display: flex; flex-direction: column; gap: var(--ww-space-2); padding-top: var(--ww-space-2); min-width: 0; }
+.ww-gate__pass-line { margin: 0; display: flex; align-items: center; gap: var(--ww-space-2); color: var(--ww-success); font-size: var(--ww-text-sm); }
+.ww-gate__fail-line { margin: 0; display: flex; align-items: center; gap: var(--ww-space-2); color: var(--ww-danger); font-size: var(--ww-text-sm); font-weight: var(--ww-weight-medium); }
+.ww-gate__passed-list { margin: 0; padding-left: var(--ww-space-4); font-size: var(--ww-text-sm); color: var(--ww-fg-secondary); }
+
+.ww-gate__rules { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--ww-space-3); }
+
+.ww-gate__rule { border: var(--ww-border-width) solid var(--ww-border); border-radius: var(--ww-radius-lg); padding: var(--ww-space-3); display: flex; flex-direction: column; gap: var(--ww-space-2); background: var(--ww-surface); }
+
+.ww-gate__rule-head { display: flex; align-items: center; gap: var(--ww-space-2); color: var(--ww-fg); }
+.ww-gate__rule-head > svg { color: var(--ww-warn); flex: none; }
+.ww-gate__rule-name { font-weight: var(--ww-weight-medium); }
+.ww-gate__rule-id { margin-left: auto; }
+
+.ww-gate__rule-detail { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-fg-secondary); line-height: var(--ww-leading-body); }
+.ww-gate__rule-location { margin: 0; font-family: var(--ww-font-code); font-size: var(--ww-text-xs); color: var(--ww-fg-tertiary); }
+.ww-gate__rule-actions { display: flex; gap: var(--ww-space-2); }
+
+.ww-gate__foot { display: flex; align-items: center; gap: var(--ww-space-3); flex-wrap: wrap; }
+.ww-gate__foot-hint { font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); }

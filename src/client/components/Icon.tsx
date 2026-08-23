@@ -7,10 +7,12 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   CircleAlert,
   CircleCheck,
   Clock,
   Code,
+  Columns2,
   Copy,
   Cpu,
   Ellipsis,
@@ -40,6 +42,7 @@ import {
   LoaderCircle,
   MessageCircle,
   Palette,
+  PanelLeft,
   Pause,
   PenLine,
   Play,
@@ -70,7 +73,7 @@ import type { LucideIcon } from 'lucide-react';
 
 /**
  * 图标统一封装（DESIGN.md §4.3：lucide-react 唯一库，业务代码只经 <Icon name>）。
- * 语义名 → lucide 具名导出的映射表；尺寸两档 16（行内）/ 20（按钮内）；
+ * 语义名 → lucide 具名导出的映射表；尺寸三档 12（rail 门禁标记等微标注）/ 16（行内）/ 20（按钮内）；
  * 颜色 currentColor、细描边 1.75、aria-hidden（可访问性靠相邻文字/aria-label）。
  */
 const ICONS = {
@@ -100,6 +103,9 @@ const ICONS = {
   'wand-sparkles': WandSparkles,
   'chevron-down': ChevronDown,
   'chevron-right': ChevronRight,
+  'chevron-up': ChevronUp,
+  'panel-left': PanelLeft,
+  'columns-2': Columns2,
   play: Play,
   pause: Pause,
   'trash-2': Trash2,
@@ -144,7 +150,7 @@ const ICONS = {
 
 export type IconName = keyof typeof ICONS;
 
-export function Icon({ name, size = 16, className }: { name: IconName; size?: 16 | 20; className?: string }) {
+export function Icon({ name, size = 16, className }: { name: IconName; size?: 12 | 16 | 20; className?: string }) {
   const Component = ICONS[name];
   return <Component size={size} strokeWidth={1.75} aria-hidden="true" focusable="false" className={className} />;
 }

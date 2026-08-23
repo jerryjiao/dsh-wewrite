@@ -1,9 +1,11 @@
 /** WeWriteService（架构 §3）：host 级唯一服务；写操作串行化。重活已拆 images/wechat-flow/articles-store/schedules-store/views。 */
 
-import { CONTRACT_VERSION, type ArticleDetail, type ArticleListItem, type ConfigView, type HotspotItem, type RunParams, type RunSummary, type ScheduleViewModel, type SnapshotResponse } from '../shared/contract';
+import { CONTRACT_VERSION, type ArticleDetail, type ArticleListItem, type ConfigView, type HotspotDigestItem, type HotspotItem, type HotspotItemDigest, type RunParams, type RunSummary, type ScheduleViewModel, type SnapshotResponse } from '../shared/contract';
 import { CREDENTIAL_REFS, DEFAULT_IMAGE_PROVIDER_CHAIN } from '../shared/image-provider-ids';
 import { convertArticle } from '../render/convert';
 import { SettingsRecordSchema } from './domain';
+import { rewriteSystemPrompt, rewriteUserPrompt, streamLlmText, type PipelineLlm } from './pipeline/llm';
+import { digestHotspotItem as runHotspotDigest } from './hotspot-digest';
 import { createPipelineEngine, pruneTerminalRuns, type PipelineEngine, type RunStore } from './pipeline/engine';
 import { aggregateHotspots, buildHotspotSources } from './pipeline/steps/topic';
 import { qualityGatesRunner } from './pipeline/steps/gates';
@@ -28,7 +30,15 @@ export interface ServiceDeps {
   readonly fetchImpl?: typeof fetch;
   readonly now?: () => Date;
   readonly logger?: HostLogger;
+  /** 热榜逐条速览 LLM 调用超时毫秒（默认 45s；测试注入缩短值验证 abort 分支）。 */
+  readonly digestTimeoutMs?: number;
+  /** AI 改写 LLM 调用超时毫秒（默认 45s；测试注入缩短值验证 abort 分支）。 */
+  readonly rewriteTimeoutMs?: number;
 }
+
+/** 热榜逐条速览与 AI 改写的单次 LLM 调用上限（uiux v0.3 拍板各 45s）。 */
+const HOTSPOT_DIGEST_TIMEOUT_MS = 45_000;
+const REWRITE_TIMEOUT_MS = 45_000;
 
 export class WeWriteService {
   private readonly tables: DomainTables;
@@ -144,6 +154,64 @@ export class WeWriteService {
       this.logger.warn(truncateMessage(`热榜源 ${failure.sourceId} 拉取失败：${failure.message}`));
     }
     return [...items];
+  }
+
+  /** 热榜逐条 AI 速览（uiux v0.3 §1）：抓原文→抽取→LLM；抓取失败静默降级 title 模式。 */
+  async digestHotspotItem(item: HotspotDigestItem): Promise<HotspotItemDigest> {
+    return runHotspotDigest(
+      {
+        llm: this.deps.llm as unknown as PipelineLlm,
+        provider: this.state.settings.llmDefault.provider,
+        model: this.state.settings.llmDefault.model,
+        ...(this.deps.fetchImpl ? { fetchImpl: this.deps.fetchImpl } : {}),
+        logger: this.logger,
+        timeoutMs: this.deps.digestTimeoutMs ?? HOTSPOT_DIGEST_TIMEOUT_MS,
+        nowIso: () => this.nowIso(),
+      },
+      item,
+    );
+  }
+
+  /** AI 改写选中段（uiux v0.3 §3）：只输出改写文本，maxTokens 随原文长度缩放。 */
+  async rewriteText(input: { text: string; instruction: string; title?: string }): Promise<{ text: string }> {
+    const startedAt = Date.now();
+    const { provider, model } = this.state.settings.llmDefault;
+    if (!provider || !model) {
+      throw new WewriteServiceError('llm-not-configured', '尚未配置默认模型：请先到「设置」里选择 AI 供应商与模型，再改写选中段落');
+    }
+    const timeoutMs = this.deps.rewriteTimeoutMs ?? REWRITE_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const outcome = await streamLlmText(
+        this.deps.llm as unknown as PipelineLlm,
+        {
+          purpose: 'wewrite-article-rewrite',
+          system: rewriteSystemPrompt(),
+          user: rewriteUserPrompt(input),
+          provider,
+          model,
+          maxTokens: Math.min(4000, input.text.length * 3 + 500),
+        },
+        controller.signal,
+      );
+      if (outcome.status === 'aborted') {
+        throw new WewriteServiceError('rewrite-timeout', `AI 改写超时（${Math.round(timeoutMs / 1000)} 秒），已取消，请重试`);
+      }
+      // rewrite-error 分流：LLM 供应商错误的 code/message 原样透传
+      if (outcome.status === 'error') throw new WewriteServiceError(outcome.code, outcome.message);
+      if (!outcome.text) throw new WewriteServiceError('rewrite-empty', '模型未返回任何改写内容，请重试');
+      this.logger.info(
+        `article rewrite ok：model=${model} ${Date.now() - startedAt}ms in=${input.text.length} out=${outcome.text.length}`,
+      );
+      return { text: outcome.text };
+    } catch (error) {
+      const code = error instanceof WewriteServiceError ? error.code : 'unknown';
+      this.logger.warn(`article rewrite failed（${code}）：${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   startRun(input: { trigger: 'manual' | 'schedule'; params: RunParams; articleId?: string; scheduleId?: string }): { runId: string } {
