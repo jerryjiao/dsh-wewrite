@@ -84,7 +84,8 @@ export class ArticleStore {
         v: 1,
         id: existing?.id ?? `art_${randomUUID().replaceAll('-', '').slice(0, 12)}`,
         slug: existing?.slug ?? `run-${runId.slice(4, 16)}`,
-        title: existing?.title ?? deriveTitle(markdown),
+        // v0.5 标题硬绑：启动 brief 给定标题优先于成稿推导（给了就是最终标题）。
+        title: existing?.title ?? run?.paramsSnapshot.brief?.title ?? deriveTitle(markdown),
         digest: existing?.digest ?? deriveDigest(markdown),
         status: 'rendered',
         markdown,

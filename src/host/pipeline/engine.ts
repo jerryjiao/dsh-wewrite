@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import type { RunParams } from '../../shared/contract';
 import type { RunRecord, StepRecord } from '../domain';
 import { draftUserPrompt, outlineUserPrompt, pipelineSystemPrompt, streamLlmText, type PipelineLlm } from './llm';
+import { isSourceUrlVisible } from './steps/gates';
 
 export type { LlmStreamOptions, PipelineLlm, PipelineLlmChunk } from './llm';
 
@@ -27,7 +28,12 @@ export interface TopicSource {
 }
 
 export interface GatesRunner {
-  run(input: { markdown: string }): Promise<{ passed: boolean; report: unknown }>;
+  run(input: {
+    markdown: string;
+    sources?: readonly string[];
+    userText?: readonly string[];
+    outlineSkeleton?: readonly string[];
+  }): Promise<{ passed: boolean; report: unknown }>;
 }
 
 export interface Renderer {
@@ -168,31 +174,99 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
           }
         } else if (stepName === 'outline') {
           const llmCall = resolveLlmCall(params);
-          const outcome = await streamLlmText(
-            deps.llm,
-            { purpose: 'wewrite-pipeline', system: pipelineSystemPrompt(), user: outlineUserPrompt(topic), ...llmCall },
-            signal,
-          );
-          if (outcome.status === 'aborted') throwAborted();
-          if (outcome.status === 'error') throw new PipelineStepError(outcome.code, outcome.message);
-          outline = outcome.text;
-          patchStep(runId, stepName, { metrics: { chars: outline.length } });
+          // v0.5 骨架绑：brief.outline 给定时，大纲步为「校验+补洞」模式——给定节名
+          // 必须原样出现在 LLM 输出里；首轮遗漏带反馈重试一次，仍遗漏即步骤失败。
+          const skeleton = params.brief?.outline?.length ? params.brief.outline : undefined;
+          let retryMissing: readonly string[] | undefined;
+          let outlineText = '';
+          for (let attempt = 0; ; attempt += 1) {
+            const outcome = await streamLlmText(
+              deps.llm,
+              {
+                purpose: 'wewrite-pipeline',
+                system: pipelineSystemPrompt(),
+                user: outlineUserPrompt(topic, params.brief, retryMissing),
+                ...llmCall,
+              },
+              signal,
+            );
+            if (outcome.status === 'aborted') throwAborted();
+            if (outcome.status === 'error') throw new PipelineStepError(outcome.code, outcome.message);
+            outlineText = outcome.text;
+            if (!skeleton) break;
+            const missing = skeleton.filter((section) => !outlineText.includes(section));
+            if (!missing.length) break;
+            if (attempt >= 1) {
+              throw new PipelineStepError(
+                'outline-skeleton-violated',
+                `大纲未原样保留用户给定节：${missing.map((section) => `「${section}」`).join('、')}`,
+              );
+            }
+            retryMissing = missing;
+          }
+          outline = outlineText;
+          patchStep(runId, stepName, {
+            metrics: { chars: outline.length, ...(skeleton ? { skeletonPreserved: true } : {}) },
+          });
         } else if (stepName === 'draft') {
           const llmCall = resolveLlmCall(params);
-          const outcome = await streamLlmText(
-            deps.llm,
-            { purpose: 'wewrite-pipeline', system: pipelineSystemPrompt(), user: draftUserPrompt(topic, outline), ...llmCall },
-            signal,
-          );
-          if (outcome.status === 'aborted') throwAborted();
-          if (outcome.status === 'error') throw new PipelineStepError(outcome.code, outcome.message);
-          draft = outcome.text;
+          // v0.5 draft 层自愈：outline 守住的大纲可能被成稿改写、来源可能被写成链接语法——
+          // 先带反馈重写一次；仍不合规交 gates 终检拦（单一强制执行点）。
+          const skeleton = params.brief?.outline?.length ? params.brief.outline : undefined;
+          const briefSources = params.brief?.sources?.length ? params.brief.sources : undefined;
+          let retryMissing: readonly string[] | undefined;
+          let retryInvisible: readonly string[] | undefined;
+          let draftText = '';
+          for (let attempt = 0; ; attempt += 1) {
+            const outcome = await streamLlmText(
+              deps.llm,
+              {
+                purpose: 'wewrite-pipeline',
+                system: pipelineSystemPrompt(),
+                user: draftUserPrompt(topic, outline, params.brief, retryMissing, retryInvisible),
+                ...llmCall,
+              },
+              signal,
+            );
+            if (outcome.status === 'aborted') throwAborted();
+            if (outcome.status === 'error') throw new PipelineStepError(outcome.code, outcome.message);
+            draftText = outcome.text;
+            if (!skeleton && !briefSources) break;
+            const missing = skeleton ? skeleton.filter((section) => !draftText.includes(section)) : [];
+            const invisible = briefSources
+              ? briefSources.filter((url) => !isSourceUrlVisible(draftText, url))
+              : [];
+            if ((!missing.length && !invisible.length) || attempt >= 1) break;
+            retryMissing = missing.length ? missing : undefined;
+            retryInvisible = invisible.length ? invisible : undefined;
+          }
+          draft = draftText;
           patchStep(runId, stepName, { metrics: { chars: draft.length } });
         } else if (stepName === 'gates') {
-          const verdict = await deps.gates.run({ markdown: draft });
+          const brief = params.brief;
+          const verdict = await deps.gates.run({
+            markdown: draft,
+            ...(brief?.sources?.length
+              ? {
+                  sources: brief.sources,
+                  userText: [
+                    topic,
+                    ...(brief.title ? [brief.title] : []),
+                    ...(brief.approach ? [brief.approach] : []),
+                    ...(brief.outline ?? []),
+                  ],
+                }
+              : {}),
+            ...(brief?.outline?.length ? { outlineSkeleton: brief.outline } : {}),
+          });
           patchStep(runId, stepName, { metrics: { report: verdict.report } });
           if (!verdict.passed) {
-            throw new PipelineStepError('gates-failed', '质量门禁未通过，默认推送路径已被阻断', verdict.report);
+            const issues = (verdict.report as { issues?: unknown }).issues;
+            const summary =
+              Array.isArray(issues) && issues.length
+                ? `质量门禁未通过：${issues.slice(0, 3).map(String).join('；')}${issues.length > 3 ? ' 等' : ''}`
+                : '质量门禁未通过，默认推送路径已被阻断';
+            throw new PipelineStepError('gates-failed', summary, verdict.report);
           }
         } else if (stepName === 'render') {
           const html = deps.renderer.convert({ markdown: draft, theme: params.theme });

@@ -37,6 +37,17 @@ export declare const LlmOverrideSchema: z.ZodObject<{
     model: z.ZodOptional<z.ZodString>;
 }, z.core.$strict>;
 export type LlmOverride = z.infer<typeof LlmOverrideSchema>;
+/**
+ * 启动 brief（v0.5 变密度输入合同，docs/v0.5-launch-brief.md §2）：
+ * 主题之外全部可选——一句话路径零损伤；给了即按分层绑定生效（标题/思路硬绑、大纲骨架绑、来源硬绑+门禁）。
+ */
+export declare const LaunchBriefSchema: z.ZodObject<{
+    title: z.ZodOptional<z.ZodString>;
+    approach: z.ZodOptional<z.ZodString>;
+    outline: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    sources: z.ZodOptional<z.ZodArray<z.ZodURL>>;
+}, z.core.$strict>;
+export type LaunchBrief = z.infer<typeof LaunchBriefSchema>;
 /** 管线运行参数（Spec §5 run/start.params；调度 paramsSnapshot 同型）。 */
 export declare const RunParamsSchema: z.ZodObject<{
     topicMode: z.ZodEnum<{
@@ -44,6 +55,12 @@ export declare const RunParamsSchema: z.ZodObject<{
         fixed: "fixed";
     }>;
     topic: z.ZodOptional<z.ZodString>;
+    brief: z.ZodOptional<z.ZodObject<{
+        title: z.ZodOptional<z.ZodString>;
+        approach: z.ZodOptional<z.ZodString>;
+        outline: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        sources: z.ZodOptional<z.ZodArray<z.ZodURL>>;
+    }, z.core.$strict>>;
     theme: z.ZodOptional<z.ZodString>;
     imageCount: z.ZodOptional<z.ZodNumber>;
     llm: z.ZodOptional<z.ZodObject<{

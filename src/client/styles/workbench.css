@@ -117,6 +117,50 @@
 
 .ww-startup__input::placeholder { color: var(--ww-fg-caption); }
 .ww-startup__input:hover { border-color: var(--ww-border-strong); }
+
+/* v0.5 启动 brief：「更多信息」折叠区默认收起——快路径一句话零损伤（docs/v0.5-launch-brief.md §3） */
+.ww-startup__more {
+  appearance: none;
+  font: inherit;
+  font-size: var(--ww-text-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-1);
+  padding: 0;
+  margin-top: calc(-1 * var(--ww-space-1));
+  color: var(--ww-fg-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.ww-startup__more:hover { color: var(--ww-fg); }
+
+.ww-startup__brief {
+  display: grid;
+  gap: var(--ww-space-3);
+  padding: var(--ww-space-3);
+  border-top: var(--ww-border-width) dashed var(--ww-border);
+}
+
+.ww-startup__field { display: grid; gap: var(--ww-space-1); }
+
+.ww-startup__label {
+  font-size: var(--ww-text-sm);
+  font-weight: var(--ww-weight-medium);
+  color: var(--ww-fg-secondary);
+}
+
+.ww-startup__hint { font-weight: var(--ww-weight-regular); font-size: var(--ww-text-xs); color: var(--ww-fg-caption); }
+
+.ww-startup__input--area {
+  height: auto;
+  min-height: 56px;
+  padding: var(--ww-space-2) var(--ww-space-3);
+  line-height: 1.5;
+  resize: vertical;
+}
 .ww-startup__input:focus-visible { outline: none; border-color: var(--ww-border-strong); box-shadow: var(--ww-focus-ring); }
 
 .ww-startup__alts { display: flex; gap: var(--ww-space-2); margin-top: var(--ww-space-1); }

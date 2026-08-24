@@ -27,6 +27,9 @@ export interface TopicSource {
 export interface GatesRunner {
     run(input: {
         markdown: string;
+        sources?: readonly string[];
+        userText?: readonly string[];
+        outlineSkeleton?: readonly string[];
     }): Promise<{
         passed: boolean;
         report: unknown;

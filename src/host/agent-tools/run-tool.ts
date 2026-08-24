@@ -14,6 +14,44 @@ interface RunToolArgs {
   readonly topic: string;
   readonly imageCount: number;
   readonly theme?: string;
+  readonly briefTitle?: string;
+  readonly briefApproach?: string;
+  readonly briefOutline?: string[];
+  readonly briefSources?: string[];
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/** 有界字符串数组解析：trim、丢空串、超限报结构化错误（agent 可自纠）。 */
+function parseBoundedStringArray(
+  raw: unknown,
+  field: string,
+  maxItems: number,
+  maxItemLen: number,
+): { values?: string[]; error?: ReturnType<typeof toolError> } {
+  if (raw === undefined) return {};
+  if (!Array.isArray(raw)) return { error: toolError(`brief-${field}-invalid`, `${field} 必须是字符串数组`) };
+  const values: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') return { error: toolError(`brief-${field}-invalid`, `${field} 的每一项必须是字符串`) };
+    const trimmed = item.trim();
+    if (!trimmed) continue;
+    if ([...trimmed].length > maxItemLen) {
+      return { error: toolError(`brief-${field}-invalid`, `${field} 单项过长（≤${maxItemLen} 字符）`) };
+    }
+    values.push(trimmed);
+  }
+  if (values.length > maxItems) {
+    return { error: toolError(`brief-${field}-invalid`, `${field} 最多 ${maxItems} 项（收到 ${values.length}）`) };
+  }
+  return values.length ? { values } : {};
 }
 
 function parseRunArgs(args: unknown): RunToolArgs | { error: ReturnType<typeof toolError> } {
@@ -24,7 +62,31 @@ function parseRunArgs(args: unknown): RunToolArgs | { error: ReturnType<typeof t
   if (typeof rawCount !== 'number' || !Number.isInteger(rawCount) || rawCount < 0 || rawCount > 10) {
     return { error: toolError('image-count-invalid', 'image_count 必须是 0-10 的整数（缺省 0，默认零图片成本）') };
   }
-  return { topic, imageCount: rawCount, theme: optionalString(raw.theme) };
+  const briefTitle = typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() : undefined;
+  if (briefTitle && [...briefTitle].length > 64) {
+    return { error: toolError('brief-title-invalid', 'title 过长（≤64 字，微信标题上限）') };
+  }
+  const briefApproach = typeof raw.approach === 'string' && raw.approach.trim() ? raw.approach.trim() : undefined;
+  if (briefApproach && [...briefApproach].length > 2000) {
+    return { error: toolError('brief-approach-invalid', 'approach 过长（≤2000 字）') };
+  }
+  const outline = parseBoundedStringArray(raw.outline, 'outline', 20, 120);
+  if (outline.error) return { error: outline.error };
+  const sources = parseBoundedStringArray(raw.sources, 'sources', 10, 2048);
+  if (sources.error) return { error: sources.error };
+  const invalidSource = sources.values?.find((url) => !isHttpUrl(url));
+  if (invalidSource) {
+    return { error: toolError('brief-sources-invalid', `sources 每项必须是 http(s) URL（收到：${invalidSource}）`) };
+  }
+  return {
+    topic,
+    imageCount: rawCount,
+    theme: optionalString(raw.theme),
+    briefTitle,
+    briefApproach,
+    briefOutline: outline.values,
+    briefSources: sources.values,
+  };
 }
 
 /** RunRecord → canonical value（gatePassed 从 gates 步状态推断；title/digest 内存查文章）。 */
@@ -64,10 +126,23 @@ export function buildRunTool(service: WeWriteService): WewriteToolDefinition {
     name: 'wewrite_run',
     description:
       '运行一次 WeWrite 公众号写作管线：选题→大纲→成稿→质量门禁→渲染→配图，全程数分钟，完成后返回文章标识与摘要。'
-      + '仅在用户明确表达写作意图时调用；返回值只进草稿相关流程，本插件不群发。',
+      + '把用户在对话里给出的标题/总体思路/大纲/参考链接蒸馏进 title/approach/outline/sources 对应参数（分层硬约束：标题与思路照办、大纲节名原样保留、给定来源必须以可见 URL 引用且不得编造其他来源）。'
+      + '用户只给一句话主题时不追问、直接运行。仅在用户明确表达写作意图时调用；返回值只进草稿相关流程，本插件不群发。',
     timeoutMs: 600000,
     parameters: {
       topic: { type: 'string', required: true, description: '文章主题（固定选题模式，必填非空）' },
+      title: { type: 'string', description: '可选：用户已定的文章标题（硬约束，成稿直接采用，≤64 字）——用户明确给出标题时才传' },
+      approach: { type: 'string', description: '可选：总体思路/核心主张（硬约束，全文围绕展开不偏离）——用户表达了写作思路时才传' },
+      outline: {
+        type: 'array',
+        items: { type: 'string' },
+        description: '可选：用户给定的大纲节名数组（骨架约束：节名原样保留顺序不变，管线可补节）',
+      },
+      sources: {
+        type: 'array',
+        items: { type: 'string' },
+        description: '可选：用户提供的参考来源 URL 数组（硬约束：正文以可见 URL 文本引用，不得编造未提供的 URL）',
+      },
       image_count: { type: 'integer', description: '正文配图数量 0-10，默认 0（默认零图片成本）' },
       theme: { type: 'string', description: '排版主题（可选，缺省用设置页默认主题）' },
     },
@@ -117,12 +192,19 @@ export function buildRunTool(service: WeWriteService): WewriteToolDefinition {
     async execute(args: unknown, exec: ToolRunContext) {
       const parsed = parseRunArgs(args);
       if ('error' in parsed) return parsed.error;
+      const brief = {
+        ...(parsed.briefTitle ? { title: parsed.briefTitle } : {}),
+        ...(parsed.briefApproach ? { approach: parsed.briefApproach } : {}),
+        ...(parsed.briefOutline?.length ? { outline: parsed.briefOutline } : {}),
+        ...(parsed.briefSources?.length ? { sources: parsed.briefSources } : {}),
+      };
       const { runId } = service.startRun({
         trigger: 'manual',
         params: {
           topicMode: 'fixed',
           topic: parsed.topic,
           imageCount: parsed.imageCount,
+          ...(Object.keys(brief).length ? { brief } : {}),
           ...(parsed.theme ? { theme: parsed.theme } : {}),
         },
       });
@@ -161,7 +243,16 @@ export function buildRunTool(service: WeWriteService): WewriteToolDefinition {
       const rawInput: Record<string, unknown> = {};
       if (topic) rawInput.topic = topic;
       if (raw.image_count !== undefined) rawInput.image_count = raw.image_count;
-      return callView('execute', `正在写《${topic}》`, rawInput);
+      for (const field of ['title', 'approach', 'outline', 'sources'] as const) {
+        if (raw[field] !== undefined) rawInput[field] = raw[field];
+      }
+      const extras: string[] = [];
+      if (typeof raw.title === 'string' && raw.title) extras.push('定标题');
+      if (typeof raw.approach === 'string' && raw.approach) extras.push('带思路');
+      if (Array.isArray(raw.outline) && raw.outline.length) extras.push(`大纲 ${raw.outline.length} 节`);
+      if (Array.isArray(raw.sources) && raw.sources.length) extras.push(`来源 ${raw.sources.length} 条`);
+      const suffix = extras.length ? `（${extras.join('·')}）` : '';
+      return callView('execute', `正在写《${topic}》${suffix}`, rawInput);
     },
     presentResult: (_args, result) => {
       const meta = asArgsRecord(result.meta);

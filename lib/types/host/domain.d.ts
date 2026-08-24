@@ -97,6 +97,12 @@ export declare const RunRecordSchema: z.ZodObject<{
             fixed: "fixed";
         }>;
         topic: z.ZodOptional<z.ZodString>;
+        brief: z.ZodOptional<z.ZodObject<{
+            title: z.ZodOptional<z.ZodString>;
+            approach: z.ZodOptional<z.ZodString>;
+            outline: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            sources: z.ZodOptional<z.ZodArray<z.ZodURL>>;
+        }, z.core.$strict>>;
         theme: z.ZodOptional<z.ZodString>;
         imageCount: z.ZodOptional<z.ZodNumber>;
         llm: z.ZodOptional<z.ZodObject<{
@@ -151,6 +157,12 @@ export declare const ScheduleRecordSchema: z.ZodObject<{
             fixed: "fixed";
         }>;
         topic: z.ZodOptional<z.ZodString>;
+        brief: z.ZodOptional<z.ZodObject<{
+            title: z.ZodOptional<z.ZodString>;
+            approach: z.ZodOptional<z.ZodString>;
+            outline: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            sources: z.ZodOptional<z.ZodArray<z.ZodURL>>;
+        }, z.core.$strict>>;
         theme: z.ZodOptional<z.ZodString>;
         imageCount: z.ZodOptional<z.ZodNumber>;
         llm: z.ZodOptional<z.ZodObject<{
@@ -339,6 +351,12 @@ export declare const domainSpec: {
                         fixed: "fixed";
                     }>;
                     topic: z.ZodOptional<z.ZodString>;
+                    brief: z.ZodOptional<z.ZodObject<{
+                        title: z.ZodOptional<z.ZodString>;
+                        approach: z.ZodOptional<z.ZodString>;
+                        outline: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                        sources: z.ZodOptional<z.ZodArray<z.ZodURL>>;
+                    }, z.core.$strict>>;
                     theme: z.ZodOptional<z.ZodString>;
                     imageCount: z.ZodOptional<z.ZodNumber>;
                     llm: z.ZodOptional<z.ZodObject<{
@@ -394,6 +412,12 @@ export declare const domainSpec: {
                         fixed: "fixed";
                     }>;
                     topic: z.ZodOptional<z.ZodString>;
+                    brief: z.ZodOptional<z.ZodObject<{
+                        title: z.ZodOptional<z.ZodString>;
+                        approach: z.ZodOptional<z.ZodString>;
+                        outline: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                        sources: z.ZodOptional<z.ZodArray<z.ZodURL>>;
+                    }, z.core.$strict>>;
                     theme: z.ZodOptional<z.ZodString>;
                     imageCount: z.ZodOptional<z.ZodNumber>;
                     llm: z.ZodOptional<z.ZodObject<{

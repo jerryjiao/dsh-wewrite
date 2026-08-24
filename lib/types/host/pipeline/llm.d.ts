@@ -58,8 +58,15 @@ export type LlmStepOutcome = {
 };
 /** 消费一次 stream 至终端 finish chunk；AbortSignal 中止与供应商错误显式分流。 */
 export declare function streamLlmText(llm: PipelineLlm, options: LlmStreamOptions, signal: AbortSignal): Promise<LlmStepOutcome>;
-export declare function outlineUserPrompt(topic: string): string;
-export declare function draftUserPrompt(topic: string, outline: string): string;
+/** 启动 brief 的 prompt 投影（v0.5 变密度输入，docs/v0.5-launch-brief.md）。 */
+export interface LaunchBriefForPrompt {
+    readonly title?: string;
+    readonly approach?: string;
+    readonly outline?: readonly string[];
+    readonly sources?: readonly string[];
+}
+export declare function outlineUserPrompt(topic: string, brief?: LaunchBriefForPrompt, retryMissing?: readonly string[]): string;
+export declare function draftUserPrompt(topic: string, outline: string, brief?: LaunchBriefForPrompt, retryMissingOutline?: readonly string[], retryInvisibleSources?: readonly string[]): string;
 export declare function pipelineSystemPrompt(): string;
 export declare function rewriteSystemPrompt(): string;
 export declare function rewriteUserPrompt(input: {

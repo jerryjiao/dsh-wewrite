@@ -727,3 +727,39 @@ describe('RPC 信封契约（坑#dsh-rpc-envelope：{ok,value}/{ok,error} + 通�
     await expect(registerWewriteRpc(undefined, service)).resolves.toBeTypeOf('function');
   });
 });
+
+// ── v0.5 启动 brief：RunParams 扩展与 run/start 语义（docs/v0.5-launch-brief.md）──
+
+describe('RunParamsSchema：启动 brief（v0.5 变密度输入）', () => {
+  it('brief 四字段全形态通过', () => {
+    const parsed = RunParamsSchema.safeParse({
+      topicMode: 'fixed',
+      topic: '主题',
+      brief: { title: '标题', approach: '思路', outline: ['节一', '节二'], sources: ['https://a.test/x'] },
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it.each([
+    [{ topicMode: 'fixed', brief: { sources: ['not-a-url'] } }, 'sources 非 URL'],
+    [{ topicMode: 'fixed', brief: { outline: [] } }, 'outline 空数组'],
+    [{ topicMode: 'fixed', brief: { title: '   ' } }, 'title 空白（trim 后空）'],
+    [{ topicMode: 'fixed', brief: { unknown: 1 } }, 'brief 未知字段（strictObject）'],
+  ])('非法 brief → 拒绝（%s）', (params: unknown, _label?: string) => {
+    expect(RunParamsSchema.safeParse(params).success).toBe(false);
+  });
+
+  it('run/start：hotspots 携带 brief 拒绝（选题来自热榜，绑定自相矛盾）', () => {
+    const parsed = rpcContract['run/start'].request.safeParse({
+      params: { topicMode: 'hotspots', brief: { title: '热榜还不知道题' } },
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('run/start：fixed + topic + brief 通过', () => {
+    const parsed = rpcContract['run/start'].request.safeParse({
+      params: { topicMode: 'fixed', topic: 'Workers 冷启动', brief: { title: '冷启动的真实数字' } },
+    });
+    expect(parsed.success).toBe(true);
+  });
+});

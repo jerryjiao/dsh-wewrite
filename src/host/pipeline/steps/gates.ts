@@ -118,12 +118,84 @@ export interface GatesReport {
   readonly codeBlocks: number;
   readonly numbering: { readonly passed: boolean; readonly issues: readonly string[] };
   readonly figureNumbering: { readonly passed: boolean; readonly issues: readonly string[] };
+  /** 来源门禁（v0.5）：仅在启动 brief 携带 sources 时启用，否则 undefined（门禁不激活）。 */
+  readonly sources: { readonly passed: boolean; readonly issues: readonly string[] } | undefined;
+  /** 大纲骨架终检（v0.5）：仅在启动 brief 携带 outline 时启用——draft 层改写/遗漏给定节的最后防线。 */
+  readonly outlineSkeleton: { readonly passed: boolean; readonly issues: readonly string[] } | undefined;
   readonly issues: readonly string[];
 }
 
 export interface RunGatesInput {
   readonly markdown: string;
   readonly imageCount?: number;
+  /** 启动 brief 的来源 URL（v0.5 硬绑）：给了即启用来源门禁。 */
+  readonly sources?: readonly string[];
+  /** 用户提供的原文文本（主题/标题/思路/大纲）——其中出现的 URL 视为已授权，不算编造。 */
+  readonly userText?: readonly string[];
+  /** 启动 brief 的给定大纲节名（v0.5 骨架绑）：给了即启用骨架终检。 */
+  readonly outlineSkeleton?: readonly string[];
+}
+
+// ── 来源门禁（v0.5 docs/v0.5-launch-brief.md §2「来源」硬绑）──────────────────
+// 微信会静默剥离 <a> 锚标签——所以「用上来源」必须以裸 URL 文本出现，藏在
+// Markdown 链接语法 [](url) 里的 URL 渲染后即丢失，不算可见。
+
+const URL_PATTERN = /https?:\/\/[A-Za-z0-9._~:/?#[\]@!$&+;,=%-]+/g;
+
+/** 归一化比较键：去空白与尾斜杠（大小写保留——路径段大小写敏感）。 */
+function urlKey(url: string): string {
+  return url.trim().replace(/\/+$/, '');
+}
+
+/** 剥掉 Markdown 链接/图片语法，只留可见文本域（链接文字保留，URL 位置丢弃）。 */
+function stripLinkUrls(markdown: string): string {
+  return markdown.replace(/(!?)\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, '$2');
+}
+
+/** 剥掉围栏代码块（代码块里的 URL 是示意内容，不算引用，也不算编造来源）。 */
+function stripCodeFences(markdown: string): string {
+  return markdown.replace(/(```|~~~)[\s\S]*?\1/g, '');
+}
+
+/** 可见文本域包含判定：容忍尾斜杠差异（给定 a.com/x/ 成文写 a.com/x 视为出现）。 */
+function visibleContainsUrl(visibleText: string, url: string): boolean {
+  const trimmed = url.trim();
+  const variants = [trimmed, trimmed.replace(/\/+$/, '')];
+  return variants.some((variant) => variant.length > 0 && visibleText.includes(variant));
+}
+
+/** 来源可见性：每条给定 URL 必须以裸文本出现在正文（链接语法里的不算）。 */
+function auditSourceVisibility(markdown: string, sources: readonly string[]): { passed: boolean; issues: string[] } {
+  const visibleText = stripLinkUrls(markdown);
+  const issues = sources
+    .filter((url) => !visibleContainsUrl(visibleText, url))
+    .map((url) => `来源未以可见 URL 出现在正文（微信会剥离链接语法，需写成裸文本）：${url}`);
+  return { passed: issues.length === 0, issues };
+}
+
+/** engine draft 自愈判据（v0.5）：给定来源是否已以裸文本可见（供重写触发，语义同 auditSourceVisibility）。 */
+export function isSourceUrlVisible(markdown: string, url: string): boolean {
+  return visibleContainsUrl(stripLinkUrls(markdown), url);
+}
+
+/** 编造拦截：正文出现的 URL（代码块除外）必须属于给定来源或用户原文带出的 URL；
+ *  给定来源的更深路径（a.com/x → a.com/x/section）视为同源延伸，放行。 */
+function auditInventedSources(markdown: string, allowed: readonly string[]): { passed: boolean; issues: string[] } {
+  const allowedKeys = allowed.map(urlKey).filter(Boolean);
+  const allowedByPrefix = (key: string): boolean =>
+    allowedKeys.some(
+      (candidate) => key === candidate || (key.startsWith(candidate) && (candidate.endsWith('/') || key.charAt(candidate.length) === '/')),
+    );
+  const text = stripCodeFences(markdown);
+  const issues: string[] = [];
+  const flagged = new Set<string>();
+  for (const match of text.matchAll(URL_PATTERN)) {
+    const found = urlKey(match[0].replace(/[.,;:，。；：、]+$/, ''));
+    if (!found || allowedByPrefix(found) || flagged.has(found)) continue;
+    flagged.add(found);
+    issues.push(`正文包含未提供的来源 URL（疑似编造，删除或换成给定来源）：${found}`);
+  }
+  return { passed: issues.length === 0, issues };
 }
 
 /** 门禁判定：任一硬项不过即 passed=false（strict 语义，未过阻断默认推送路径，AC-7）。 */
@@ -141,6 +213,27 @@ export function runQualityGates(input: RunGatesInput): { passed: boolean; report
   const codeBlocks = countMatches(text, /```[\s\S]*?```/g);
   const numbering = auditNumbering(text);
   const figureNumbering = auditFigureNumbering(text, input.imageCount ?? 0);
+  const sources = input.sources?.length
+    ? (() => {
+        // 授权集 = 给定来源 + 用户原文（主题/标题/思路/大纲）里带出的 URL（提取而非整句比对）。
+        const userUrls = (input.userText ?? []).flatMap((text) =>
+          [...text.matchAll(URL_PATTERN)].map((match) => match[0].replace(/[.,;:，。；：、]+$/, '')),
+        );
+        const allowed = [...input.sources, ...userUrls];
+        const visibility = auditSourceVisibility(text, input.sources);
+        const invented = auditInventedSources(text, allowed);
+        const issues = [...visibility.issues, ...invented.issues];
+        return { passed: issues.length === 0, issues };
+      })()
+    : undefined;
+  const outlineSkeleton = input.outlineSkeleton?.length
+    ? (() => {
+        const issues = input.outlineSkeleton
+          .filter((section) => !text.includes(section))
+          .map((section) => `大纲骨架：给定节「${section}」未原样出现在成稿`);
+        return { passed: issues.length === 0, issues };
+      })()
+    : undefined;
 
   const issues: string[] = [];
   if (bannedWords.length) issues.push(`禁用词命中 ${bannedWords.length} 组`);
@@ -150,6 +243,8 @@ export function runQualityGates(input: RunGatesInput): { passed: boolean; report
   if (chars > 0 && chars < 300) issues.push('正文过短（< 300 字）');
   if (!numbering.passed) issues.push(...numbering.issues);
   if (!figureNumbering.passed) issues.push(...figureNumbering.issues);
+  if (sources && !sources.passed) issues.push(...sources.issues);
+  if (outlineSkeleton && !outlineSkeleton.passed) issues.push(...outlineSkeleton.issues);
 
   const report: GatesReport = {
     strict: true,
@@ -161,14 +256,24 @@ export function runQualityGates(input: RunGatesInput): { passed: boolean; report
     codeBlocks,
     numbering,
     figureNumbering,
+    sources,
+    outlineSkeleton,
     issues,
   };
   return { passed: issues.length === 0, report };
 }
 
-/** engine 装配适配器（GatesRunner 形状）。 */
+/** engine 装配适配器（GatesRunner 形状；来源/骨架门禁输入透传）。 */
 export const qualityGatesRunner: GatesRunner = {
-  async run(input: { markdown: string }) {
-    return runQualityGates({ markdown: input.markdown });
+  async run(input: { markdown: string; sources?: readonly string[]; userText?: readonly string[]; outlineSkeleton?: readonly string[] }) {
+    return runQualityGates({
+      markdown: input.markdown,
+      ...((input.sources?.length || input.outlineSkeleton?.length)
+        ? {
+            ...(input.sources?.length ? { sources: input.sources, userText: input.userText } : {}),
+            ...(input.outlineSkeleton?.length ? { outlineSkeleton: input.outlineSkeleton } : {}),
+          }
+        : {}),
+    });
   },
 };

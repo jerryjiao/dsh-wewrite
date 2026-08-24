@@ -229,4 +229,95 @@ export default [
       assert.equal(await page.locator('.ww-toast--success').count(), 0, '取消路径不应有成功 toast（负向）');
     },
   },
+
+/**
+ * H06（v0.5 启动 brief 全合同真跑，live）——docs/v0.5-launch-brief.md 验收锚。
+ * 入口不走 UI（StartupCard 仅零文章时渲染，live 相位必有库存）——用页面内
+ * loopback RPC 探测器直发 run/start（group-j chat-integration 同款信封），
+ * 驱动真宿主：真 LLM（glm-4.7-flash）+ 真 gates + 真落库。
+ * 断言四层合同：标题硬绑（article.title===给定）；大纲骨架保留（给定节名全在
+ * markdown）；来源可见（URL 裸文本进正文）且无编造（正文 URL ⊆ 给定来源）；
+ * gates 步 succeeded（来源门禁真跑通过）。
+ */
+  {
+    id: 'H06',
+    group: 'H 管线真跑',
+    phase: 'live',
+    fn: async (page) => {
+      const TITLE = 'H06 定稿标题：插件意图前置';
+      const APPROACH = '一句话主题出稿注定平庸，防御在两端不如把意图沉进启动输入';
+      const OUTLINE = ['为什么一句话不够', 'brief 四件套怎么绑', '门禁替你守合同'];
+      const SOURCE = 'https://jerryjiao.github.io/dsh-wewrite/';
+      const callPluginRpc = (endpoint, payload) =>
+        page.evaluate(
+          async ({ endpoint, payload }) => {
+            const res = await fetch(`/dsh-wewrite/${endpoint}`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ type: 'client-request', rpcId: `e2e-h06-${endpoint}-${Date.now()}`, method: endpoint, payload }),
+            });
+            let body = null;
+            try {
+              body = await res.json();
+            } catch {
+              /* 非 JSON 保持 null */
+            }
+            return { status: res.status, body };
+          },
+          { endpoint, payload },
+        );
+      // 成功信封 {ok:true,value}、错误信封 {ok:false,error}（loopback server-response 的 result 面）。
+      const unwrap = (res) => {
+        if (res.status !== 200 || res.body?.type !== 'server-response') {
+          throw new Error(`RPC ${res.status} 非受控信封：${JSON.stringify(res.body)?.slice(0, 200)}`);
+        }
+        const result = res.body.result ?? {};
+        if (result.ok === false) throw new Error(JSON.stringify(result.error));
+        return result.value ?? result;
+      };
+
+      const started = unwrap(
+        await callPluginRpc('run/start', {
+          params: {
+            topicMode: 'fixed',
+            topic: 'H06 启动 brief 合同真跑',
+            brief: { title: TITLE, approach: APPROACH, outline: OUTLINE, sources: [SOURCE] },
+            imageCount: 0,
+            // 模型可被 E2E_LLM_MODEL 覆盖：免费 flash 轮流拥挤（1305），验证轮换用（默认同 G05）。
+            llm: { provider: 'zhipu', model: process.env.E2E_LLM_MODEL ?? 'glm-4.7-flash' },
+          },
+        }),
+      );
+      assert.ok(started?.runId, `run/start 应返回 runId（实得：${JSON.stringify(started)?.slice(0, 200)}）`);
+
+      let detail = null;
+      await pollUntil(
+        async () => {
+          detail = unwrap(await callPluginRpc('run/detail', { runId: started.runId }));
+          return ['succeeded', 'failed', 'cancelled', 'interrupted'].includes(detail?.status) ? true : null;
+        },
+        { timeout: 240000, interval: 4000, msg: '240s 内 brief 真跑未到终态' },
+      );
+      assert.equal(detail.status, 'succeeded', `brief 真跑终态应为 succeeded（error=${JSON.stringify(detail.error)}）`);
+      const gatesStep = (detail.steps ?? []).find((step) => step.name === 'gates');
+      assert.equal(gatesStep?.status, 'succeeded', 'gates 步应 succeeded（来源门禁真跑通过）');
+      const sourcesGate = gatesStep?.metrics?.report?.sources;
+      assert.ok(sourcesGate?.passed, `来源门禁应通过（issues=${JSON.stringify(sourcesGate?.issues)}）`);
+      // 全新 run 的 run/detail 不带 articleId（该字段是重跑绑定语义，存量行为）——
+      // 按硬绑标题在文章库定位（标题合同使定位确定性成立），再取全文。
+      const articles = unwrap(await callPluginRpc('article/list', {}));
+      const hit = (articles ?? []).find((a) => a?.title === TITLE);
+      assert.ok(hit, `文章库应出现硬绑标题《${TITLE}》的文章（实得前 5 标题：${JSON.stringify((articles ?? []).slice(0, 5).map((a) => a?.title))}）`);
+
+      const article = unwrap(await callPluginRpc('article/get', { id: hit.id }));
+      assert.equal(article.title, TITLE, `标题硬绑：article.title 应为给定标题（实得：${article.title}）`);
+      for (const section of OUTLINE) {
+        assert.ok((article.markdown ?? '').includes(section), `大纲骨架：给定节「${section}」应原样出现在成稿`);
+      }
+      assert.ok((article.markdown ?? '').includes(SOURCE), '来源可见：给定 URL 应以裸文本出现在成稿');
+      const foundUrls = [...String(article.markdown ?? '').matchAll(/https?:\/\/[A-Za-z0-9._~:/?#\[\]@!$&+;,=%-]+/g)].map((m) => m[0].replace(/[.,;:]+$/, ''));
+      const invented = [...new Set(foundUrls)].filter((url) => !url.startsWith(SOURCE));
+      assert.deepEqual(invented, [], `编造拦截：正文不得出现未给定 URL（实得：${JSON.stringify(invented)}）`);
+    },
+  },
 ];

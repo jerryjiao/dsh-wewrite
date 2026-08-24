@@ -319,12 +319,16 @@ describe('工具定义形状（Spec §5 工具面 5 个 / AC-M1-01 描述边界�
     expect(pushDescription).toContain('不群发');
   });
 
-  it('AC-M1-03: run 参数面 = topic(必填)/image_count/theme，键集精确', () => {
+  it('AC-M1-03: run 参数面 = topic(必填)/image_count/theme + v0.5 brief 四字段（title/approach/outline/sources 全可选），键集精确', () => {
     const parameters = byName('wewrite_run').parameters as Record<string, { required?: boolean; type?: string }>;
-    expect(Object.keys(parameters).sort()).toEqual(['image_count', 'theme', 'topic']);
+    expect(Object.keys(parameters).sort()).toEqual(['approach', 'image_count', 'outline', 'sources', 'theme', 'title', 'topic']);
     expect(parameters.topic?.required).toBe(true);
     expect(parameters.image_count?.required).toBeFalsy();
     expect(parameters.theme?.required).toBeFalsy();
+    expect(parameters.title?.required).toBeFalsy();
+    expect(parameters.approach?.required).toBeFalsy();
+    expect(parameters.outline?.required).toBeFalsy();
+    expect(parameters.sources?.required).toBeFalsy();
   });
 
   it('Spec §5: rewrite 参数 text/instruction 必填 + title 可选；push 仅 article_id 必填；list 仅 limit 可选；suggest 仅 count 可选', () => {
@@ -739,5 +743,85 @@ describe('推送审批 pre-execute（OD-1 / AC-M1-05 确认前零微信 API 调�
     const names = agent.registered.map((d) => (d as { name: string }).name);
     expect(names).not.toContain('wewrite_push_draft');
     expect(names).toHaveLength(4);
+  });
+});
+
+// ── wewrite_run 启动 brief（v0.5 docs/v0.5-launch-brief.md：蒸馏进参数/分层硬绑）──
+
+describe('wewrite_run 启动 brief（v0.5 变密度输入）', () => {
+  it('brief 四字段齐带 → 蒸馏进 params.brief 透传管线', async () => {
+    const { service, agent } = setup();
+    await (agent.tool('wewrite_run').execute as (args: unknown, exec: unknown) => Promise<unknown>)(
+      {
+        topic: 'Workers 冷启动',
+        title: '冷启动的真实数字',
+        approach: '冷启动被夸大了',
+        outline: ['冷启动实测', '成本对比'],
+        sources: ['https://a.test/x'],
+      },
+      execWith(new AbortController().signal),
+    );
+    expect(service.startRun).toHaveBeenCalledWith({
+      trigger: 'manual',
+      params: {
+        topicMode: 'fixed',
+        topic: 'Workers 冷启动',
+        imageCount: 0,
+        brief: {
+          title: '冷启动的真实数字',
+          approach: '冷启动被夸大了',
+          outline: ['冷启动实测', '成本对比'],
+          sources: ['https://a.test/x'],
+        },
+      },
+    });
+  });
+
+  it('只给主题 → params 不携带 brief 键（一句话模式零损伤）', async () => {
+    const { service, agent } = setup();
+    await (agent.tool('wewrite_run').execute as (args: unknown, exec: unknown) => Promise<unknown>)(
+      { topic: '只给一句话' },
+      execWith(new AbortController().signal),
+    );
+    expect(service.startRun).toHaveBeenCalledWith({ trigger: 'manual', params: { topicMode: 'fixed', topic: '只给一句话', imageCount: 0 } });
+  });
+
+  it.each([
+    [{ topic: 'X', sources: ['not-a-url'] }, 'brief-sources-invalid', '来源非 URL'],
+    [{ topic: 'X', sources: ['ftp://a.test/x'] }, 'brief-sources-invalid', '来源非 http(s)'],
+    [{ topic: 'X', outline: '冷启动' }, 'brief-outline-invalid', 'outline 非数组'],
+    [{ topic: 'X', title: 'x'.repeat(65) }, 'brief-title-invalid', '标题超 64 字'],
+  ])('非法 brief %s → 结构化错误 %s 且不启动管线', async (args, code, label) => {
+    const { service, agent } = setup();
+    const value = await (agent.tool('wewrite_run').execute as (args: unknown, exec: unknown) => Promise<unknown>)(
+      args,
+      execWith(new AbortController().signal),
+    );
+    const error = asToolError(value);
+    expect(error.ok, label).toBe(false);
+    expect(error.error?.code, label).toBe(code);
+    expect(service.startRun, label).toHaveBeenCalledTimes(0);
+  });
+
+  it('工具描述含行为契约：蒸馏进参数 + 一句话不追问', () => {
+    const { agent } = setup();
+    const run = agent.tool('wewrite_run') as { description: string };
+    expect(run.description).toContain('蒸馏');
+    expect(run.description).toContain('不追问');
+  });
+
+  it('presentCall：brief 字段进 rawInput，标题/来源数量进状态文案', () => {
+    const { agent } = setup();
+    const run = agent.tool('wewrite_run') as { presentCall: (args: unknown) => { title: string; rawInput: Record<string, unknown> } };
+    const view = run.presentCall({
+      topic: '主题',
+      title: '定标题',
+      outline: ['A', 'B'],
+      sources: ['https://a.test/x'],
+    });
+    expect(view.title).toContain('定标题');
+    expect(view.title).toContain('来源 1 条');
+    expect(view.rawInput.outline).toEqual(['A', 'B']);
+    expect(view.rawInput.sources).toEqual(['https://a.test/x']);
   });
 });

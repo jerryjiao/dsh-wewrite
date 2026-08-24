@@ -69,10 +69,14 @@ export type RpcEndpoint = (typeof RPC_ENDPOINTS)[number];
 
 const EmptyRequest = z.strictObject({});
 
-/** 固定选题语义：topicMode='fixed' 时必须携带 topic（run/start 与 schedule/save 共用）。 */
+/** 固定选题语义：topicMode='fixed' 时必须携带 topic（run/start 与 schedule/save 共用）。
+ *  v0.5：brief 只在 fixed 模式合法——热榜模式选题未定，携带标题/思路/来源是自相矛盾。 */
 const RunParamsWithTopicSchema = RunParamsSchema.superRefine((params, ctx) => {
   if (params.topicMode === 'fixed' && !params.topic) {
     ctx.addIssue({ code: 'custom', message: '固定选题模式下 topic 不能为空' });
+  }
+  if (params.topicMode === 'hotspots' && params.brief) {
+    ctx.addIssue({ code: 'custom', message: '热榜模式不支持携带 brief（选题来自热榜，标题/思路/来源无从绑定）' });
   }
 });
 

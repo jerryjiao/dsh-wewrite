@@ -6,10 +6,7 @@
  *   node scripts/probe-overlay-bottom.mjs   （宿主须已在 3080）
  */
 import { chromium } from 'playwright';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
 
-const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const OUT = '/tmp/overlay-bottom.png';
 
 const browser = await chromium.launch();

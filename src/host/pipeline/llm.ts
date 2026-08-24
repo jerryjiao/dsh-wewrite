@@ -112,7 +112,33 @@ const SYSTEM_STYLE = [
   '面向已具备工程背景的读者，直接进入具体事实与取舍。',
 ].join('');
 
-export function outlineUserPrompt(topic: string): string {
+/** 启动 brief 的 prompt 投影（v0.5 变密度输入，docs/v0.5-launch-brief.md）。 */
+export interface LaunchBriefForPrompt {
+  readonly title?: string;
+  readonly approach?: string;
+  readonly outline?: readonly string[];
+  readonly sources?: readonly string[];
+}
+
+export function outlineUserPrompt(topic: string, brief?: LaunchBriefForPrompt, retryMissing?: readonly string[]): string {
+  const skeleton = brief?.outline?.length ? brief.outline : undefined;
+  if (skeleton) {
+    // 骨架绑模式：给定节名合同（原样保留、顺序不变），LLM 只做补洞。
+    return [
+      `主题：${topic}`,
+      '',
+      '用户已定大纲骨架——以下节名必须原样保留（一字不改）、相对顺序不变：',
+      ...skeleton.map((section) => `- ${section}`),
+      '',
+      '你的任务是补洞：',
+      '- 可以在骨架节之间补充必要小节（证据/对比/结尾），每节一句话说明覆盖的具体内容；',
+      '- 标注每节计划出现的证据类型（数据/命令/对比/亲历细节）；',
+      '- 输出完整大纲（给定节与补充节合并），不得改写、合并、拆分或删除给定节名。',
+      ...(retryMissing?.length
+        ? ['', `上一次输出遗漏了以下给定节，本次必须原样包含：${retryMissing.map((section) => `「${section}」`).join('、')}`]
+        : []),
+    ].join('\n');
+  }
   return [
     `主题：${topic}`,
     '',
@@ -123,9 +149,31 @@ export function outlineUserPrompt(topic: string): string {
   ].join('\n');
 }
 
-export function draftUserPrompt(topic: string, outline: string): string {
-  return [
-    `主题：${topic}`,
+export function draftUserPrompt(
+  topic: string,
+  outline: string,
+  brief?: LaunchBriefForPrompt,
+  retryMissingOutline?: readonly string[],
+  retryInvisibleSources?: readonly string[],
+): string {
+  const lines: string[] = [`主题：${topic}`];
+  if (brief?.title) {
+    lines.push(`已定标题：《${brief.title}》——全文围绕这个题目展开；正文仍不出现一级标题（由发布字段承载）。`);
+  }
+  if (brief?.approach) {
+    lines.push('', '总体思路（用户主张，全文必须围绕它展开，不得偏离）：', brief.approach);
+  }
+  if (brief?.sources?.length) {
+    lines.push(
+      '',
+      '引用来源约束：',
+      '- 事实引用优先锚定以下来源；',
+      '- 来源以可见 URL 文本呈现（如「（来源：URL）」或括号内裸链接）——不要用 Markdown 链接语法 []()，微信会剥离锚标签导致链接丢失；',
+      '- 不得编造未提供的 URL。',
+      ...brief.sources.map((url) => `- ${url}`),
+    );
+  }
+  lines.push(
     '',
     '大纲如下：',
     outline,
@@ -135,7 +183,23 @@ export function draftUserPrompt(topic: string, outline: string): string {
     '- 每节包含至少一处具体细节（数字、命令、代码或对比结论）；',
     '- 段落长短交替，避免连续同长段；',
     '- 正文配图位置以「![描述](图片待生成)」占位，后续管线会替换。',
-  ].join('\n');
+  );
+  if (retryMissingOutline?.length) {
+    lines.push(
+      '',
+      `上一次成稿遗漏/改写了以下给定节名，本次必须原样保留（节名一字不改）：${retryMissingOutline
+        .map((section) => `「${section}」`)
+        .join('、')}`,
+    );
+  }
+  if (retryInvisibleSources?.length) {
+    lines.push(
+      '',
+      '上一次成稿把以下来源写成了 Markdown 链接（微信会剥离锚标签，读者看不到 URL）——本次必须以裸 URL 文本引用（如「（来源：URL）」）：',
+      ...retryInvisibleSources.map((url) => `- ${url}`),
+    );
+  }
+  return lines.join('\n');
 }
 
 export function pipelineSystemPrompt(): string {

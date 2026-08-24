@@ -41,9 +41,12 @@ const PHASE_ORDER = ['fresh', 'demo', 'live'];
 // ---------- 参数解析 ----------
 let phases = null;
 let listOnly = false;
+let caseFilter = null;
 for (const arg of process.argv.slice(2)) {
   if (arg === '--list') {
     listOnly = true;
+  } else if (arg.startsWith('--case=')) {
+    caseFilter = arg.slice('--case='.length).split(',').map((s) => s.trim()).filter(Boolean);
   } else if (arg.startsWith('--phase=')) {
     phases = arg.slice('--phase='.length).split(',').map((s) => s.trim()).filter(Boolean);
   } else {
@@ -136,7 +139,11 @@ async function runPhase(page, ctx, phaseCases, results) {
 async function main() {
   const all = await loadCases();
   const selectedPhases = phases ?? PHASE_ORDER;
-  const selected = all.filter((c) => selectedPhases.includes(c.phase));
+  let selected = all.filter((c) => selectedPhases.includes(c.phase));
+  if (caseFilter) {
+    selected = selected.filter((c) => caseFilter.includes(c.id));
+    console.log(`--case= 过滤：${caseFilter.join(', ')}`);
+  }
 
   if (listOnly) {
     console.log(`用例清单（共 ${all.length} 个）：`);

@@ -36,10 +36,27 @@ export const LlmOverrideSchema = z.strictObject({
 });
 export type LlmOverride = z.infer<typeof LlmOverrideSchema>;
 
+/**
+ * 启动 brief（v0.5 变密度输入合同，docs/v0.5-launch-brief.md §2）：
+ * 主题之外全部可选——一句话路径零损伤；给了即按分层绑定生效（标题/思路硬绑、大纲骨架绑、来源硬绑+门禁）。
+ */
+export const LaunchBriefSchema = z.strictObject({
+  /** 硬绑：给了就是最终标题（落库覆盖推导标题，微信标题上限 64 字）。 */
+  title: z.string().trim().min(1).max(64).optional(),
+  /** 硬绑：文章主张的锚（draft 提示词围绕它展开，不得偏离）。 */
+  approach: z.string().trim().min(1).max(2000).optional(),
+  /** 骨架绑：给定节名不删不改、管线可补节（outline 步校验+补洞+机械校验）。 */
+  outline: z.array(z.string().trim().min(1).max(120)).min(1).max(20).optional(),
+  /** 硬绑：来源必须以可见 URL 文本进正文（gates 机械检查），AI 不得编造未给来源。 */
+  sources: z.array(z.url()).min(1).max(10).optional(),
+});
+export type LaunchBrief = z.infer<typeof LaunchBriefSchema>;
+
 /** 管线运行参数（Spec §5 run/start.params；调度 paramsSnapshot 同型）。 */
 export const RunParamsSchema = z.strictObject({
   topicMode: z.enum(['hotspots', 'fixed']),
   topic: z.string().optional(),
+  brief: LaunchBriefSchema.optional(),
   theme: z.string().optional(),
   imageCount: z.number().int().min(0).max(10).optional(),
   llm: LlmOverrideSchema.optional(),
