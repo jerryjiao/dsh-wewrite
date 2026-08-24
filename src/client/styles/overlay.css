@@ -252,3 +252,11 @@
 }
 
 .ww-overlay__body > .dsh-wewrite-panel { flex: 1; min-height: 0; }
+
+/* 浮层内不需要吸收宿主 composer 遮挡（overlay z:20 全屏，composer 盖不进来）——
+ * 96px 的 pad 在浮层里只剩底部一条空灰带（08-23 Jerry 实看反馈，探针实证
+ * y≥820 全为 bg-page 空 paint）。压到 24px 呼吸位；对话内 tab 视图不受影响
+ * （该规则只匹配 .ww-overlay 内的面板，优先级 (0,2,0) 压过 tokens.css 面板内声明）。 */
+.ww-overlay .dsh-wewrite-panel {
+  --ww-content-pad-bottom: 24px;
+}
