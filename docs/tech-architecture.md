@@ -478,6 +478,9 @@ Background：F5 allowBuilds 信任门槛。Consequences：发布流程要求 bui
 
 **ADR-009 图标锁 lucide-react** — Status: Accepted（P0 视觉门禁：一套 SVG 库、无紫粉渐变、Indigo/Slate 纯色 token）
 
+**ADR-010 启动 brief 合同：变密度输入前置意图，不拆管线分步（OD-4 另解）** — Status: Accepted（Jerry 2026-08-24 拍板；v0.5 主线，v0.4.0 验收收尾后开工）
+Background：v0.4.0 后「一句话→文章」被质疑草率——意图层缺口（生成前人的介入为零，管线对会话聋，RunParams 只有 topic 一根吸管）；OD-4 登记的「大纲确认 gate」是批准猜测而非沉淀意图。Decision：run 输入升级为启动 brief——主题必填 + 标题/思路（硬绑）+ 大纲（骨架绑，可补节）+ 来源（硬绑，门禁机械检查 URL 可见性），除主题外全可选、一句话路径零损伤；入口=agent 对话蒸馏 + 启动卡折叠区双门；agent 不追问。Consequences：正向——治「干净但平庸」的病根（无主张/无证据写作），配方源自内部 series brief 的生产验证；负向——四处同动（工具签名/管线 prompt/新门禁/启动卡 UI），需整线排期。见 docs/v0.5-launch-brief.md。
+
 ---
 
 ## 11. 可行性结论

@@ -12,3 +12,4 @@
 | D-8 | storage 单元名 dsh-wewrite → dsh_wewrite | 已关闭 | 2026-08-18 | 部署冒烟抓到 UNIT_NAME_RE ^[a-z][a-z0-9_]*$ 拒绝连字符（StorageError malformed-medium）；仅存储单元名改动，插件名/RPC channel/包名不变；测试加正则断言防复发 |
 | D-9 | npm publish | 悬置（Jerry 决定） | 2026-08-18 | ADR-0008 主路径；git tag 安装路径已验证可用，npm 发布可后补 |
 | D-10 | awesome-dsh-plugins 收录 PR | 悬置（Jerry 决定） | 2026-08-18 | 发布后自然流量入口；对外提交需 Jerry 点头 |
+| D-11 | 启动 brief 合同（OD-4 另解，v0.5 立项） | 已关闭（立项，开发未开工） | 2026-08-24 | Jerry grilling 六问拍板：变密度输入（一句话是下限不是标准）；分层绑定（标题/思路硬、大纲骨架、来源硬+URL 可见性门禁）；双入口（agent 蒸馏+启动卡折叠区）；一句话不追问；管线原子六步不动。开发前置=v0.4.0 截图重拍+两项人工验收收尾。见 docs/v0.5-launch-brief.md / ADR-010 |
