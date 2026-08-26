@@ -48,8 +48,24 @@ export interface CredentialDescriptor {
   readonly writable: boolean;
 }
 
+/**
+ * 宿主 credentials.resolve 的实测返回（dsh-credentials 分层出口）是 {value, source}
+ * 信封对象；本插件旧声明与测试桩用裸 string。两形状都要吃（2026-08-26 真宿主
+ * 首跑实证：信封被当 secret 用 → 40125 invalid appsecret）。
+ */
+export type ResolvedCredential = string | { readonly value?: unknown; readonly [extra: string]: unknown } | null | undefined;
+
+/** 空值归一为 undefined（宿主缝规则：空存值视同未配置，不冒充已配置凭据）。 */
+export function unwrapCredential(resolved: ResolvedCredential): string | undefined {
+  if (typeof resolved === 'string') return resolved.length > 0 ? resolved : undefined;
+  if (resolved && typeof resolved === 'object' && typeof resolved.value === 'string' && resolved.value.length > 0) {
+    return resolved.value;
+  }
+  return undefined;
+}
+
 export interface CredentialsService {
-  resolve(ref: string): Promise<string | undefined> | string | undefined;
+  resolve(ref: string): Promise<ResolvedCredential> | ResolvedCredential;
   describe(ref: string): Promise<CredentialDescriptor> | CredentialDescriptor;
   set(ref: string, value: string): Promise<void>;
   unset(ref: string): Promise<void>;

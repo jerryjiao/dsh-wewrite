@@ -9,7 +9,7 @@ import { digestHotspotItem as runHotspotDigest } from './hotspot-digest';
 import { createPipelineEngine, pruneTerminalRuns, type PipelineEngine, type RunStore } from './pipeline/engine';
 import { aggregateHotspots, buildHotspotSources } from './pipeline/steps/topic';
 import { qualityGatesRunner } from './pipeline/steps/gates';
-import { resolveLogger, type CredentialsService, type HostLogger, type LlmService, type StorageDomainHandle } from './platform';
+import { resolveLogger, unwrapCredential, type CredentialsService, type HostLogger, type LlmService, type StorageDomainHandle } from './platform';
 import { createAgentToolsGate, type AgentToolsGate } from './agent-tools-gate';
 import { createCallRunBindings, type CallRunBindings } from './call-run-bindings';
 import { createSchedulerService } from './scheduler/service';
@@ -88,7 +88,7 @@ export class WeWriteService {
       topicSource: { fetch: async (limit: number) => [...(await this.fetchHotspots(limit))] },
       images: createImagesGenerator({
         getSettings: () => this.settings,
-        resolveCredential: (ref) => Promise.resolve(deps.credentials.resolve(ref)),
+        resolveCredential: (ref) => Promise.resolve(deps.credentials.resolve(ref)).then(unwrapCredential),
         now: this.nowFn,
         ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
         persist: async (records) => {
@@ -375,7 +375,7 @@ export class WeWriteService {
       },
       refreshSecret: async () => {
         const resolved = await Promise.resolve(this.deps.credentials.resolve(CREDENTIAL_REFS.wechatSecret));
-        this.wechatSecret = resolved ?? '';
+        this.wechatSecret = unwrapCredential(resolved) ?? '';
       },
       serialize: <T,>(operation: () => Promise<T>) => this.serialize(operation),
       now: this.nowFn,
