@@ -1,7 +1,6 @@
 {
   "name": "dsh-wewrite",
-  "version": "0.5.1",
-  "private": true,
+  "version": "0.5.2",
   "description": "WeChat official account AI writing pipeline as a DeepSeek Harness (DSH) plugin",
   "type": "module",
   "license": "MIT",
