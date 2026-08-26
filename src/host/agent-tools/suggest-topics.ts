@@ -6,7 +6,7 @@
 
 import type { ToolRunContext, WewriteToolDefinition } from '../platform';
 import type { WeWriteService } from '../service';
-import { asArgsRecord, callView, jsonSchema, resultView, textBlocks, toolError } from './output-helpers';
+import { asArgsRecord, callView, coerceInteger, jsonSchema, resultView, textBlocks, toolError } from './output-helpers';
 
 const COUNT_DEFAULT = 3;
 const COUNT_MAX = 5;
@@ -52,15 +52,16 @@ export function buildSuggestTopicsTool(service: WeWriteService): WewriteToolDefi
       }),
     },
     async execute(args: unknown, _exec: ToolRunContext) {
-      const rawCount = asArgsRecord(args).count ?? COUNT_DEFAULT;
-      if (typeof rawCount !== 'number' || !Number.isInteger(rawCount) || rawCount < 1 || rawCount > COUNT_MAX) {
-        return toolError('count-invalid', `count 必须是 1-${COUNT_MAX} 的整数（缺省 ${COUNT_DEFAULT}）`);
+      const rawCount = coerceInteger(asArgsRecord(args).count ?? COUNT_DEFAULT);
+      if (rawCount === undefined || rawCount < 1 || rawCount > COUNT_MAX) {
+        // 错误值也必须过 output.schema（宿主 createSuccessResult 校验，08-24 live 实证坑）
+        return { topics: [], ...toolError('count-invalid', `count 必须是 1-${COUNT_MAX} 的整数（缺省 ${COUNT_DEFAULT}）`) };
       }
       let hotspots: unknown[];
       try {
         hotspots = [...(await service.fetchHotspots(rawCount))];
       } catch (error) {
-        return toolError('hotspots-failed', `热榜拉取失败：${error instanceof Error ? error.message : String(error)}`);
+        return { topics: [], ...toolError('hotspots-failed', `热榜拉取失败：${error instanceof Error ? error.message : String(error)}`) };
       }
       const topics: TopicCandidate[] = [];
       for (const item of hotspots.slice(0, rawCount)) {

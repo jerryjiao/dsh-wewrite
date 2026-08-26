@@ -6,7 +6,7 @@
 import type { RunRecord } from '../domain';
 import type { ToolRunContext, WewriteToolDefinition } from '../platform';
 import type { WeWriteService } from '../service';
-import { asArgsRecord, callView, errorToCodeMessage, jsonSchema, optionalString, resultView, textBlocks, toolError } from './output-helpers';
+import { asArgsRecord, callView, coerceInteger, errorToCodeMessage, jsonSchema, optionalString, resultView, textBlocks, toolError } from './output-helpers';
 
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled', 'interrupted']);
 
@@ -27,6 +27,22 @@ function isHttpUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** 弱模型宽容转换：JSON 字符串→数组（模型常把 outline/sources 序列化成带转义的字符串）。 */
+function coerceStringArray(raw: unknown): unknown {
+  if (typeof raw === 'string') {
+    const text = raw.trim();
+    if (text.startsWith('[')) {
+      try {
+        const parsed: unknown = JSON.parse(text);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {
+        // 非合法 JSON 按原值走既有校验报错
+      }
+    }
+  }
+  return raw;
 }
 
 /** 有界字符串数组解析：trim、丢空串、超限报结构化错误（agent 可自纠）。 */
@@ -58,8 +74,8 @@ function parseRunArgs(args: unknown): RunToolArgs | { error: ReturnType<typeof t
   const raw = asArgsRecord(args);
   const topic = typeof raw.topic === 'string' ? raw.topic.trim() : '';
   if (!topic) return { error: toolError('topic-required', '缺少 topic 参数：请提供要写的文章主题') };
-  const rawCount = raw.image_count ?? 0;
-  if (typeof rawCount !== 'number' || !Number.isInteger(rawCount) || rawCount < 0 || rawCount > 10) {
+  const rawCount = coerceInteger(raw.image_count ?? 0) ?? (raw.image_count === undefined ? 0 : NaN);
+  if (!Number.isInteger(rawCount) || rawCount < 0 || rawCount > 10) {
     return { error: toolError('image-count-invalid', 'image_count 必须是 0-10 的整数（缺省 0，默认零图片成本）') };
   }
   const briefTitle = typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() : undefined;
@@ -70,9 +86,9 @@ function parseRunArgs(args: unknown): RunToolArgs | { error: ReturnType<typeof t
   if (briefApproach && [...briefApproach].length > 2000) {
     return { error: toolError('brief-approach-invalid', 'approach 过长（≤2000 字）') };
   }
-  const outline = parseBoundedStringArray(raw.outline, 'outline', 20, 120);
+  const outline = parseBoundedStringArray(coerceStringArray(raw.outline), 'outline', 20, 120);
   if (outline.error) return { error: outline.error };
-  const sources = parseBoundedStringArray(raw.sources, 'sources', 10, 2048);
+  const sources = parseBoundedStringArray(coerceStringArray(raw.sources), 'sources', 10, 2048);
   if (sources.error) return { error: sources.error };
   const invalidSource = sources.values?.find((url) => !isHttpUrl(url));
   if (invalidSource) {
@@ -191,7 +207,12 @@ export function buildRunTool(service: WeWriteService): WewriteToolDefinition {
     },
     async execute(args: unknown, exec: ToolRunContext) {
       const parsed = parseRunArgs(args);
-      if ('error' in parsed) return parsed.error;
+      if ('error' in parsed) {
+        // 宿主 createSuccessResult 对 execute 返回值（含错误值）按 output.schema 校验：
+        // 缺 required 字段即 ToolOutputError，模型只会看到 "returned invalid output"
+        // 而非我们的干净错误信息（08-24 live 实证：失败路径全部炸成 invalid output）
+        return { ...parsed.error, runId: '', status: 'failed' };
+      }
       const brief = {
         ...(parsed.briefTitle ? { title: parsed.briefTitle } : {}),
         ...(parsed.briefApproach ? { approach: parsed.briefApproach } : {}),
@@ -232,7 +253,7 @@ export function buildRunTool(service: WeWriteService): WewriteToolDefinition {
         return recordToValue(service, record, runId);
       } catch (error) {
         const { code, message } = errorToCodeMessage(error, 'run-await-failed');
-        return toolError(code, `等待管线终态失败：${message}`);
+        return { ...toolError(code, `等待管线终态失败：${message}`), runId, status: 'failed' };
       } finally {
         signal?.removeEventListener('abort', onAbort);
       }

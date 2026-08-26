@@ -8,7 +8,7 @@
 
 import type { ToolRunContext, WewriteToolDefinition } from '../platform';
 import type { WeWriteService } from '../service';
-import { asArgsRecord, jsonSchema, textBlocks, toolError } from './output-helpers';
+import { asArgsRecord, coerceInteger, jsonSchema, textBlocks, toolError } from './output-helpers';
 
 const LIMIT_DEFAULT = 10;
 const LIMIT_MAX = 100;
@@ -29,9 +29,10 @@ export function buildListTool(service: WeWriteService): WewriteToolDefinition {
       },
     },
     async execute(args: unknown, _exec: ToolRunContext) {
-      const rawLimit = asArgsRecord(args).limit ?? LIMIT_DEFAULT;
-      if (typeof rawLimit !== 'number' || !Number.isInteger(rawLimit) || rawLimit < 1 || rawLimit > LIMIT_MAX) {
-        return toolError('limit-invalid', `limit 必须是 1-${LIMIT_MAX} 的整数（缺省 ${LIMIT_DEFAULT}）`);
+      const rawLimit = coerceInteger(asArgsRecord(args).limit ?? LIMIT_DEFAULT);
+      if (rawLimit === undefined || rawLimit < 1 || rawLimit > LIMIT_MAX) {
+        // 错误值也必须过 output.schema（宿主 createSuccessResult 校验，08-24 live 实证坑）
+        return { articles: [], ...toolError('limit-invalid', `limit 必须是 1-${LIMIT_MAX} 的整数（缺省 ${LIMIT_DEFAULT}）`) };
       }
       const articles = service.listArticles().slice(0, rawLimit).map((item) => ({
         id: item.id,

@@ -53,7 +53,7 @@ interface FakeServiceOverrides {
   bindRunCall?: (callId: string, runId: string) => void;
 }
 
-function makeFakeService(overrides: FakeServiceOverrides = {}) {
+export function makeFakeService(overrides: FakeServiceOverrides = {}) {
   const service = {
     startRun: vi.fn((): { runId: string } => ({ runId: 'run_tool_1' })),
     // 注：override 接线与其他字段同款（终态 gate 测试依赖注入挂起 promise）——修复前此字段漏接 overrides
@@ -108,7 +108,7 @@ interface AgentHarness {
   tool(name: string): Record<string, unknown>;
 }
 
-function makeAgent(id = 'agent_1', registerImpl?: (definition: unknown) => unknown): AgentHarness {
+export function makeAgent(id = 'agent_1', registerImpl?: (definition: unknown) => unknown): AgentHarness {
   const registered: unknown[] = [];
   const register = vi.fn((definition: unknown) => {
     if (registerImpl) return registerImpl(definition);
@@ -129,7 +129,7 @@ function makeAgent(id = 'agent_1', registerImpl?: (definition: unknown) => unkno
 
 type EventListener = (...args: unknown[]) => unknown;
 
-function makeCtx(options: { agents?: AgentHarness[]; onThrow?: boolean; onReturnNonFunction?: boolean } = {}) {
+export function makeCtx(options: { agents?: AgentHarness[]; onThrow?: boolean; onReturnNonFunction?: boolean } = {}) {
   const listeners = new Map<string, EventListener>();
   const disposers: Array<() => void> = [];
   const on = vi.fn((event: string, listener: EventListener) => {
@@ -823,5 +823,51 @@ describe('wewrite_run 启动 brief（v0.5 变密度输入）', () => {
     expect(view.title).toContain('来源 1 条');
     expect(view.rawInput.outline).toEqual(['A', 'B']);
     expect(view.rawInput.sources).toEqual(['https://a.test/x']);
+  });
+});
+
+// ── 错误路径过宿主 output 校验（08-24 live 实证坑）─────────────────────────────
+// 宿主 createSuccessResult 对 execute 返回值（含错误值）按 output.schema 校验：
+// 429 失败路径曾返回 {ok,error} 缺 runId/status/articles → ToolOutputError →
+// 模型收到 "returned invalid output" 并弃用插件改走宿主原生 write 工具。
+
+describe('错误路径返回值必须过自身 output.schema（宿主校验坑，live 08-24）', () => {
+  const badArgs: Array<[string, unknown]> = [
+    ['wewrite_run', {}],
+    ['wewrite_list_articles', { limit: 0 }],
+    ['wewrite_suggest_topics', { count: 99 }],
+    ['wewrite_rewrite', {}],
+    ['wewrite_push_draft', {}],
+  ];
+
+  for (const [name, args] of badArgs) {
+    it(`${name}: 参数错误返回值含全部 required 字段`, async () => {
+      const { agent } = setup();
+      const def = agent.tool(name) as unknown as {
+        output: { schema: { required?: string[] } };
+        execute: (a: unknown, e: unknown) => Promise<unknown>;
+      };
+      const value = (await def.execute(args, execWith(new AbortController().signal))) as Record<string, unknown>;
+      expect(value.ok).toBe(false);
+      for (const key of def.output.schema.required ?? []) {
+        expect(value, `${name} 错误值缺 required 字段 ${key}`).toHaveProperty(key);
+      }
+    });
+  }
+
+  it('run 工具 run-await 失败返回值同样含 runId/status（非 parse 路径）', async () => {
+    const { agent, service } = setup();
+    const run = agent.tool('wewrite_run') as unknown as {
+      output: { schema: { required?: string[] } };
+      execute: (a: unknown, e: unknown) => Promise<unknown>;
+    };
+    // runCompletion 抛错 → run-await-failed 路径
+    (service as { runCompletion?: unknown }).runCompletion = async () => {
+      throw new Error('boom');
+    };
+    const value = (await run.execute({ topic: 'X' }, execWith(new AbortController().signal))) as Record<string, unknown>;
+    expect(value.ok).toBe(false);
+    expect(value.runId).toBeTypeOf('string');
+    expect(value.status).toBe('failed');
   });
 });

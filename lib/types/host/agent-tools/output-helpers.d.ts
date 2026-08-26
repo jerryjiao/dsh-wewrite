@@ -15,6 +15,12 @@ export declare function toolError(code: string, message: string): {
         message: string;
     };
 };
+/**
+ * 弱模型宽容转换：数字串→数字（"3"→3）。glm-4.5-flash 实测会把 image_count/
+ * limit/count 等数值参数序列化成字符串（08-24 live：连撞 4 次后弃用插件改走宿主
+ * write 工具）。只收纯整数字符串，垃圾值仍走调用方的结构化错误。
+ */
+export declare function coerceInteger(raw: unknown): number | undefined;
 export type ToolErrorValue = ReturnType<typeof toolError>;
 export declare function isToolError(value: unknown): value is ToolErrorValue;
 /** 宽松 args 收窄（模型侧参数不保证形状；键缺失不炸）。 */
