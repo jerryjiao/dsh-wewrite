@@ -23,7 +23,7 @@ const BASE = 'http://127.0.0.1:3080';
 const PORT = 3080;
 const LOG = '/tmp/dsh-web.log';
 
-// ---------- key 解析（image-recognition skill 已验证配方） ----------
+// ---------- key 解析 ----------
 // 读 ~/.zcode/cli/config.json 的 provider 表，取 baseURL 含 open.bigmodel.cn
 // 且 id 含 coding-plan 的 apiKey（排除 imported:claude 同域条目）。
 export function extractZhipuApiKey() {
