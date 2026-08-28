@@ -23,3 +23,6 @@ website/.astro/
 # E2E 失败截图等产物
 tests/e2e/artifacts/
 .mimosa/
+
+# 构建产物：发布时由 prepublishOnly 自动构建（2026-08-28 起 dist 不再 committed）
+lib/

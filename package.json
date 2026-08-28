@@ -62,7 +62,8 @@
     "host:stop": "node scripts/hostctl.mjs stop",
     "host:restart": "node scripts/hostctl.mjs restart",
     "host:ensure": "node scripts/hostctl.mjs ensure",
-    "dev:install": "node scripts/dev-install.mjs"
+    "dev:install": "node scripts/dev-install.mjs",
+    "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",

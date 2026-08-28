@@ -79,7 +79,7 @@ function decodeEntities(text: string): string {
 
 /** 取首个 tag 块的内层 HTML；不存在返回 null（大小写不敏感、惰性到最近闭合）。 */
 function matchBlock(html: string, tag: string): string | null {
-  const match = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}\\s*>`, 'i').exec(html);
+  const match = html.match(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}\\s*>`, 'i'));
   return match ? match[1] : null;
 }
 
