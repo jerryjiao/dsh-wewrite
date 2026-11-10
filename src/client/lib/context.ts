@@ -108,6 +108,7 @@ export interface ClientContext {
     register(
       options: {
         readonly name: 'conversation.chat.turnTail';
+        readonly id: string;
         readonly select: (owner: unknown) => unknown;
         readonly priority?: number;
       },

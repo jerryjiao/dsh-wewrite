@@ -97,7 +97,7 @@ export function registerChat(ctx: ClientContext, rpc: WewriteRpc): void {
   safeRegister('slots.register（conversation.chat.turnTail）', () =>
     registerSlot(ctx, 'conversation.chat.turnTail', () =>
       ctx.slots.register(
-        { name: 'conversation.chat.turnTail', select: selectWewriteArticles as (owner: unknown) => unknown, priority: 100 },
+        { name: 'conversation.chat.turnTail', id: 'wewrite', select: selectWewriteArticles as (owner: unknown) => unknown, priority: 100 },
         DeliverablesRow as ComponentType<TurnTailComponentPropsLike>,
       ),
     ),
