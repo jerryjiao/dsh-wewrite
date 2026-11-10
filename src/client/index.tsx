@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { WewriteApp } from './App';
 import type { ClientContext, SidebarFooterActionProps, WewriteViewProps } from './lib/context';
 import { createRpc } from './lib/rpc';
@@ -21,7 +22,7 @@ import { registerComposer } from './composer/register-composer';
  * - ctx.slots.register 三路（v0.3 R2 起）：
  *   1) conversation.view：会话内工作台 tab（id 'wewrite'、label 写作台，双入口保留）。
  *   2) sidebar.footer.action：宿主侧栏 footer「写作台」入口（官方 wide prop 双形态）。
- *   3) shell.overlay：写作台全屏浮层（closed 渲染 null，open 内嵌完整 WewriteApp）。
+ *   3) shell.overlay：写作台全屏浮层挂载点（DOM 由宿主 Modal portal 到 body，不写入该层）。
  *   各注册独立 try/catch，失败降级 console.warn（平台防御：宿主 slot 面变化不炸插件）。
  * - ctx.locale.register：zh/en 词典（zh 为主，en 结构预留）。
  * - chat/composer 装配（chat-integration M2/M3）：registerChat/registerComposer
@@ -88,8 +89,10 @@ export function apply(ctx: ClientContext): void {
     );
   }
 
-  // 全屏浮层（§D3-2/D3-3）：closed 渲染 null；open = head（chrome 白条）+ 完整 WewriteApp。
-  // Escape 关闭；打开时 focus 收起钮，关闭还原入口钮（设计师 advisory）。
+  // 全屏浮层（§D3-2/D3-3）：宿主 Modal 承载（portal 到 body，document 级 Escape），
+  // shell.overlay 只作挂载点、不再向该层输出 DOM（否则挡住宿主点击穿透）。
+  // 打开时 focus 收起钮，关闭还原入口钮（设计师 advisory）；组件常驻挂载，
+  // open=false 时由 Modal 自己返回 null。
   function WewriteOverlay() {
     const open = useOverlayOpen();
     const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -99,17 +102,13 @@ export function apply(ctx: ClientContext): void {
       else focusOverlayEntry();
     }, [open]);
 
-    if (!open) return null;
     return (
-      <div
+      <Modal
+        open={open}
+        onClose={() => setOverlayOpen(false)}
+        title={fallbackT('panel.label')}
+        headless
         className="ww-overlay"
-        role="dialog"
-        aria-modal="true"
-        aria-label="写作台"
-        data-testid="ww-overlay"
-        onKeyDown={(event) => {
-          if (event.key === 'Escape') setOverlayOpen(false);
-        }}
       >
         <header className="ww-overlay__head">
           <Icon name="pen-line" size={16} />
@@ -130,7 +129,7 @@ export function apply(ctx: ClientContext): void {
         <div className="ww-overlay__body">
           <WewriteApp rpc={rpc} t={fallbackT} />
         </div>
-      </div>
+      </Modal>
     );
   }
 

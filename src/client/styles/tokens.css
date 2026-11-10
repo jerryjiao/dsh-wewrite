@@ -6,7 +6,7 @@
  *   - 全部 --ww-* 挂面板容器 .dsh-wewrite-panel（寄生型插件 UI 不污染全局 :root；
  *     React 挂载根元素必须带此类名）。
  *   - 例外（v0.3 §D3）：两个宿主 chrome 家具渲染在面板作用域之外——
- *     .ww-sidebar-entry（宿主 sidebar footer）与 .ww-overlay（宿主 overlayLayer），
+ *     .ww-sidebar-entry（宿主 sidebar footer）与 .ww-overlay（Modal portal），
  *     并入同一选择器组挂 token（不带 dsh-wewrite-panel 类：base.css 对该类
  *     附加 min-height 布局，会破坏 chrome 几何）。
  *   - 浅/深主题跟随宿主：宿主 alias token 挂 body / body[data-ds-dark-theme]，

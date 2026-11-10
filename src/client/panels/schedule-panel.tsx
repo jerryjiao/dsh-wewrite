@@ -5,6 +5,7 @@ import { describeRrule, formatDateTime, formatDuration, formatShortDateTime } fr
 import { EmptyState, ErrorNote, runStatusBadge, SkeletonBlock, StatusBadge } from '../components/bits';
 import { ScheduleForm } from '../components/ScheduleForm';
 import { Icon } from '../components/Icon';
+import { describeRpcFailure } from '../lib/rpc';
 import { useStore } from '../store';
 
 /**
@@ -128,7 +129,8 @@ export function SchedulePanel() {
         <SkeletonBlock lines={4} />
       ) : snapshot.status === 'error' ? (
         <ErrorNote
-          title="定时任务读取失败（存储不可用）。"
+          title="定时任务读取失败。"
+          hint={describeRpcFailure(new Error(snapshot.message)).title}
           action={<Button variant="outline" size="sm" onClick={() => void refreshSnapshot()}>{t('action.retry')}</Button>}
         />
       ) : tab === 'queue' ? (

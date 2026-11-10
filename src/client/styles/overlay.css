@@ -188,13 +188,19 @@
 }
 
 /* ---------- 写作台全屏浮层（v0.3 R2，uiux-v0.3-design §D3） ----------
- * 宿主 overlayLayer（absolute inset:0 z:20）容器内填满；无进入动效（Motion=3）。 */
+ * 宿主 Modal 对话框卡（portal 到 body）铺满视口；无进入动效（Motion=3）。 */
 
 .ww-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  width: auto;
+  height: auto;
   display: flex;
   flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   background: var(--ww-bg-page);
 }
 

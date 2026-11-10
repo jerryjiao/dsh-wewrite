@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Icon } from '../components/Icon';
 import type { IconName } from '../components/Icon';
 import { ErrorNote, SkeletonBlock } from '../components/bits';
+import { describeRpcFailure } from '../lib/rpc';
 import { useStore } from '../store';
 import { DisciplineSection, ProxySection, WechatSection } from './settings-sections';
 import type { SettingsGroup } from './settings-sections';
@@ -62,7 +63,7 @@ export function SettingsPanel() {
         {snapshot.status === 'loading' ? (
           <SkeletonBlock lines={5} />
         ) : snapshot.status === 'error' ? (
-          <ErrorNote title="设置读取失败（存储不可用）。" action={<button type="button" className="ww-link" onClick={() => void refreshSnapshot()}>重试</button>} />
+          <ErrorNote title="设置读取失败。" hint={describeRpcFailure(new Error(snapshot.message)).title} action={<button type="button" className="ww-link" onClick={() => void refreshSnapshot()}>重试</button>} />
         ) : group === 'wechat' ? (
           <WechatSection config={snapshot.data.config} rpc={rpc} onSaved={refreshSnapshot} />
         ) : group === 'llm' ? (
