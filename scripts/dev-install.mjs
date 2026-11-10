@@ -6,7 +6,8 @@
  * 顺序：
  *   1. npm run build                    —— 复用 package.json 构建（esbuild bundle + tsc types）
  *   2. rm -rf + cp -R lib/ → ~/.dsh/profiles/web/node_modules/dsh-wewrite/lib/
- *   3. hostctl ensure                   —— 宿主未跑则拉起；在跑缺 env 则 restart 补注入
+ *   3. hostctl ensure                   —— 宿主未跑则拉起（npm latest 或 DSH_HOST_VERSION）；
+ *                                          在跑缺 env 或版本不符则 restart
  *
  * 为什么 cp 后必须重启宿主：host 侧 lib/index.js 是宿主进程 require 的 esbuild bundle，
  * 无 watch 无热重载；统一 ensure/restart 一并消除 host/client 两侧缓存不确定性。

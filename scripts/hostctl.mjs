@@ -3,18 +3,23 @@
  * hostctl —— DSH 宿主生命周期 CLI（v0.2.0 测试基建）
  *
  * 用法：node scripts/hostctl.mjs <status|start|stop|restart|ensure>
- *   status   查宿主是否在跑（监听 127.0.0.1:3080）、PID、env 是否含 ZHIPU_API_KEY
- *   stop     kill 监听 3080 的全部进程（SIGTERM → ≤15s 等端口释放 → SIGKILL 兜底）
- *   start    未跑才拉起：node <dsh-bin> web，detached + 日志落 /tmp/dsh-web.log
- *   restart  stop → 等端口释放 → start → 轮询就绪（≤30s）→ 打印状态摘要
- *   ensure   幂等：在跑且 env 齐 → no-op；在跑但缺 env → 自动 restart；没跑 → start
+ *   status   查宿主是否在跑（3080 上的 dsh 进程）、PID、版本、env 是否含 ZHIPU_API_KEY
+ *   stop     kill 3080 上的 dsh 进程（SIGTERM → ≤15s 等退出 → SIGKILL 兜底；不碰其他进程）
+ *   start    未跑才拉起：pinned 且 npx 缓存有同版本 → node 直跑缓存 bin；否则 npx --yes 装后跑。
+ *            子进程一退出立即报错（带退出码 + 日志尾），不等超时
+ *   restart  stop → start → 轮询就绪（≤180s，含 npx 首次下载）→ 打印状态摘要
+ *   ensure   幂等：在跑且 env 齐、版本 = 期望版本 → no-op；否则 restart；没跑 → start
+ *
+ * 期望版本：DSH_HOST_VERSION 优先，否则查 `npm view @deepseek-ai/dsh dist-tags.latest`。
+ * unpinned 查询失败显式报错——不退回任何本地旧缓存（旧缓存会让上游变更验证不到）。
+ * pinned 时优先复用 npx 缓存里版本完全相等的 dsh（含它当初那套依赖）；找不到才 npx 装。
  *
  * key 纪律：ZHIPU_API_KEY 只在 start 时从 ~/.zcode/cli/config.json 现读现注入子进程
  * env，不打印、不写日志、不落任何文件（key 唯一注入点，轮换自动跟随）。
  * 本文件同时导出纯函数供 dev-install.mjs / tests/e2e 复用，import 时无副作用。
  */
 import { execFileSync, spawn } from 'node:child_process';
-import { openSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { openSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -22,6 +27,7 @@ import { pathToFileURL } from 'node:url';
 const BASE = 'http://127.0.0.1:3080';
 const PORT = 3080;
 const LOG = '/tmp/dsh-web.log';
+const PKG = '@deepseek-ai/dsh';
 
 // ---------- key 解析 ----------
 // 读 ~/.zcode/cli/config.json 的 provider 表，取 baseURL 含 open.bigmodel.cn
@@ -65,70 +71,194 @@ export function hasZhipuEnv(pid) {
   }
 }
 
-// dsh 可执行文件动态解析（npx 缓存哈希目录会变，不硬编码）：
-// ① PATH 里的 dsh；② glob ~/.npm/_npx/*/node_modules/.bin/dsh；③ 都没有则报错
-export function resolveDshBin() {
+// 进程命令行（取不到返回空串）
+function commandOf(pid) {
   try {
-    const which = execFileSync('which', ['dsh'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-    if (which) return realpathSync(which);
+    return execFileSync('ps', ['-p', String(pid), '-o', 'command='], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   } catch {
-    // PATH 里没有 dsh，走 npx 缓存扫描
+    return '';
   }
-  const npxRoot = join(homedir(), '.npm/_npx');
+}
+
+// 从进程命令行取 @deepseek-ai/dsh 包目录，非 dsh 进程返回 null。
+// npx 直接跑 .bin 垫片时 argv 是 node_modules/.bin/dsh，按同层 node_modules 还原包目录。
+export function parseDshPkgDir(command) {
+  const direct = command.match(/(\S+\/node_modules\/@deepseek-ai\/dsh)(?=[/\s]|$)/);
+  if (direct) return direct[1];
+  const shim = command.match(/(\S+\/node_modules)\/\.bin\/dsh(?=\s|$)/);
+  return shim ? `${shim[1]}/@deepseek-ai/dsh` : null;
+}
+
+// 读在跑 dsh 进程的 package.json 版本；认不出、包名不符或读不到返回 null
+export function readDshVersion(command) {
+  const dir = parseDshPkgDir(command);
+  if (!dir) return null;
   try {
-    for (const entry of readdirSync(npxRoot)) {
-      const candidate = join(npxRoot, entry, 'node_modules/.bin/dsh');
-      try {
-        return realpathSync(candidate);
-      } catch {
-        // 该缓存目录没有 dsh，继续扫
-      }
+    const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+    return pkg.name === PKG ? (pkg.version ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
+// 3080 上真正的 dsh 进程（端口可能同时被浏览器连接等其他进程占用，不能按端口一刀切）
+export function findDshPids() {
+  return findHostPids().filter((pid) => parseDshPkgDir(commandOf(pid)) !== null);
+}
+
+// 期望版本：DSH_HOST_VERSION 优先，否则 npm latest。查询失败直接抛错，不退回旧缓存。
+export function resolveExpectedVersion(env = process.env, run = execFileSync) {
+  const pin = env.DSH_HOST_VERSION?.trim();
+  if (pin) return pin;
+  let stdout;
+  try {
+    stdout = run('npm', ['view', PKG, 'dist-tags.latest'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (err) {
+    throw new Error(`查询 ${PKG} 的 npm latest 版本失败（不退回本地旧缓存）：${err.message}`);
+  }
+  const version = String(stdout ?? '').trim();
+  if (!version) throw new Error(`查询 ${PKG} 的 npm latest 版本返回空值，无法启动宿主`);
+  return version;
+}
+
+// semver 排序用（核心数字 + 预发布后缀），只服务 cordis 版本比较
+function compareVersion(a, b) {
+  const [ac, ap = ''] = a.split('-');
+  const [bc, bp = ''] = b.split('-');
+  const as = ac.split('.').map(Number);
+  const bs = bc.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const d = (as[i] ?? 0) - (bs[i] ?? 0);
+    if (d) return d;
+  }
+  if (ap === bp) return 0;
+  if (!ap) return 1;
+  if (!bp) return -1;
+  return ap < bp ? -1 : 1;
+}
+
+// 在 npx 缓存里找本地已装、版本完全相等的 dsh；多份时取 @deepseek-ai/cordis 版本最低的
+// （旧依赖更接近当初那套）。返回 { dir, bin, cordisVersion }，没有返回 null。
+export function findCachedHost(version, npxRoot = join(homedir(), '.npm/_npx')) {
+  let entries;
+  try {
+    entries = readdirSync(npxRoot);
+  } catch {
+    return null;
+  }
+  const found = [];
+  for (const entry of entries) {
+    const dir = join(npxRoot, entry, 'node_modules/@deepseek-ai/dsh');
+    let pkg;
+    try {
+      pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+    } catch {
+      continue; // 该缓存目录没有 dsh
     }
-  } catch {
-    // ~/.npm/_npx 不存在
+    if (pkg.name !== PKG || pkg.version !== version) continue;
+    const bin = typeof pkg.bin === 'string' ? pkg.bin : (pkg.bin?.dsh ?? Object.values(pkg.bin ?? {})[0]);
+    if (!bin) continue;
+    let cordisVersion = null;
+    try {
+      cordisVersion =
+        JSON.parse(readFileSync(join(npxRoot, entry, 'node_modules/@deepseek-ai/cordis/package.json'), 'utf8')).version ?? null;
+    } catch {
+      // 缓存缺 cordis：排到最后
+    }
+    found.push({ dir, bin: join(dir, bin), cordisVersion });
   }
-  throw new Error('未找到 dsh 可执行文件（PATH 与 ~/.npm/_npx/*/node_modules/.bin/dsh 均未命中）。请先手动跑一次 `npx dsh web` 让 npx 落缓存，再重试');
+  found.sort((a, b) =>
+    a.cordisVersion == null ? 1 : b.cordisVersion == null ? -1 : compareVersion(a.cordisVersion, b.cordisVersion),
+  );
+  return found[0] ?? null;
 }
 
 // ---------- 生命周期 ----------
-export async function waitReady(timeoutMs = 30000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      // 任何 HTTP 响应（含 404/5xx）都算监听；连接被拒/超时则重试
-      await fetch(BASE, { signal: AbortSignal.timeout(2000) });
-      return true;
-    } catch {
-      await new Promise((r) => setTimeout(r, 1000));
-    }
+// 日志尾 N 行；token= 参数打码（URL 里的访问 token 不外泄）
+export function tailLog(logPath = LOG, lines = 20) {
+  try {
+    return readFileSync(logPath, 'utf8')
+      .trimEnd()
+      .split('\n')
+      .slice(-lines)
+      .join('\n')
+      .replace(/(token=)[^\s&"']+/gi, '$1***');
+  } catch {
+    return `（读不到日志 ${logPath}）`;
   }
-  throw new Error(`宿主 ${BASE} ${timeoutMs}ms 内未就绪，排查日志：${LOG}`);
+}
+
+// 子进程提前退出（任何退出码）立即抛错并带日志尾；超时 180s（含 npx 首次下载）。
+export async function waitReady(child, timeoutMs = 180000) {
+  const deadline = Date.now() + timeoutMs;
+  let exited;
+  const onExit = (code, signal) => {
+    exited = { code, signal };
+  };
+  child?.once('exit', onExit);
+  try {
+    while (Date.now() < deadline) {
+      let ready = false;
+      try {
+        // 就绪 = 3080 有 HTTP 响应 且 有 dsh 进程在监听（防止端口被其他进程占时误判）
+        await fetch(BASE, { signal: AbortSignal.timeout(2000) });
+        ready = findDshPids().length > 0;
+      } catch {
+        // 还没起，继续轮询
+      }
+      if (exited) {
+        const how = exited.signal ? `信号 ${exited.signal}` : `退出码 ${exited.code}`;
+        throw new Error(`宿主子进程已退出（${how}），日志尾（${LOG}）：\n${tailLog()}`);
+      }
+      if (ready) return true;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    throw new Error(`宿主 ${BASE} ${timeoutMs}ms 内未就绪，排查日志：${LOG}`);
+  } finally {
+    child?.off?.('exit', onExit);
+  }
 }
 
 export async function startHost() {
-  const pids = findHostPids();
-  if (pids.length) {
-    console.log(`宿主已在跑（PID ${pids.join(', ')}），ZHIPU_API_KEY: ${pids.some((p) => hasZhipuEnv(p)) ? 'OK' : 'MISSING（用 restart 补注入）'}`);
+  const s = hostStatus();
+  if (s.running) {
+    console.log(`宿主已在跑（PID ${s.pids.join(', ')}，版本 ${s.version ?? '未知'}），ZHIPU_API_KEY: ${s.envOk ? 'OK' : 'MISSING（用 restart 补注入）'}`);
     return;
   }
-  const bin = resolveDshBin();
+  const version = resolveExpectedVersion();
+  // npx --yes 拉取期望版本；版本号固定到 dist-tag 解析值，避免 npx 复用旧缓存。
+  // --legacy-peer-deps=false 覆盖仓库 .npmrc（否则新版 dsh 的 peer 依赖不装，宿主启动即 ERR_MODULE_NOT_FOUND）。
+  let cmd = 'npx';
+  let args = ['--yes', '--legacy-peer-deps=false', `${PKG}@${version}`, 'web'];
+  if (process.env.DSH_HOST_VERSION?.trim()) {
+    const cached = findCachedHost(version);
+    if (cached) {
+      // 直接跑缓存目录的 bin，连带当初装的那套依赖
+      cmd = process.execPath;
+      args = [cached.bin, 'web'];
+      console.log(`宿主用本地缓存 ${cached.dir}（cordis ${cached.cordisVersion ?? '未知'}）`);
+    } else {
+      console.log(`依赖可能与当初不同：npx 缓存里没有 ${PKG}@${version}，改走 npx 安装`);
+    }
+  }
   const fd = openSync(LOG, 'a');
-  const child = spawn(process.execPath, [bin, 'web'], {
+  const child = spawn(cmd, args, {
     cwd: process.cwd(), // 继承当前 shell 的 cwd 与 env，仅追加 ZHIPU_API_KEY
     env: { ...process.env, ZHIPU_API_KEY: extractZhipuApiKey() }, // 唯一注入点
     detached: true, // 脱离父进程，shell 退出宿主不死
     stdio: ['ignore', fd, fd], // 日志落文件，防 SIGPIPE 挂死
   });
   child.unref();
-  await waitReady();
-  const started = findHostPids();
-  console.log(`宿主已起（PID ${started.join(', ')}），ZHIPU_API_KEY: OK，日志 ${LOG}`);
+  await waitReady(child);
+  const started = hostStatus();
+  if (!started.running) throw new Error(`3080 已响应但未发现 dsh 进程（可能被其他进程占用），排查日志：${LOG}`);
+  console.log(`宿主已起（PID ${started.pids.join(', ')}，版本 ${started.version ?? '未知'}，期望 ${version}），ZHIPU_API_KEY: OK，日志 ${LOG}`);
 }
 
 export async function stopHost() {
-  const pids = findHostPids();
+  const pids = findDshPids();
   if (!pids.length) {
-    console.log('宿主未在跑（3080 无监听），无需停止');
+    console.log('宿主未在跑（3080 无 dsh 进程），无需停止');
     return;
   }
   for (const pid of pids) {
@@ -138,15 +268,15 @@ export async function stopHost() {
       // 进程已退出，继续
     }
   }
-  // 轮询端口释放（≤15s），仍在则 SIGKILL 兜底
+  // 轮询 dsh 进程退出（≤15s），仍在则 SIGKILL 兜底
   for (let i = 0; i < 15; i++) {
     await new Promise((r) => setTimeout(r, 1000));
-    if (findHostPids().length === 0) {
+    if (findDshPids().length === 0) {
       console.log(`宿主已停（原 PID ${pids.join(', ')}）`);
       return;
     }
   }
-  for (const pid of findHostPids()) {
+  for (const pid of findDshPids()) {
     try {
       process.kill(Number.parseInt(pid, 10), 'SIGKILL');
     } catch {
@@ -154,25 +284,29 @@ export async function stopHost() {
     }
   }
   await new Promise((r) => setTimeout(r, 1000));
-  const remain = findHostPids();
-  if (remain.length) throw new Error(`SIGKILL 后仍有进程监听 3080：${remain.join(', ')}`);
+  const remain = findDshPids();
+  if (remain.length) throw new Error(`SIGKILL 后仍有 dsh 进程在跑：${remain.join(', ')}`);
   console.log(`宿主已停（SIGKILL 兜底，原 PID ${pids.join(', ')}）`);
 }
 
 export function hostStatus() {
-  const pids = findHostPids();
-  if (!pids.length) return { running: false, pids: [], envOk: false };
-  return { running: true, pids, envOk: pids.some((p) => hasZhipuEnv(p)) };
+  const listeners = findHostPids();
+  const pids = findDshPids();
+  if (!pids.length) return { running: false, pids: [], envOk: false, version: null, foreign: listeners.length > 0 };
+  const version = readDshVersion(commandOf(pids[0]));
+  return { running: true, pids, envOk: pids.some((p) => hasZhipuEnv(p)), version, foreign: listeners.length > pids.length };
 }
 
 function printStatus() {
   const s = hostStatus();
   if (!s.running) {
-    console.log(`宿主状态：未运行（127.0.0.1:${PORT} 无监听）`);
+    console.log(`宿主状态：未运行（127.0.0.1:${PORT} 无 dsh 进程）`);
+    if (s.foreign) console.log(`注意：${PORT} 端口上有非 dsh 进程，未计入宿主状态`);
     return s;
   }
   console.log(`宿主状态：运行中`);
   console.log(`PID：${s.pids.join(', ')}`);
+  console.log(`版本：${s.version ?? '未知（进程路径下无 package.json）'}`);
   console.log(`端口：127.0.0.1:${PORT} 监听中`);
   console.log(`ZHIPU_API_KEY：${s.envOk ? 'OK' : 'MISSING（restart 可补注入）'}`);
   return s;
@@ -185,17 +319,21 @@ export async function restartHost() {
 }
 
 export async function ensureHost() {
+  const expected = resolveExpectedVersion();
   const s = hostStatus();
   if (!s.running) {
-    console.log('ensure：宿主未在跑，执行 start');
+    console.log(`ensure：宿主未在跑，执行 start（期望版本 ${expected}）`);
     await startHost();
     return;
   }
-  if (s.envOk) {
-    console.log(`ensure：宿主在跑且 env 齐全（PID ${s.pids.join(', ')}），无需操作`);
+  if (s.envOk && s.version === expected) {
+    console.log(`ensure：宿主在跑、env 齐全、版本 ${s.version} = 期望版本，无需操作（PID ${s.pids.join(', ')}）`);
     return;
   }
-  console.log(`ensure：宿主在跑但缺 ZHIPU_API_KEY（PID ${s.pids.join(', ')}），执行 restart 补注入`);
+  const reasons = [];
+  if (s.version !== expected) reasons.push(`在跑版本 ${s.version ?? '未知'} ≠ 期望版本 ${expected}`);
+  if (!s.envOk) reasons.push('缺 ZHIPU_API_KEY');
+  console.log(`ensure：${reasons.join('，')}（PID ${s.pids.join(', ')}），执行 restart`);
   await restartHost();
 }
 
