@@ -3,6 +3,7 @@ import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { WewriteApp } from './App';
 import type { ClientContext, SidebarFooterActionProps, WewriteViewProps } from './lib/context';
 import { createRpc } from './lib/rpc';
+import { registerSlot } from './lib/slot-register';
 import { Icon } from './components/Icon';
 import { LOCALE_NAMESPACE, en, zh } from './lib/i18n';
 import {
@@ -137,32 +138,38 @@ export function apply(ctx: ClientContext): void {
   let disposeFooter: (() => void) | undefined;
   let disposeOverlay: (() => void) | undefined;
   try {
-    disposeSlot = ctx.slots.register(
-      {
-        name: 'conversation.view',
-        id: 'wewrite',
-        order: 50,
-        locale: 'zh',
-        label: () => fallbackT('panel.label'),
-        inject: (sessionId: string) => ({ sessionId }),
-      },
-      View,
+    disposeSlot = registerSlot(ctx, 'conversation.view', () =>
+      ctx.slots.register(
+        {
+          name: 'conversation.view',
+          id: 'wewrite',
+          order: 50,
+          locale: 'zh',
+          label: () => fallbackT('panel.label'),
+          inject: (sessionId: string) => ({ sessionId }),
+        },
+        View,
+      ),
     );
   } catch (error) {
     warnDegraded('slots.register（conversation.view）', error);
   }
   try {
-    disposeFooter = ctx.slots.register(
-      { name: 'sidebar.footer.action', id: 'wewrite', order: 100, label: () => fallbackT('panel.label') },
-      WewriteSidebarEntry,
+    disposeFooter = registerSlot(ctx, 'sidebar.footer.action', () =>
+      ctx.slots.register(
+        { name: 'sidebar.footer.action', id: 'wewrite', order: 100, label: () => fallbackT('panel.label') },
+        WewriteSidebarEntry,
+      ),
     );
   } catch (error) {
     warnDegraded('slots.register（sidebar.footer.action）', error);
   }
   try {
-    disposeOverlay = ctx.slots.register(
-      { name: 'shell.overlay', id: 'wewrite', order: 100, label: () => fallbackT('panel.label') },
-      WewriteOverlay,
+    disposeOverlay = registerSlot(ctx, 'shell.overlay', () =>
+      ctx.slots.register(
+        { name: 'shell.overlay', id: 'wewrite', order: 100, label: () => fallbackT('panel.label') },
+        WewriteOverlay,
+      ),
     );
     markOverlayAvailable(true);
   } catch (error) {

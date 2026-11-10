@@ -52,6 +52,11 @@ export interface ClientContext {
     bind(namespace: string): Translate;
   };
   slots: {
+    /**
+     * 0.2.2 起 slots.register 需目标 slot 已声明；inject 等声明到位再回调。
+     * 回调返回 disposer（或 disposer 可迭代）。旧宿主无此方法（见 lib/slot-register）。
+     */
+    inject?(key: string, callback: () => () => void): () => void;
     /** conversation.view：会话内工作台 tab（主入口）。 */
     register(
       options: {

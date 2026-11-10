@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import type { ClientContext, ToolviewOwnerPropsLike, TurnTailComponentPropsLike } from '../lib/context';
 import type { WewriteRpc } from '../lib/rpc';
 import { LOCALE_NAMESPACE } from '../lib/i18n';
+import { registerSlot } from '../lib/slot-register';
 import { setCardTranslator } from './card-text';
 import { DeliverablesRow } from './deliverables-row';
 import { selectWewriteArticles, wewriteDeliverablesDefinition } from './deliverables';
@@ -60,13 +61,19 @@ export function registerChat(ctx: ClientContext, rpc: WewriteRpc): void {
   };
 
   safeRegister('slots.register（tool.call.toolview wewrite_run）', () =>
-    ctx.slots.register({ name: 'tool.call.toolview', key: 'wewrite_run' }, runCardAdapter(rpc)),
+    registerSlot(ctx, 'tool.call.toolview', () =>
+      ctx.slots.register({ name: 'tool.call.toolview', key: 'wewrite_run' }, runCardAdapter(rpc)),
+    ),
   );
   safeRegister('slots.register（tool.call.toolview wewrite_rewrite）', () =>
-    ctx.slots.register({ name: 'tool.call.toolview', key: 'wewrite_rewrite' }, rewriteCardAdapter()),
+    registerSlot(ctx, 'tool.call.toolview', () =>
+      ctx.slots.register({ name: 'tool.call.toolview', key: 'wewrite_rewrite' }, rewriteCardAdapter()),
+    ),
   );
   safeRegister('slots.register（tool.call.toolview wewrite_push_draft）', () =>
-    ctx.slots.register({ name: 'tool.call.toolview', key: 'wewrite_push_draft' }, pushCardAdapter()),
+    registerSlot(ctx, 'tool.call.toolview', () =>
+      ctx.slots.register({ name: 'tool.call.toolview', key: 'wewrite_push_draft' }, pushCardAdapter()),
+    ),
   );
 
   // conversationEvents（D4）：经 ctx.inject 动态子 fiber 探测，不进模块级 inject 数组。
@@ -88,9 +95,11 @@ export function registerChat(ctx: ClientContext, rpc: WewriteRpc): void {
   }
 
   safeRegister('slots.register（conversation.chat.turnTail）', () =>
-    ctx.slots.register(
-      { name: 'conversation.chat.turnTail', select: selectWewriteArticles as (owner: unknown) => unknown, priority: 100 },
-      DeliverablesRow as ComponentType<TurnTailComponentPropsLike>,
+    registerSlot(ctx, 'conversation.chat.turnTail', () =>
+      ctx.slots.register(
+        { name: 'conversation.chat.turnTail', select: selectWewriteArticles as (owner: unknown) => unknown, priority: 100 },
+        DeliverablesRow as ComponentType<TurnTailComponentPropsLike>,
+      ),
     ),
   );
 
