@@ -3,6 +3,7 @@ import type { RunRecord, StepRecord } from '@/host/domain';
 import type { RunParams } from '@/shared/contract';
 import { RunRecordSchema } from '@/host/domain';
 import { stripOuterFence } from '@/host/pipeline/llm';
+import { runQualityGates } from '@/host/pipeline/steps/gates';
 import {
   PIPELINE_STEP_NAMES,
   createPipelineEngine,
@@ -480,6 +481,65 @@ describe('await done 句柄（chat-integration M1：service.runCompletion 的 en
     const [record, doneId] = await Promise.all([viaAwaitDone, done]);
     expect(record?.status).toBe('succeeded');
     expect(doneId).toBe(runId);
+  });
+});
+
+describe('draft 层自愈：成稿含编造 URL 时带反馈重写一次（与 gates 同口径）', () => {
+  const SOURCE = 'https://given.example.test/article';
+  const INVENTED = 'http://192.168.1.100:3000/lock_contract?device=42';
+  const briefParams: RunParams = { ...baseParams, brief: { sources: [SOURCE] } };
+  const promptOf = (options: Record<string, unknown>): string =>
+    (options as { messages: { content: { text: string }[] }[] }).messages[0].content[0].text;
+
+  it('首稿含编造 URL、次稿干净：run succeeded，draft 调 2 次，第二次 prompt 点名该 URL', async () => {
+    let call = 0;
+    const llmStream = vi.fn(async (_options: Record<string, unknown>) => {
+      call += 1;
+      if (call === 1) return okTextStream('## 第一节');
+      if (call === 2) return okTextStream(`## 第一节\n正文引用 ${INVENTED} 说明细节。`);
+      return okTextStream(`## 第一节\n正文引用（来源：${SOURCE}）说明细节。`);
+    });
+    const deps = makeDeps();
+    const runId = await makeEngine({ ...deps, llm: { stream: llmStream as unknown as PipelineLlm['stream'] } }).start({
+      trigger: 'manual',
+      params: briefParams,
+    });
+
+    expect(deps.store.get(runId)?.status).toBe('succeeded');
+    expect(llmStream).toHaveBeenCalledTimes(3); // outline + draft×2
+    const draftPrompts = (llmStream as unknown as { mock: { calls: unknown[][] } }).mock.calls
+      .map((args) => promptOf(args[0] as Record<string, unknown>))
+      .filter((prompt) => prompt.includes('请成稿'));
+    expect(draftPrompts).toHaveLength(2);
+    expect(draftPrompts[0]).not.toContain(INVENTED);
+    expect(draftPrompts[1]).toContain(INVENTED);
+  });
+
+  it('首稿与次稿都含编造 URL：仍只重写一次，gates 终检 gates-failed', async () => {
+    const dirty = `## 第一节\n正文引用 ${INVENTED} 说明细节，（来源：${SOURCE}）。`;
+    let call = 0;
+    const llmStream = vi.fn(async (_options: Record<string, unknown>) => {
+      call += 1;
+      return okTextStream(call === 1 ? '## 第一节' : dirty);
+    });
+    const gatesRun = vi.fn(async (input: { markdown: string }) => runQualityGates(input));
+    const deps = makeDeps();
+    const runId = await makeEngine({
+      ...deps,
+      llm: { stream: llmStream as unknown as PipelineLlm['stream'] },
+      gates: { run: gatesRun },
+    }).start({ trigger: 'manual', params: briefParams });
+
+    expect(llmStream).toHaveBeenCalledTimes(3); // outline + draft×2（最多重写一次）
+    const run = deps.store.get(runId);
+    expect(run?.status).toBe('failed');
+    const gatesStep = run?.steps.find((s: StepRecord) => s.name === 'gates');
+    expect(gatesStep?.status).toBe('failed');
+    expect(gatesStep?.error?.code).toBe('gates-failed');
+    const report = gatesRun.mock.calls[0][0] as { markdown: string };
+    expect(report.markdown).toContain(INVENTED);
+    const issues = ((gatesStep?.metrics as { report?: { issues?: unknown[] } } | undefined)?.report?.issues ?? []).map(String);
+    expect(issues.some((issue) => issue.includes('疑似编造'))).toBe(true);
   });
 });
 

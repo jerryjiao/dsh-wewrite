@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 import type { RunParams } from '../../shared/contract';
 import type { RunRecord, StepRecord } from '../domain';
 import { draftUserPrompt, outlineUserPrompt, pipelineSystemPrompt, streamLlmText, stripOuterFence, type PipelineLlm } from './llm';
-import { isSourceUrlVisible } from './steps/gates';
+import { findInventedUrls, isSourceUrlVisible } from './steps/gates';
 
 export type { LlmStreamOptions, PipelineLlm, PipelineLlmChunk } from './llm';
 
@@ -94,6 +94,16 @@ export class PipelineStepError extends Error {
 
 /** 终态集合（修剪与恢复扫描共用）。 */
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled', 'interrupted']);
+
+/** draft 自愈与 gates 来源门禁共用的用户原文（其中的 URL 视为已授权）。 */
+function briefUserText(topic: string, brief: RunParams['brief']): string[] {
+  return [
+    topic,
+    ...(brief?.title ? [brief.title] : []),
+    ...(brief?.approach ? [brief.approach] : []),
+    ...(brief?.outline ?? []),
+  ];
+}
 
 /** 修剪 run 历史（Spec §6 runs 约束）：活跃记录全保留，终态记录按完成时间新→旧截取 limit 条。 */
 export function pruneTerminalRuns(runs: readonly RunRecord[], limit: number): RunRecord[] {
@@ -210,12 +220,14 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
           });
         } else if (stepName === 'draft') {
           const llmCall = resolveLlmCall(params);
-          // v0.5 draft 层自愈：outline 守住的大纲可能被成稿改写、来源可能被写成链接语法——
-          // 先带反馈重写一次；仍不合规交 gates 终检拦（单一强制执行点）。
+          // v0.5 draft 层自愈：outline 守住的大纲可能被成稿改写、来源可能被写成链接语法、
+          // 正文可能编造 URL——先带反馈重写一次；仍不合规交 gates 终检拦（单一强制执行点）。
           const skeleton = params.brief?.outline?.length ? params.brief.outline : undefined;
           const briefSources = params.brief?.sources?.length ? params.brief.sources : undefined;
+          const userText = briefUserText(topic, params.brief);
           let retryMissing: readonly string[] | undefined;
           let retryInvisible: readonly string[] | undefined;
+          let retryInvented: readonly string[] | undefined;
           let draftText = '';
           for (let attempt = 0; ; attempt += 1) {
             const outcome = await streamLlmText(
@@ -223,7 +235,7 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
               {
                 purpose: 'wewrite-pipeline',
                 system: pipelineSystemPrompt(),
-                user: draftUserPrompt(topic, outline, params.brief, retryMissing, retryInvisible),
+                user: draftUserPrompt(topic, outline, params.brief, retryMissing, retryInvisible, retryInvented),
                 ...llmCall,
               },
               signal,
@@ -236,9 +248,11 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
             const invisible = briefSources
               ? briefSources.filter((url) => !isSourceUrlVisible(draftText, url))
               : [];
-            if ((!missing.length && !invisible.length) || attempt >= 1) break;
+            const invented = briefSources ? findInventedUrls(draftText, briefSources, userText) : [];
+            if ((!missing.length && !invisible.length && !invented.length) || attempt >= 1) break;
             retryMissing = missing.length ? missing : undefined;
             retryInvisible = invisible.length ? invisible : undefined;
+            retryInvented = invented.length ? invented : undefined;
           }
           draft = draftText;
           patchStep(runId, stepName, { metrics: { chars: draft.length } });
@@ -249,12 +263,7 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
             ...(brief?.sources?.length
               ? {
                   sources: brief.sources,
-                  userText: [
-                    topic,
-                    ...(brief.title ? [brief.title] : []),
-                    ...(brief.approach ? [brief.approach] : []),
-                    ...(brief.outline ?? []),
-                  ],
+                  userText: briefUserText(topic, brief),
                 }
               : {}),
             ...(brief?.outline?.length ? { outlineSkeleton: brief.outline } : {}),

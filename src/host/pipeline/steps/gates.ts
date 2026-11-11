@@ -178,23 +178,43 @@ export function isSourceUrlVisible(markdown: string, url: string): boolean {
   return visibleContainsUrl(stripLinkUrls(markdown), url);
 }
 
-/** 编造拦截：正文出现的 URL（代码块除外）必须属于给定来源或用户原文带出的 URL；
+/** 编造 URL 清单：正文出现的 URL（代码块除外）必须属于给定来源或用户原文带出的 URL；
  *  给定来源的更深路径（a.com/x → a.com/x/section）视为同源延伸，放行。 */
-function auditInventedSources(markdown: string, allowed: readonly string[]): { passed: boolean; issues: string[] } {
+function inventedUrlList(markdown: string, allowed: readonly string[]): string[] {
   const allowedKeys = allowed.map(urlKey).filter(Boolean);
   const allowedByPrefix = (key: string): boolean =>
     allowedKeys.some(
       (candidate) => key === candidate || (key.startsWith(candidate) && (candidate.endsWith('/') || key.charAt(candidate.length) === '/')),
     );
   const text = stripCodeFences(markdown);
-  const issues: string[] = [];
-  const flagged = new Set<string>();
+  const flagged: string[] = [];
+  const seen = new Set<string>();
   for (const match of text.matchAll(URL_PATTERN)) {
     const found = urlKey(match[0].replace(/[.,;:，。；：、]+$/, ''));
-    if (!found || allowedByPrefix(found) || flagged.has(found)) continue;
-    flagged.add(found);
-    issues.push(`正文包含未提供的来源 URL（疑似编造，删除或换成给定来源）：${found}`);
+    if (!found || allowedByPrefix(found) || seen.has(found)) continue;
+    seen.add(found);
+    flagged.push(found);
   }
+  return flagged;
+}
+
+/** 授权集 = 给定来源 + 用户原文（主题/标题/思路/大纲）里带出的 URL（提取而非整句比对）。 */
+function authorizedUrls(sources: readonly string[], userText: readonly string[] = []): string[] {
+  const userUrls = userText.flatMap((text) =>
+    [...text.matchAll(URL_PATTERN)].map((match) => match[0].replace(/[.,;:，。；：、]+$/, '')),
+  );
+  return [...sources, ...userUrls];
+}
+
+/** engine draft 自愈判据：找出成稿里疑似编造的 URL（与来源门禁同口径）。 */
+export function findInventedUrls(markdown: string, sources: readonly string[], userText: readonly string[] = []): string[] {
+  return inventedUrlList(markdown, authorizedUrls(sources, userText));
+}
+
+function auditInventedSources(markdown: string, allowed: readonly string[]): { passed: boolean; issues: string[] } {
+  const issues = inventedUrlList(markdown, allowed).map(
+    (url) => `正文包含未提供的来源 URL（疑似编造，删除或换成给定来源）：${url}`,
+  );
   return { passed: issues.length === 0, issues };
 }
 
@@ -215,11 +235,7 @@ export function runQualityGates(input: RunGatesInput): { passed: boolean; report
   const figureNumbering = auditFigureNumbering(text, input.imageCount ?? 0);
   const sources = input.sources?.length
     ? (() => {
-        // 授权集 = 给定来源 + 用户原文（主题/标题/思路/大纲）里带出的 URL（提取而非整句比对）。
-        const userUrls = (input.userText ?? []).flatMap((text) =>
-          [...text.matchAll(URL_PATTERN)].map((match) => match[0].replace(/[.,;:，。；：、]+$/, '')),
-        );
-        const allowed = [...input.sources, ...userUrls];
+        const allowed = authorizedUrls(input.sources, input.userText);
         const visibility = auditSourceVisibility(text, input.sources);
         const invented = auditInventedSources(text, allowed);
         const issues = [...visibility.issues, ...invented.issues];

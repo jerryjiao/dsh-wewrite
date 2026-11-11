@@ -155,6 +155,7 @@ export function draftUserPrompt(
   brief?: LaunchBriefForPrompt,
   retryMissingOutline?: readonly string[],
   retryInvisibleSources?: readonly string[],
+  retryInventedUrls?: readonly string[],
 ): string {
   const lines: string[] = [`主题：${topic}`];
   if (brief?.title) {
@@ -197,6 +198,13 @@ export function draftUserPrompt(
       '',
       '上一次成稿把以下来源写成了 Markdown 链接（微信会剥离锚标签，读者看不到 URL）——本次必须以裸 URL 文本引用（如「（来源：URL）」）：',
       ...retryInvisibleSources.map((url) => `- ${url}`),
+    );
+  }
+  if (retryInventedUrls?.length) {
+    lines.push(
+      '',
+      '上一次成稿包含以下未提供的 URL（疑似编造）——本次必须删除，或换成上文给定来源：',
+      ...retryInventedUrls.map((url) => `- ${url}`),
     );
   }
   return lines.join('\n');
