@@ -315,7 +315,8 @@ export default [
         assert.ok((article.markdown ?? '').includes(section), `大纲骨架：给定节「${section}」应原样出现在成稿`);
       }
       assert.ok((article.markdown ?? '').includes(SOURCE), '来源可见：给定 URL 应以裸文本出现在成稿');
-      const foundUrls = [...String(article.markdown ?? '').matchAll(/https?:\/\/[A-Za-z0-9._~:/?#\[\]@!$&+;,=%-]+/g)].map((m) => m[0].replace(/[.,;:]+$/, ''));
+      // 与门禁同口径：围栏代码块里的 URL 是示意内容，不算编造（gates.ts stripCodeFences）
+      const foundUrls = [...String(article.markdown ?? '').replace(/(```|~~~)[\s\S]*?\1/g, '').matchAll(/https?:\/\/[A-Za-z0-9._~:/?#\[\]@!$&+;,=%-]+/g)].map((m) => m[0].replace(/[.,;:]+$/, ''));
       const invented = [...new Set(foundUrls)].filter((url) => !url.startsWith(SOURCE));
       assert.deepEqual(invented, [], `编造拦截：正文不得出现未给定 URL（实得：${JSON.stringify(invented)}）`);
     },
