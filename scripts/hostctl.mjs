@@ -235,6 +235,17 @@ export async function waitReady(child, timeoutMs = 180000) {
   }
 }
 
+// web 子命令参数：两条启动路径共用。--no-open 关掉宿主自开浏览器
+// （e2e 用 playwright 无头，不需要；否则每次重启都冒一个新标签）。
+export const WEB_ARGS = Object.freeze(['web', '--no-open']);
+
+// 启动命令表：cached 有值走本地缓存 bin，否则 npx 装期望版本。
+export function hostStartCommand(version, cached = null) {
+  if (cached) return { cmd: process.execPath, args: [cached.bin, ...WEB_ARGS] };
+  // --legacy-peer-deps=false 覆盖仓库 .npmrc（否则新版 dsh 的 peer 依赖不装，宿主启动即 ERR_MODULE_NOT_FOUND）。
+  return { cmd: 'npx', args: ['--yes', '--legacy-peer-deps=false', `${PKG}@${version}`, ...WEB_ARGS] };
+}
+
 export async function startHost() {
   const s = hostStatus();
   if (s.running) {
@@ -242,21 +253,13 @@ export async function startHost() {
     return;
   }
   const version = resolveExpectedVersion();
-  // npx --yes 拉取期望版本；版本号固定到 dist-tag 解析值，避免 npx 复用旧缓存。
-  // --legacy-peer-deps=false 覆盖仓库 .npmrc（否则新版 dsh 的 peer 依赖不装，宿主启动即 ERR_MODULE_NOT_FOUND）。
-  let cmd = 'npx';
-  let args = ['--yes', '--legacy-peer-deps=false', `${PKG}@${version}`, 'web'];
-  if (process.env.DSH_HOST_VERSION?.trim()) {
-    const cached = findCachedHost(version);
-    if (cached) {
-      // 直接跑缓存目录的 bin，连带当初装的那套依赖
-      cmd = process.execPath;
-      args = [cached.bin, 'web'];
-      console.log(`宿主用本地缓存 ${cached.dir}（cordis ${cached.cordisVersion ?? '未知'}）`);
-    } else {
-      console.log(`依赖可能与当初不同：npx 缓存里没有 ${PKG}@${version}，改走 npx 安装`);
-    }
+  // 版本号固定到 dist-tag 解析值，避免 npx 复用旧缓存。pin 时优先复用 npx 缓存里同版本的 dsh。
+  const cached = process.env.DSH_HOST_VERSION?.trim() ? findCachedHost(version) : null;
+  if (process.env.DSH_HOST_VERSION?.trim() && !cached) {
+    console.log(`依赖可能与当初不同：npx 缓存里没有 ${PKG}@${version}，改走 npx 安装`);
   }
+  const { cmd, args } = hostStartCommand(version, cached);
+  if (cached) console.log(`宿主用本地缓存 ${cached.dir}（cordis ${cached.cordisVersion ?? '未知'}）`);
   const fd = openSync(LOG, 'a');
   const child = spawn(cmd, args, {
     cwd: process.cwd(), // 继承当前 shell 的 cwd 与 env，仅追加 ZHIPU_API_KEY

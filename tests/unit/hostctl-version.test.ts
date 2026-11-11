@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 // @ts-expect-error 脚本是 .mjs，无类型声明；这里只验证纯函数行为
-import { findCachedHost, parseDshPkgDir, readDshVersion, readHostWebUrl, resolveExpectedVersion, tailLog, waitReady } from '../../scripts/hostctl.mjs';
+import { findCachedHost, hostStartCommand, parseDshPkgDir, readDshVersion, readHostWebUrl, resolveExpectedVersion, tailLog, WEB_ARGS, waitReady } from '../../scripts/hostctl.mjs';
 
 const root = mkdtempSync(join(tmpdir(), 'dsh-hostctl-'));
 const pkgDir = join(root, 'node_modules/@deepseek-ai/dsh');
@@ -152,6 +152,22 @@ describe('findCachedHost', () => {
 
   it('npx 目录不存在返回 null', () => {
     expect(findCachedHost('0.1.1-rc.2', join(root, 'missing'))).toBeNull();
+  });
+});
+
+describe('hostStartCommand', () => {
+  it('npx 路径带 --no-open（宿主不自动开浏览器）', () => {
+    const { cmd, args } = hostStartCommand('0.2.2');
+    expect(cmd).toBe('npx');
+    expect(args).toContain('--no-open');
+  });
+
+  it('本地缓存 bin 路径同样带 --no-open', () => {
+    const cached = { dir: '/cache/dsh', bin: '/cache/dsh/lib/bin.js', cordisVersion: null };
+    const { cmd, args } = hostStartCommand('0.2.2', cached);
+    expect(cmd).toBe(process.execPath);
+    expect(args).toEqual([cached.bin, ...WEB_ARGS]);
+    expect(args).toContain('--no-open');
   });
 });
 
