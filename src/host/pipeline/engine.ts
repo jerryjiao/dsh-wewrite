@@ -8,7 +8,7 @@
 import { randomUUID } from 'node:crypto';
 import type { RunParams } from '../../shared/contract';
 import type { RunRecord, StepRecord } from '../domain';
-import { draftUserPrompt, outlineUserPrompt, pipelineSystemPrompt, streamLlmText, type PipelineLlm } from './llm';
+import { draftUserPrompt, outlineUserPrompt, pipelineSystemPrompt, streamLlmText, stripOuterFence, type PipelineLlm } from './llm';
 import { isSourceUrlVisible } from './steps/gates';
 
 export type { LlmStreamOptions, PipelineLlm, PipelineLlmChunk } from './llm';
@@ -192,7 +192,7 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
             );
             if (outcome.status === 'aborted') throwAborted();
             if (outcome.status === 'error') throw new PipelineStepError(outcome.code, outcome.message);
-            outlineText = outcome.text;
+            outlineText = stripOuterFence(outcome.text);
             if (!skeleton) break;
             const missing = skeleton.filter((section) => !outlineText.includes(section));
             if (!missing.length) break;
@@ -230,7 +230,7 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
             );
             if (outcome.status === 'aborted') throwAborted();
             if (outcome.status === 'error') throw new PipelineStepError(outcome.code, outcome.message);
-            draftText = outcome.text;
+            draftText = stripOuterFence(outcome.text);
             if (!skeleton && !briefSources) break;
             const missing = skeleton ? skeleton.filter((section) => !draftText.includes(section)) : [];
             const invisible = briefSources

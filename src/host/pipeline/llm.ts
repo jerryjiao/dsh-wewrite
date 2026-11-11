@@ -206,6 +206,15 @@ export function pipelineSystemPrompt(): string {
   return SYSTEM_STYLE;
 }
 
+/** 整篇被外层代码围栏包住时剥掉围栏（模型偶发行为）；正文中间的代码块不动。 */
+export function stripOuterFence(text: string): string {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return text;
+  if (!/^```(?:markdown|md)?$/i.test(lines[0].trim())) return text;
+  if (lines[lines.length - 1].trim() !== '```') return text;
+  return lines.slice(1, -1).join('\n').trim();
+}
+
 // ── 文章改写提示（uiux v0.3 §3；只输出改写文本，无围栏无前后语）──────────────────
 
 export function rewriteSystemPrompt(): string {

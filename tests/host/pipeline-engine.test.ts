@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RunRecord, StepRecord } from '@/host/domain';
 import type { RunParams } from '@/shared/contract';
 import { RunRecordSchema } from '@/host/domain';
+import { stripOuterFence } from '@/host/pipeline/llm';
 import {
   PIPELINE_STEP_NAMES,
   createPipelineEngine,
@@ -81,6 +82,7 @@ interface DepsOverrides {
   gates?: { run: (input: { markdown: string }) => Promise<{ passed: boolean; report: unknown }> };
   renderer?: { convert: (input: { markdown: string; theme?: string }) => string };
   images?: { generate: (input: { count: number }) => Promise<{ coverImageId?: string; bodyImageIds: string[] }> };
+  onProduced?: (output: { markdown: string; runId: string }) => Promise<string | void>;
 }
 
 function makeDeps(overrides: DepsOverrides = {}) {
@@ -96,6 +98,7 @@ function makeDeps(overrides: DepsOverrides = {}) {
       { run: vi.fn(async (_input: { markdown: string }) => ({ passed: true, report: { strict: true } })) },
     renderer: overrides.renderer ?? { convert: vi.fn(() => '<section style="color:#0F1115">html</section>') },
     images: overrides.images ?? { generate: vi.fn(async () => ({ coverImageId: 'img_0', bodyImageIds: ['img_1'] })) },
+    ...(overrides.onProduced ? { onProduced: overrides.onProduced } : {}),
   };
   return deps;
 }
@@ -477,5 +480,49 @@ describe('await done 句柄（chat-integration M1：service.runCompletion 的 en
     const [record, doneId] = await Promise.all([viaAwaitDone, done]);
     expect(record?.status).toBe('succeeded');
     expect(doneId).toBe(runId);
+  });
+});
+
+describe('stripOuterFence：模型把整篇包进代码围栏时剥掉', () => {
+  it('带语言标记的整篇围栏会剥掉', () => {
+    expect(stripOuterFence('```markdown\n# 标题\n\n正文\n```')).toBe('# 标题\n\n正文');
+  });
+
+  it('不带语言标记的整篇围栏会剥掉', () => {
+    expect(stripOuterFence('```\n# 标题\n\n正文\n```')).toBe('# 标题\n\n正文');
+  });
+
+  it('只有正文中间有代码块时不剥', () => {
+    const text = '# 标题\n\n```ts\nconst a = 1;\n```\n\n结尾';
+    expect(stripOuterFence(text)).toBe(text);
+  });
+
+  it('只有开头围栏没有结尾时不剥', () => {
+    const text = '```markdown\n# 标题\n\n正文';
+    expect(stripOuterFence(text)).toBe(text);
+  });
+});
+
+describe('引擎：LLM 初稿被外层围栏包住时落库 markdown 不带围栏', () => {
+  it('draft 步 outcome.text 剥围栏后再交 gates/render/落库', async () => {
+    let callIndex = 0;
+    const llmStream = vi.fn(async (_options: Record<string, unknown>) => {
+      callIndex += 1;
+      if (callIndex === 1) return okTextStream('## 第一节\n## 第二节');
+      return okTextStream('```markdown\n# 成稿标题\n\n正文段落\n```');
+    });
+    const produced: string[] = [];
+    const deps = makeDeps({
+      onProduced: async ({ markdown }) => {
+        produced.push(markdown);
+      },
+    });
+    const engine = makeEngine({ ...deps, llm: { stream: llmStream as unknown as PipelineLlm['stream'] } });
+
+    const runId = await engine.start({ trigger: 'manual', params: baseParams });
+
+    expect(deps.store.get(runId)?.status).toBe('succeeded');
+    expect(produced[0]?.startsWith('```')).toBe(false);
+    expect(produced[0]).toBe('# 成稿标题\n\n正文段落');
   });
 });
