@@ -42,6 +42,20 @@ export interface ConnectionRpcService {
   ): Promise<void | (() => void)> | (() => void);
 }
 
+/**
+ * 宿主 connection 服务。`rpc` 是 0.2.1 及更早的注册面；0.2.2 起
+ * `rpc.handle` 只是 `register(服务自身 ctx, …)` 的封装，而服务 ctx 无 webServer
+ * inject（见 resolveRpcRegistrar），故外部插件须直接调 `register` 传自己的 ctx。
+ */
+export interface ConnectionService {
+  readonly rpc?: ConnectionRpcService;
+  register?(
+    owner: unknown,
+    channel: string,
+    handler: RpcHandler,
+  ): Promise<void | (() => void)> | (() => void);
+}
+
 export interface CredentialDescriptor {
   readonly configured: boolean;
   readonly source?: string;
@@ -174,7 +188,7 @@ export type HostEffectBody = () => Promise<(() => Promise<void> | void) | void> 
 /** apply(ctx) 收到的宿主上下文：全部服务可选（feature detection）。 */
 export interface HostContext {
   readonly storageDomain?: StorageDomainService;
-  readonly connection?: { readonly rpc: ConnectionRpcService };
+  readonly connection?: ConnectionService;
   readonly credentials?: CredentialsService;
   readonly llm?: LlmService;
   readonly tools?: ToolsService;

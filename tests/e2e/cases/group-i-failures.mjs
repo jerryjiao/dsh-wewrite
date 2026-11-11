@@ -130,7 +130,12 @@ export default [
         .sort((a, b) => (b.startedAt ?? '').localeCompare(a.startedAt ?? ''));
       const target = mine[0];
       assert.ok(target, '打断的 run 应已落库（paramsSnapshot.topic 定位）');
-      assert.equal(target.status, 'interrupted', `run 状态应为 interrupted（实际 ${target.status}，AC-11 打断语义）`);
+      assert.equal(
+        target.status,
+        'interrupted',
+        `run 状态应为 interrupted（实际 ${target.status}，error=${JSON.stringify(target.error)}，`
+          + `steps=${JSON.stringify((target.steps ?? []).map((step) => [step.name, step.status]))}，AC-11 打断语义）`,
+      );
       const redispatched = mine.filter(
         (r) => r.id !== target.id && (r.startedAt ?? '') > (target.startedAt ?? ''),
       );

@@ -25,7 +25,7 @@
 | S6 | 管线六步 = `topic → outline → draft → gates → render → images`（src/host/pipeline/engine.ts `PIPELINE_STEP_NAMES`）；LLM 步只有 outline/draft 两步；UI 步骤标签：选题分析/研究与提纲/初稿写作/质量门禁/排版转换/配图生成 | 实测 |
 | S7 | 图片供应商 9 家（openai/doubao/dashscope/jimeng/minimax/azure_openai/gemini/openrouter/replicate）**不含智谱**；glm-4v-flash 是视觉理解模型非生图，智谱生图（CogView 系列）不在插件矩阵 | 实测 |
 | S8 | 写作台「开始写作」硬编码 `imageCount: 1`（topic-panel.tsx:68）——UI 真跑路径必然执行 images 步；无凭据时 fallback 链按序全试（每家 1 次 AUTH 类失败），步 `failed` 但 run `succeeded`（AC-9 无图推进） | 实测 |
-| S9 | playwright 1.62.1 在 workspace 根 node_modules；`import 'playwright'` 从本项目向上解析命中（scripts/tmp-probe-btn.mjs 实证）；项目 devDeps 无 @playwright/test | 实测 |
+| S9 | playwright 1.62.1 是本项目 devDependency（精确版本，`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` 安装，chromium-1234 走本机 ms-playwright 缓存）；不装 @playwright/test | 实测 |
 | S10 | 安装链路：profile `github:jerryjiao/dsh-wewrite#v0.1.4`（v0.1.4 已装）+ 手动 `cp lib/` 覆盖 `~/.dsh/profiles/web/node_modules/dsh-wewrite/lib/`（08-19 17:39 实证生效） | 实测 |
 | S11 | storage unit `~/.dsh/storages/dsh_wewrite.json` 顶层 `{unit, global:{v,settings,claimedOccurrences}, tables:{articles,runs,schedules,images}}`；现网 3 文章/4 run/1 schedule | 实测 |
 | S12 | settings `llmDefault` 默认 `{}`——模型未配时管线启动立即失败，engine 显式报 `llm-not-configured`（「模型服务未配置：请在 设置 → 模型服务 选择供应商与模型后再运行管线」） | 实测 |
@@ -389,7 +389,7 @@ E2E 依赖本机常驻宿主（3080）、宿主内 zhipu provider 配置（~/.ds
 | R1 | **宿主重启冲击并行 session**：3080 上可能有 Jerry 或其他 agent 的浏览器连着；`npx dsh web` 被重启即断连 | 中 | ① hostctl restart 前 console 打印旧 PID+3 秒缓冲；② E2E 全套约 15-25 分钟，安排在无人值守窗口跑（Jerry 触发即视为独占授权）；③ status 命令随时可查占用，人工重启前先看一眼 |
 | R2 | **ModuleLoader/宿主缓存导致改版不生效**：host 侧 require 缓存 + client 侧 rev 机制边界无文档（UNKNOWN） | 中 | 根治于流程：dev-install.mjs 把 build→cp→restart 钉成原子三连，永不依赖热重载；浏览器侧每次相位新开 context 无缓存；若仍见旧行为，`?rev=` 手刷 + 查 /tmp/dsh-web.log |
 | R3 | **demo/管线产物数据污染**：E2E 写入 Jerry 真实 storage unit | 中 | 相位制（§2.3.1）：跑前备份到 /tmp、跑后恢复并校验一致；管线真跑产物在恢复时一并清除；storage.mjs 所有写操作前置断言宿主已停（防内存态覆盖文件，S11 先例） |
-| R4 | **免费模型限流**（S13：档位不公开，按低并发防御）：live 相位 3 次真跑共约 6 个 LLM 调用，叠加 Jerry 并行用量可能撞 QPM/并发 | 中 | ① 三次真跑串行 + 用例间 10s 间隔；② H05/I03 设计为 draft 步前终止（token 消耗最小化）；③ 撞限流（429/供应商 error）时 runner 打印降级指引：切 glm-4-flash-250414 或换时段；④ 单次管线只有 2 个串行 LLM 调用，自身不撞并发上限 |
+| R4 | **免费模型限流**（S13：档位不公开，按低并发防御）：live 相位 3 次真跑共约 6 个 LLM 调用，叠加 Jerry 并行用量可能撞 QPM/并发 | 中 | ① 三次真跑串行 + 用例间 10s 间隔；② H05/I03 设计为 draft 步前终止（token 消耗最小化）；③ 撞限流（429/供应商 error）时切备用档或换时段：`E2E_LLM_MODEL=<model> npm run test:e2e`（同一变量驱动 G05 设置与 H06 真跑；降级序 4.7-flash → 250414 → 4.5-flash）；④ 单次管线只有 2 个串行 LLM 调用，自身不撞并发上限 |
 | R5 | **key 轮换/失效**：zcode 编码套餐 key 换新后宿主 env 里是旧值 | 低 | key 单一真源在 zcode config（方案 B 的核心收益）：每次 `hostctl start/restart` 现读现注，轮换自动跟随；key 失效的表现=llm 步 error，恰被 I02/H01 失败路径覆盖，hostctl status 可快速定位 |
 | R6 | **免费档抖动/慢**：高峰期 72s 可能变 3-5 分钟 | 低 | H01 超时上限 240s（3.3 倍实测值）；超时报失败并截图 dump，人工判断是否时段问题重跑 |
 | R7 | **穿越序列对宿主升级脆弱**：npx 下次拉新 dsh 版本，onboarding/侧栏 DOM 变化 | 中 | 穿越序列集中单文件 session.mjs（改一处全生效）；选择器全部用 role/placeholder/aria 双 locale 回退（先例写法）；hostctl 可 pin npx 缓存版本（现状已命中固定缓存目录，短窗内稳定）；序列失败时自动 dump 页面全部可点文本（capture 脚本先例的排查输出） |

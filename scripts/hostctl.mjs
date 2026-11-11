@@ -101,6 +101,22 @@ export function readDshVersion(command) {
   }
 }
 
+// 当前宿主的可访问 URL：0.2.2 起根地址无 token 直接 401，日志里最后一条
+// `dsh web: http://127.0.0.1:3080/?token=...` 就是本进程入口。读不到退回根地址。
+// 仅供进程内导航——返回值含一次性访问 token，调用方不得打印。
+export function readHostWebUrl(logPath = LOG) {
+  try {
+    const lines = readFileSync(logPath, 'utf8').trimEnd().split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const match = lines[i].match(/dsh web: (http:\/\/127\.0\.0\.1:3080\/\?token=[^\s]+)/);
+      if (match) return match[1];
+    }
+  } catch {
+    // 日志不可读：退回根地址，由穿越阶段的 401 空页暴露问题
+  }
+  return BASE;
+}
+
 // 3080 上真正的 dsh 进程（端口可能同时被浏览器连接等其他进程占用，不能按端口一刀切）
 export function findDshPids() {
   return findHostPids().filter((pid) => parseDshPkgDir(commandOf(pid)) !== null);

@@ -6,8 +6,9 @@
  *   - 相位 storage 管理：backupStorage/resetStorage/restoreStorage/seedDemo +
  *     phaseFreshStorage/phaseDemoStorage/phaseRestoreStorage（fresh/demo/restore 编排）
  *
- * playwright 从 workspace 根 node_modules 向上解析命中（tmp-probe-btn.mjs 先例实证，
- * 不加 @playwright/test、不需要 NODE_PATH）。宿主生命周期复用 scripts/hostctl.mjs
+ * playwright 1.62.1 是本项目 devDependency（精确版本，chromium-1234 用本机
+ * ~/Library/Caches/ms-playwright 缓存，不重下浏览器；不加 @playwright/test、
+ * 不需要 NODE_PATH）。宿主生命周期复用 scripts/hostctl.mjs
  * 的导出函数（import 无副作用）；demo 种子复用 scripts/seed-demo-data.mjs 的
  * seedDemoData（单一逻辑源）。storage 写操作一律先停宿主（host 内存态会覆盖文件，
  * seed-demo-data.mjs 先例实证）。
@@ -16,7 +17,7 @@ import { chromium } from 'playwright';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { findHostPids, startHost, stopHost } from '../../scripts/hostctl.mjs';
+import { findDshPids, readHostWebUrl, startHost, stopHost } from '../../scripts/hostctl.mjs';
 import { seedDemoData } from '../../scripts/seed-demo-data.mjs';
 
 export const BASE = 'http://127.0.0.1:3080';
@@ -66,7 +67,14 @@ async function dumpClickable(page) {
  */
 export async function openPanel(page) {
   // 1) 首页 + onboarding 向导（新 profile localStorage 为空时可能弹）
-  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  // 0.2.2 起根地址无 token 返回 401 纯文本，入口必须用宿主日志里打印的 token URL。
+  const entryUrl = readHostWebUrl();
+  try {
+    await page.goto(entryUrl, { waitUntil: 'domcontentloaded' });
+  } catch (err) {
+    // Playwright 的导航错误会带 URL——抹掉 token 再上抛，避免日志泄 token
+    throw new Error(`首页打开失败：${String(err.message).replace(entryUrl, '<host>')}`);
+  }
   await sleep(3000);
   for (const label of ['Continue', '继续']) {
     const btn = page.getByRole('button', { name: label, exact: true }).first();
@@ -160,11 +168,12 @@ export async function openPanel(page) {
 // 实测路径：~/.dsh/storages/dsh_wewrite.json（2026-08-19 ls + 结构核实，
 // 顶层 {unit, global:{v,settings,claimedOccurrences}, tables:{articles,runs,schedules,images}}）。
 
-/** storage 写操作前置断言：宿主必须已停（host 内存态会覆盖文件） */
+/** storage 写操作前置断言：宿主必须已停（host 内存态会覆盖文件）。
+ * 只查 dsh 进程——3080 上可能还有浏览器等其他进程的 CLOSED 连接，按端口一刀切会误报。 */
 function assertHostStopped(op) {
-  const pids = findHostPids();
+  const pids = findDshPids();
   if (pids.length) {
-    throw new Error(`storage ${op} 要求宿主已停止（监听 3080 的 PID：${pids.join(', ')}）`);
+    throw new Error(`storage ${op} 要求宿主已停止（3080 上的 dsh 进程 PID：${pids.join(', ')}）`);
   }
 }
 

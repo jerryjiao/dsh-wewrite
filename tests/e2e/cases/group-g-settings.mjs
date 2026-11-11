@@ -1,7 +1,7 @@
 /**
  * G 组 设置（9 条）——蓝本 §2.4 G01-G09 校对重锚。
  * 相位：G01-G05 → fresh（配置流：storage 重置保证未配置态与 llmDefault 空，
- * G05 配好 glm-4.7-flash 后贯穿 demo/live）；G06-G09 → demo。
+ * G05 配好 glm-4.7-flash 后贯穿 demo/live；E2E_LLM_MODEL 可换备用模型）；G06-G09 → demo。
  * 沿用锚点（骨架不动）：nav[aria-label="设置分组"] 5 项 / .ww-menu-trigger /
  * .ww-settings__save / .ww-provider-chain / .ww-callout--{ok,fail}。
  * 注意（两态风险声明，蓝本 G02 徽标翻转断言的降级）：凭据 secret 是宿主全局态
@@ -135,7 +135,9 @@ export default [
     // 步骤：选 glm-4.7-flash → 保存 → 离开再进设置。
     // 断言：保存成功；重进后模型回显 glm-4.7-flash（llmDefault 落库——demo/live 相位贯穿依赖）。
     fn: async (page) => {
-      await page.locator('[role="menuitem"], [role="option"]').filter({ hasText: 'glm-4.7-flash' }).first().click();
+      // 模型可被 E2E_LLM_MODEL 覆盖（R4 ③：免费档 1305 拥挤时切备用模型；默认 4.7-flash）。
+      const model = process.env.E2E_LLM_MODEL ?? 'glm-4.7-flash';
+      await page.locator('[role="menuitem"], [role="option"]').filter({ hasText: model }).first().click();
       await page.locator('.ww-settings__section').getByRole('button', { name: '保存' }).first().click();
       await expectVisible(page.locator('.ww-settings__save').getByText('已保存').first(), {
         timeout: 8000,
@@ -145,7 +147,7 @@ export default [
       await gotoSettings(page);
       await clickGroup(page, '模型服务');
       const modelTrigger = page.locator('.ww-settings__section .ww-menu-trigger').nth(1);
-      await expectTextContains(modelTrigger, 'glm-4.7-flash', '重进设置后模型应回显 glm-4.7-flash（默认模型，ADR-010 附带）');
+      await expectTextContains(modelTrigger, model, `重进设置后模型应回显 ${model}（默认模型，ADR-010 附带）`);
       const providerTrigger = page.locator('.ww-settings__section .ww-menu-trigger').first();
       await expectTextContains(providerTrigger, 'zhipu', '重进设置后供应商应回显 zhipu');
     },

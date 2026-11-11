@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 // @ts-expect-error 脚本是 .mjs，无类型声明；这里只验证纯函数行为
-import { findCachedHost, parseDshPkgDir, readDshVersion, resolveExpectedVersion, tailLog, waitReady } from '../../scripts/hostctl.mjs';
+import { findCachedHost, parseDshPkgDir, readDshVersion, readHostWebUrl, resolveExpectedVersion, tailLog, waitReady } from '../../scripts/hostctl.mjs';
 
 const root = mkdtempSync(join(tmpdir(), 'dsh-hostctl-'));
 const pkgDir = join(root, 'node_modules/@deepseek-ai/dsh');
@@ -47,6 +47,29 @@ describe('parseDshPkgDir', () => {
 
   it('非 dsh 进程返回 null（如浏览器占用 3080 的连接）', () => {
     expect(parseDshPkgDir('/Applications/ego lite.app/Contents/MacOS/ego Helper --type=utility')).toBeNull();
+  });
+});
+
+describe('readHostWebUrl', () => {
+  it('取日志里最后一条带 token 的入口 URL（宿主重启后 token 会变）', () => {
+    const log = join(root, 'web.log');
+    writeFileSync(
+      log,
+      [
+        'dsh web: http://127.0.0.1:3080/?token=old',
+        'dsh web: http://127.0.0.1:3080',
+        'dsh web: http://127.0.0.1:3080/?token=new',
+        '',
+      ].join('\n'),
+    );
+    expect(readHostWebUrl(log)).toBe('http://127.0.0.1:3080/?token=new');
+  });
+
+  it('日志里没有 token 行或读不到时退回根地址', () => {
+    expect(readHostWebUrl(join(root, 'no-such.log'))).toBe('http://127.0.0.1:3080');
+    const log = join(root, 'notoken.log');
+    writeFileSync(log, 'dsh web: http://127.0.0.1:3080\n');
+    expect(readHostWebUrl(log)).toBe('http://127.0.0.1:3080');
   });
 });
 

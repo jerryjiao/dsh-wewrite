@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { registerWewriteRpc } from '@/host/rpc';
+import { describe, expect, it, vi } from 'vitest';
+import { inject } from '@/host/index';
+import { registerWewriteRpc, resolveRpcRegistrar } from '@/host/rpc';
 import type { ConnectionRpcService, RpcHandler } from '@/host/platform';
 import { WewriteServiceError } from '@/host/service-errors';
 import type { WeWriteService } from '@/host/service';
@@ -27,6 +28,52 @@ const HOST_RPC_ERROR_CODES = [
   'subagent-not-found', 'subagent-catalog-diagnostic', 'subagent-not-resumable',
   'subagent-unauthorized', 'subagent-delivery-unavailable', 'internal',
 ] as const;
+
+describe('宿主 inject 声明', () => {
+  // 0.2.2 起 connection.rpc.handle 内部走 owner.webServer.register 挂路由；
+  // 插件 ctx 未声明 webServer 时 cordis 抛 "cannot get property webServer without
+  // inject"，注册降级 → 面板全部 RPC 405（E2E G01 实拍）。
+  it('声明 webServer（rpc.handle 的平台依赖）', () => {
+    expect(inject).toContain('webServer');
+  });
+});
+
+describe('RPC 注册面选择（0.2.2 register 优先）', () => {
+  // 0.2.2 的 connection.rpc.handle 以服务自身 ctx 调 register(owner,…)，effect 内
+  // owner.webServer 解析失败 → 外部插件注册恒抛、路由不挂（面板全 405）。register
+  // 的 owner 形参可显式传本插件 ctx（inject 含 webServer）。
+  const handler = async (): Promise<unknown> => ({ ok: true, value: 1 });
+
+  it('有 register 时用它注册，并传本插件 ctx 作 owner', () => {
+    const calls: unknown[][] = [];
+    const owner = { marker: 'plugin-ctx' };
+    const registrar = resolveRpcRegistrar(
+      {
+        rpc: { handle: () => { throw new Error('rpc.handle 不应被调用'); } },
+        register: (o, channel, h) => {
+          calls.push([o, channel, h]);
+          return () => undefined;
+        },
+      },
+      owner,
+    );
+
+    void registrar?.handle('/dsh-wewrite', handler, { authority: 'loopback' });
+    expect(calls).toEqual([[owner, '/dsh-wewrite', handler]]);
+  });
+
+  it('旧宿主无 register：退回 rpc.handle', () => {
+    const rpc = { handle: vi.fn(() => () => undefined) };
+    const registrar = resolveRpcRegistrar({ rpc }, {});
+
+    void registrar?.handle('/dsh-wewrite', handler, { authority: 'loopback' });
+    expect(rpc.handle).toHaveBeenCalledWith('/dsh-wewrite', handler, { authority: 'loopback' });
+  });
+
+  it('connection 服务缺失：undefined（registerWewriteRpc 走降级 no-op）', () => {
+    expect(resolveRpcRegistrar(undefined, {})).toBeUndefined();
+  });
+});
 
 const DIGEST_ITEM = { rank: 1, title: '某热榜条目', url: 'https://a.test/1' };
 

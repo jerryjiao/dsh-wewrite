@@ -61,7 +61,10 @@ export default [
     fn: async (page) => {
       const history = page.locator('.ww-view-tabs[aria-label="定时任务视图"]').getByRole('tab', { name: /全部历史/ }).first();
       await expectVisible(history, { msg: '「全部历史」tab 未出现' });
-      await history.click();
+      // 0.2.2 宿主在会话区右侧叠了一条 absolute 定位的 10px 拖拽条
+      // （.wSkVaW_widthHandle[data-side="right"]，x=1255 宽 10），恰好压住本 tab
+      // 中心点（1205..1309）；tab 左端仍直接命中 BUTTON。点左端避开该宿主覆盖层。
+      await history.click({ position: { x: 10, y: 12 } });
       assert.equal(await history.getAttribute('aria-selected'), 'true', '全部历史 tab 应激活');
       await expectVisible(page.getByText('还没有定时执行记录').first(), {
         timeout: 6000,

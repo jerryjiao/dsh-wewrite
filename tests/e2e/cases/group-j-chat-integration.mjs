@@ -63,14 +63,25 @@ export default {
       throw new Error(`chat-integration：未知端点对照探测应 500（handler failure），实得 status=${unknown.status}——无法区分「端点已注册」`);
     }
 
-    // 3) 插件 client 产物可服务（boot 后 /plugins/<id>/client.js 200——client bundle
-    //    完整加载的传输面锚点，与断言 ① 的 console 清白互补）。
+    // 3) 插件 client 产物可服务：client bundle 完整加载的传输面锚点，与断言 ① 的
+    //    console 清白互补。0.2.2 起 client modules 只以 boot HTML 里的 combo URL
+    //    （/plugins/??…,dsh-wewrite/client.js,…&rev=<hash>）提供，裸路径
+    //    /plugins/dsh-wewrite/client.js 恒 404（dsh-client-modules bundleResource：
+    //    无 rev 的路径既不在 responses 也不匹配 chunkUrl）——按页面实际引用取 URL。
     const clientJs = await page.evaluate(async () => {
-      const res = await fetch('/plugins/dsh-wewrite/client.js', { method: 'GET' });
-      return { status: res.status, contentType: res.headers.get('content-type') ?? '' };
+      const href = [...document.querySelectorAll('link[href], script[src]')]
+        .map((el) => el.getAttribute('href') ?? el.getAttribute('src') ?? '')
+        // combo URL 里模块以逗号分隔，可能没有前导斜杠（…,dsh-wewrite/client.js,…）
+        .find((url) => /(?:^|[,/])dsh-wewrite\/client\.js/.test(url));
+      if (!href) return { status: 0, contentType: '', href: null };
+      const res = await fetch(new URL(href, location.href), { method: 'GET' });
+      return { status: res.status, contentType: res.headers.get('content-type') ?? '', href };
     });
     if (clientJs.status !== 200) {
-      throw new Error(`chat-integration：/plugins/dsh-wewrite/client.js 应 200，实得 ${clientJs.status}`);
+      throw new Error(`chat-integration：页面引用的 dsh-wewrite client bundle 应 200（href=${clientJs.href}），实得 ${clientJs.status}`);
+    }
+    if (!clientJs.contentType.includes('javascript')) {
+      throw new Error(`chat-integration：client bundle 应返回 JS（实得 content-type=${clientJs.contentType}）`);
     }
 
     // 显式 PENDING-人工（不静默跳过）：五工具（wewrite_run / wewrite_rewrite /

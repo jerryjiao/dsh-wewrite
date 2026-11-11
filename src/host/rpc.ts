@@ -4,7 +4,7 @@
  */
 
 import { RPC_AUTHORITY, RPC_CHANNEL, rpcContract, type RunParams, type RpcEndpoint } from '../shared/contract';
-import type { ConnectionRpcService, HostLogger } from './platform';
+import type { ConnectionRpcService, ConnectionService, HostLogger } from './platform';
 import type { WeWriteService } from './service';
 
 type ContractEntry = { readonly request: { safeParse(input: unknown): { success: boolean; data?: unknown; error?: { issues: { path: (string | number)[]; message: string }[] } } }; readonly response: { safeParse(input: unknown): { success: boolean; data?: unknown; error?: { issues: { path: (string | number)[]; message: string }[] } } } };
@@ -163,6 +163,26 @@ function toHostRpcErrorEnvelope(
       details: {},
     },
   };
+}
+
+/**
+ * 取 RPC 注册面。0.2.2 回归：`connection.rpc.handle` 内部以服务自身 ctx 调
+ * `register(owner, …)`，其 effect 内 `owner.webServer` 解析失败（cordis inject 检查）
+ * → 外部插件注册恒抛 "cannot get property webServer without inject"，路由没挂上，
+ * 面板全部 RPC 405（E2E G01 实拍；dsh-automation 同样报错）。`register` 的 owner
+ * 形参可显式传本插件 ctx（inject 已含 webServer），故优先走它；旧宿主无此方法时
+ * 退回 `rpc.handle`（其行为与旧版一致）。
+ */
+export function resolveRpcRegistrar(
+  connection: ConnectionService | undefined,
+  owner: unknown,
+): ConnectionRpcService | undefined {
+  if (!connection) return undefined;
+  const { register } = connection;
+  if (typeof register === 'function') {
+    return { handle: (channel, handler) => register.call(connection, owner, channel, handler) };
+  }
+  return connection.rpc;
 }
 
 /** 注册 loopback 通道；rpc 服务缺失时降级为 no-op + 警告（架构 §9.1）。 */

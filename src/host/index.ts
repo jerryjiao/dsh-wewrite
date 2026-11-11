@@ -15,12 +15,15 @@ import { domainSpec } from './domain';
 import { resolveLogger, type CredentialsService, type HostContext, type LlmService } from './platform';
 import { registerAgentTools } from './agent-tools';
 import { registerWewriteCommand } from './agent-tools/commands';
-import { registerWewriteRpc } from './rpc';
+import { registerWewriteRpc, resolveRpcRegistrar } from './rpc';
 import { WeWriteService } from './service';
 
 export const name = 'dsh-wewrite';
 
-export const inject = ['storageDomain', 'agents', 'sessions', 'connection', 'llm', 'credentials', 'tools', 'commands'];
+// webServer：0.2.2 起 connection.rpc.handle 内部走 owner.webServer.register 挂路由，
+// 未声明 inject 时 cordis 直接抛 "cannot get property webServer without inject"，
+// 注册静默降级 → 面板所有 RPC 405。旧宿主同样有 webServer 服务，声明无回归。
+export const inject = ['storageDomain', 'agents', 'sessions', 'connection', 'webServer', 'llm', 'credentials', 'tools', 'commands'];
 
 export const Config = z.object({
   agentToolsEnabled: z.boolean().default(false),
@@ -77,7 +80,7 @@ export async function apply(ctx: HostContext, rawConfig: unknown): Promise<void>
     });
     const disposers: Array<() => void | Promise<void>> = [];
     try {
-      const stopRpc = registerWewriteRpc(ctx.connection?.rpc, service, logger);
+      const stopRpc = registerWewriteRpc(resolveRpcRegistrar(ctx.connection, ctx), service, logger);
       disposers.push(() => {
         void Promise.resolve(stopRpc).then((dispose) => dispose?.());
       });
