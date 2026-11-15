@@ -11,7 +11,7 @@
 - 官网：https://jerryjiao.github.io/dsh-wewrite/
 - 版本：v0.5.4
 - License：MIT
-- 适用 DSH：v0.1.x developer preview（见下方[版本兼容表](#版本兼容表)）
+- 适用 DSH：0.2.x（developer preview，见下方[版本兼容表](#版本兼容表)）
 
 ## 5 分钟快速开始
 
@@ -25,7 +25,7 @@ npx @deepseek-ai/dsh plugin --profile web add dsh-wewrite
 
 装的是 npm 上的最新版（当前 `0.5.4`）。安装完成后如需卸载：`npx @deepseek-ai/dsh plugin --profile web remove dsh-wewrite`。
 
-> 关于产物形态：`lib/` 构建产物不再提交进仓库（`.gitignore` 已忽略 `lib/`，2026-08-28 起退库），改由 `prepublishOnly` 在发布时构建并打进 npm 包——包内含 `lib/` 与 `cordis.patch.yml`，所以上面的 npm 安装是装完即用的推荐路径。
+> 关于产物形态：`lib/` 构建产物不入库（`.gitignore` 自 2026-08-28 起忽略），发布时由 `prepublishOnly` 构建并打进 npm 包——包内含 `lib/` 与 `cordis.patch.yml`，所以上面的 npm 安装是装完即用的推荐路径。
 >
 > 若要从源码装某个 tag（`npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.5.4`），DSH 从 git 安装不会执行 build 脚本，需要在 pnpm 侧放行构建或先自行 `npm run build`，否则拿不到 `lib/`。
 
@@ -48,7 +48,7 @@ npx @deepseek-ai/dsh web
 
 **第 4 步：出第一篇**
 
-「选题」面板选一条热榜（内置 Hacker News，可配自定义聚合源），点开条目先看一眼 AI 速览（抓原文后的中文要点总结，抓不到则给标题解读），合适就点「写这个」，或直接输入固定主题。管线自动执行六步（选题 → 大纲 → 成稿 → 门禁 → 渲染 → 配图），进度实时可见。完成后在编辑器里改稿——选中任意一段点「AI 改写」下一句指令即可局部重写（Ctrl+Z 可撤销），右侧微信预览与最终推送产物字节一致。确认后点「推草稿箱」，到微信公众平台后台「内容与互动 → 图文素材」里查看草稿。群发请你在公众平台后台人工执行（本插件 v0.1 没有任何群发调用路径，见[安全声明](#安全声明)）。
+「选题」面板选一条热榜（内置 Hacker News，可配自定义聚合源），点开条目先看一眼 AI 速览（抓原文后的中文要点总结，抓不到则给标题解读），合适就点「写这个」，或直接输入固定主题。管线自动执行六步（选题 → 大纲 → 成稿 → 门禁 → 渲染 → 配图），进度实时可见。完成后在编辑器里改稿——选中任意一段点「AI 改写」下一句指令即可局部重写（Ctrl+Z 可撤销），右侧微信预览与最终推送产物字节一致。确认后点「推草稿箱」，到微信公众平台后台「内容与互动 → 图文素材」里查看草稿。群发请你在公众平台后台人工执行（本插件没有任何群发调用路径，见[安全声明](#安全声明)）。
 
 ## 一步步用起来
 
@@ -82,7 +82,7 @@ npx @deepseek-ai/dsh web
 
 <p><img src="assets/screenshots/04-editor.png" alt="编辑器双栏视图：左 Markdown 改稿，右微信预览显示同名文章排版效果，顶栏一行含标题、三视图切换（仅编辑/双栏/仅预览）与推草稿箱按钮" width="720"></p>
 
-顶部 chrome 压缩为两行；视图一键切换「仅编辑 / 双栏 / 仅预览」，双栏可拖拽调宽；门禁报告从右侧滑出（不再挤占视图位）；字数、门禁、保存状态全部归拢到底部状态条。改稿不顺手时**选中一段文字**，上方浮出「AI 改写」——输入一句话（更口语 / 精简一半 / 扩写细节 / 更有数据感，或自定义），AI 只重写选中段落并原位替换，Ctrl+Z 即可撤销；全文其余部分一个字不动。
+顶栏压缩为两行；视图一键切换「仅编辑 / 双栏 / 仅预览」，双栏可拖拽调宽；门禁报告从右侧滑出（不再挤占视图位）；字数、门禁、保存状态全部归拢到底部状态条。改稿不顺手时**选中一段文字**，上方浮出「AI 改写」——输入一句话（更口语 / 精简一半 / 扩写细节 / 更有数据感，或自定义），AI 只重写选中段落并原位替换，Ctrl+Z 即可撤销；全文其余部分一个字不动。
 
 **编辑器（仅预览）**
 
@@ -166,7 +166,7 @@ DSH Host（Node + Cordis）
 
 **API 代理**
 
-微信服务端接口有 IP 白名单约束（官方文档：仅白名单 IP 可用 AppSecret / access_token 调用）。本插件把「微信 API 地址」做成一等公民配置项：配成 relay 地址后所有微信调用统一走 relay，无直连混合路径。自建 relay 的最小配置（Caddy 一行）见 [tools/wechat-relay/README.md](tools/wechat-relay/README.md)。
+微信服务端接口有 IP 白名单约束（官方文档：仅白名单 IP 可用 AppSecret / access_token 调用）。本插件把「微信 API 地址」做成独立的配置项：配成 relay 地址后所有微信调用统一走 relay，无直连混合路径。自建 relay 的最小配置（Caddy 一行）见 [tools/wechat-relay/README.md](tools/wechat-relay/README.md)。
 
 **热榜源**
 
@@ -186,7 +186,7 @@ DSH Host（Node + Cordis）
 
 ## 安全声明
 
-- **默认只到草稿箱**：v0.1 的推送面只有 draft/add 族端点。freepublish / 群发调用路径在类型层不可达（调度目标 zod literal 直接拒绝 publish/freepublish/mass，测试套件另有源码树扫描双保险）。群发永远由你在公众平台后台人工执行。
+- **默认只到草稿箱**：本插件的推送面只有 draft/add 族端点。freepublish / 群发调用路径在类型层不可达（调度目标 zod literal 直接拒绝 publish/freepublish/mass，测试套件另有源码树扫描双保险）。群发永远由你在公众平台后台人工执行。
 - **凭据只存本地**：AppSecret 与各 API Key 只经 DSH 凭据服务落 `~/.dsh` 本地存储，不进 git，不离开你的机器；插件自身无任何远端上报通道。
 - **日志脱敏**：secret / access_token / API key 在日志、错误与运行历史中一律掩码（长值保留前 4 字符 + `****`，短值全掩）。
 - **无默认遥测**：不收集、不上报任何使用数据，无埋点。
@@ -203,11 +203,11 @@ DSH Host（Node + Cordis）
 
 **支持哪个 DSH 版本？装上没激活怎么办？**
 
-见[版本兼容表](#版本兼容表)。DSH v0.1 处于 developer preview 的 breaking changes 窗口，本插件做了 feature detection 防御（storage/connection 服务缺失时警告并降级，而非半死不活）。装上不激活时先确认 DSH 版本在支持列表内；安装输出若出现 "plain dependency" 字样，说明插件声明未被识别，属 DSH CLI 与本插件版本不匹配，请到 [Issues](https://github.com/jerryjiao/dsh-wewrite/issues) 反馈。
+见[版本兼容表](#版本兼容表)。DSH 0.2 仍是 developer preview，处在 breaking changes 窗口，本插件做了 feature detection 防御（storage/connection 服务缺失时警告并降级，而非半死不活）。装上不激活时先确认 DSH 版本在支持列表内；安装输出若出现 "plain dependency" 字样，说明插件声明未被识别，属 DSH CLI 与本插件版本不匹配，请到 [Issues](https://github.com/jerryjiao/dsh-wewrite/issues) 反馈。
 
 **群发功能在哪？**
 
-v0.1/v0.2 没有，这是有意的安全默认（见安全声明）。后续版本会以**显式 opt-in**（默认关闭，逐次确认）的形式评估提供。
+当前版本没有，这是有意的安全默认（见安全声明）。后续版本会以**显式 opt-in**（默认关闭，逐次确认）的形式评估提供。
 
 **管线失败会留下半成品草稿吗？**
 
@@ -217,14 +217,14 @@ v0.1/v0.2 没有，这是有意的安全默认（见安全声明）。后续版�
 
 | dsh-wewrite | DSH | Node | React | 状态 |
 |---|---|---|---|---|
-| v0.2.0+ | v0.1.x developer preview（2026-08-13 发布） | ^22.19.0 \|\| >=24.0.0 | 18（宿主提供，peer） | 已验证（2026-08-20 基线：358 单测 + E2E fresh/demo 52 用例全绿，含 v0.3 未发版改动） |
-| v0.1.0 – v0.1.4 | v0.1.x developer preview（2026-08-13 发布） | ^22.19.0 \|\| >=24.0.0 | 18（宿主提供，peer） | 已验证（2026-08 基线，DSH master@2026-08-17 实测） |
+| v0.5.4（当前） | 0.2.x（developer preview，首个对齐 0.2.2 的版本） | ^22.19.0 \|\| >=24.0.0 | 18（宿主提供，peer） | 已验证（2026-11-15：lint / typecheck / 699 单测 / build 全绿） |
+| v0.1.0 – v0.4.0 | 0.1.x developer preview（2026-08-13 发布） | ^22.19.0 \|\| >=24.0.0 | 18（宿主提供，peer） | 已验证（2026-08 基线） |
 
-DSH v0.1 是 developer preview，不承诺 API 稳定；DSH 升级后如插件失活，优先检查本表并升级插件版本。
+DSH 0.2 是 developer preview，不承诺 API 稳定；DSH 升级后如插件失活，优先检查本表并升级插件版本。
 
 ## Roadmap
 
-- 已交付：v0.2.0 工作区化重设计（左栏文章列表 + 编辑器三视图 + 门禁右侧滑出）、v0.2.1 顶栏降级与细节打磨、v0.3 逐条 AI 速览 + 侧边栏直进 + AI 选中改写 + 全局视觉精修
+- 已交付：v0.2.0 工作区化重设计（左栏文章列表 + 编辑器三视图 + 门禁右侧滑出）、v0.2.1 顶栏降级与细节打磨、v0.3 逐条 AI 速览 + 侧边栏直进 + AI 选中改写 + 全局视觉精修、v0.4 对话框直写入口、v0.5 适配 DSH 0.2.x
 - 评估中
   - freepublish 显式 opt-in（默认关，逐次确认）
   - 多公众号账号（账号切换/凭据集）
@@ -234,11 +234,11 @@ DSH v0.1 是 developer preview，不承诺 API 稳定；DSH 升级后如插件�
 
 ```bash
 npm install          # 独立克隆直接装（无 install 钩子）
-npm test             # 358 个测试（vitest）
+npm test             # 699 个测试（vitest）
 npm run lint         # eslint
 npm run typecheck    # tsc --noEmit
 npm run check:p0     # 视觉门禁扫描（emoji/渐变/占位文案）
-npm run build        # 产出 lib/（提交前必跑，产物入库）
+npm run build        # 产出 lib/（本地排查用；发布时由 prepublishOnly 自动构建）
 ```
 
 项目文档在 `docs/`（PRD / Spec / 技术架构 / QA 测试计划），测试即契约（Spec EARS 验收标准的可执行形态）。
@@ -273,9 +273,9 @@ NODE_PATH=/Users/mac/Documents/workspace/node_modules npm run test:e2e
 
 **What.** dsh-wewrite is a plugin for DeepSeek Harness (DSH) that turns a WeChat official-account AI writing pipeline—topic, outline, draft, quality gates, render, images, draft box—into a local web workbench. Models and credentials stay yours: text generation uses your DSH model config, secrets never leave `~/.dsh`. Since v0.3: per-item AI digest for trending topics (fetches the linked article and summarizes it in Chinese, falls back to title-only), selection-based AI rewrite in the editor (rewrites only what you highlight, undoable), and a sidebar entry that opens the full workbench as an overlay—no session required.
 
-**Install.** `npx @deepseek-ai/dsh plugin --profile web add dsh-wewrite`, then `npx @deepseek-ai/dsh web` and open http://127.0.0.1:3080 . Fill in your official-account AppID/AppSecret in the workbench settings, run the connection test, pick a topic, and push your first draft. Requires DSH v0.1.x developer preview and Node ^22.19.0 || >=24.0.0.
+**Install.** `npx @deepseek-ai/dsh plugin --profile web add dsh-wewrite`, then `npx @deepseek-ai/dsh web` and open http://127.0.0.1:3080 . Fill in your official-account AppID/AppSecret in the workbench settings, run the connection test, pick a topic, and push your first draft. Requires DSH 0.2.x (developer preview) and Node ^22.19.0 || >=24.0.0.
 
-**Safety.** v0.1 pushes to the draft box only; there is no code path for mass publishing (freepublish), by design. Credentials are stored locally via the DSH credentials service and masked in logs; no telemetry is collected. MIT licensed.
+**Safety.** dsh-wewrite pushes to the draft box only; there is no code path for mass publishing (freepublish), by design. Credentials are stored locally via the DSH credentials service and masked in logs; no telemetry is collected. MIT licensed.
 
 ## License
 
