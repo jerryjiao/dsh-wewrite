@@ -45,13 +45,23 @@ jobs:
           grep -q '__ModuleLoader__' lib/client.js
           echo "lib/client.js 存在且含 __ModuleLoader__ 加载契约标记"
 
-      # lib/ 是 dist-committed（仓库有意提交预构建产物）：rebuild 后必须与提交版
-      # 字节一致，防止「改了源码忘跑 build」导致安装侧拿到陈旧产物。
-      - name: dist-committed 一致性校验
+      # lib/ 自 2026-08-28 起不再入库（.gitignore 忽略），改由 prepublishOnly 在发布时
+      # 构建并打进 npm 包。所以这里不再比对 git 里的 lib/（已恒为空），改为校验 npm 包
+      # 真实内容：发布产物必须含运行所需的 lib/ 与 cordis.patch.yml，防止 files 白名单
+      # 或构建配置出错导致安装侧拿到残包。
+      - name: 校验 npm 包内容（lib/ + cordis.patch.yml）
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git diff --exit-code -- lib/
-          echo "lib/ 与源码构建产物一致"
+          npm pack --dry-run --json > /tmp/pack.json
+          node -e '
+            const files = JSON.parse(require("fs").readFileSync("/tmp/pack.json", "utf8"))[0].files.map((f) => f.path);
+            const need = ["lib/index.js", "lib/client.js", "lib/shared.js", "cordis.patch.yml", "package.json"];
+            const missing = need.filter((p) => !files.includes(p));
+            if (missing.length) {
+              console.error("npm 包缺少必需文件: " + missing.join(", "));
+              process.exit(1);
+            }
+            console.log("npm 包包含: " + need.join(", "));
+          '
 
   website-build:
     name: 官网构建校验
