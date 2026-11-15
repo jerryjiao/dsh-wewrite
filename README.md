@@ -9,7 +9,7 @@
 一个 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 插件：把一整套微信公众号 AI 写作管线（选题 → 大纲 → 成稿 → 质量门禁 → 排版渲染 → 配图 → 草稿箱）产品化。任何 DSH 用户一条命令安装，在本地 Web UI 里完成从选题到草稿箱的全流程。模型与凭据全部走你自己的账号，数据只落本地。
 
 - 官网：https://jerryjiao.github.io/dsh-wewrite/
-- 版本：v0.2.0
+- 版本：v0.5.4
 - License：MIT
 - 适用 DSH：v0.1.x developer preview（见下方[版本兼容表](#版本兼容表)）
 
@@ -20,12 +20,14 @@
 **第 1 步：安装插件**
 
 ```bash
-npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.2.0
+npx @deepseek-ai/dsh plugin --profile web add dsh-wewrite
 ```
 
-安装完成后如需卸载：`npx @deepseek-ai/dsh plugin --profile web remove dsh-wewrite`。
+装的是 npm 上的最新版（当前 `0.5.4`）。安装完成后如需卸载：`npx @deepseek-ai/dsh plugin --profile web remove dsh-wewrite`。
 
-> 关于产物形态：仓库直接提交了 `lib/` 预构建产物（dist-committed），这是有意决策——DSH 从 git 安装插件不会执行 build 脚本，预构建路径让你不必在 pnpm 侧加任何 `allowBuilds` 信任声明，装完即用。
+> 关于产物形态：`lib/` 构建产物不再提交进仓库（`.gitignore` 已忽略 `lib/`，2026-08-28 起退库），改由 `prepublishOnly` 在发布时构建并打进 npm 包——包内含 `lib/` 与 `cordis.patch.yml`，所以上面的 npm 安装是装完即用的推荐路径。
+>
+> 若要从源码装某个 tag（`npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.5.4`），DSH 从 git 安装不会执行 build 脚本，需要在 pnpm 侧放行构建或先自行 `npm run build`，否则拿不到 `lib/`。
 
 **第 2 步：启动 DSH Web**
 
@@ -261,7 +263,7 @@ NODE_PATH=/Users/mac/Documents/workspace/node_modules npm run test:e2e
 
 | Workflow | 触发 | 做什么 |
 |---|---|---|
-| [`ci.yml`](.github/workflows/ci.yml) | push / PR 到 main | 插件门禁：lint → typecheck → 全量测试 → P0 视觉扫描 → build → `lib/client.js` 加载契约标记校验 + dist-committed 一致性（rebuild 须与提交的 `lib/` 字节一致，防「改源码忘 build」）；另跑官网构建校验（base 前缀验证） |
+| [`ci.yml`](.github/workflows/ci.yml) | push / PR 到 main | 插件门禁：lint → typecheck → 全量测试 → P0 视觉扫描 → build → `lib/client.js` 存在且含 `__ModuleLoader__` 加载契约标记校验（`lib/` 自 2026-08-28 起不再入库，发布时由 `prepublishOnly` 构建）；另跑官网构建校验（base 前缀验证） |
 | [`website.yml`](.github/workflows/website.yml) | push main（`website/**` / logo 变更）+ 手动 | 构建官网并自动部署到 GitHub Pages：https://jerryjiao.github.io/dsh-wewrite/ |
 | [`release.yml`](.github/workflows/release.yml) | push tag `v*` | 复用同一套插件门禁 → build → 打包 `lib/` + `cordis.patch.yml` + README/LICENSE 为 zip → 创建 GitHub Release（自动生成 notes）并附产物 |
 
@@ -271,7 +273,7 @@ NODE_PATH=/Users/mac/Documents/workspace/node_modules npm run test:e2e
 
 **What.** dsh-wewrite is a plugin for DeepSeek Harness (DSH) that turns a WeChat official-account AI writing pipeline—topic, outline, draft, quality gates, render, images, draft box—into a local web workbench. Models and credentials stay yours: text generation uses your DSH model config, secrets never leave `~/.dsh`. Since v0.3: per-item AI digest for trending topics (fetches the linked article and summarizes it in Chinese, falls back to title-only), selection-based AI rewrite in the editor (rewrites only what you highlight, undoable), and a sidebar entry that opens the full workbench as an overlay—no session required.
 
-**Install.** `npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.2.0`, then `npx @deepseek-ai/dsh web` and open http://127.0.0.1:3080 . Fill in your official-account AppID/AppSecret in the workbench settings, run the connection test, pick a topic, and push your first draft. Requires DSH v0.1.x developer preview and Node ^22.19.0 || >=24.0.0.
+**Install.** `npx @deepseek-ai/dsh plugin --profile web add dsh-wewrite`, then `npx @deepseek-ai/dsh web` and open http://127.0.0.1:3080 . Fill in your official-account AppID/AppSecret in the workbench settings, run the connection test, pick a topic, and push your first draft. Requires DSH v0.1.x developer preview and Node ^22.19.0 || >=24.0.0.
 
 **Safety.** v0.1 pushes to the draft box only; there is no code path for mass publishing (freepublish), by design. Credentials are stored locally via the DSH credentials service and masked in logs; no telemetry is collected. MIT licensed.
 
