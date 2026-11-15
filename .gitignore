@@ -13,8 +13,8 @@ coverage/
 # 本地临时目录
 /tmp
 
-# 注意：lib/ 有意提交（dist-committed）——DSH git 安装不跑 build 脚本，
-# 预构建产物随仓库分发是 no-build 安装路径的既定决策，勿加入忽略。
+# 注意：lib/ 不入库（自 2026-08-28 起忽略）——发布时由 prepublishOnly 构建并打进 npm 包；
+# DSH 从 git 安装会跑 prepare 脚本，但 pnpm 默认拦截构建脚本，需在 profile 的 allowBuilds 放行。
 
 # 官网构建产物与缓存（产物不入 git，Pages 由 Actions 现场构建）
 website/dist/

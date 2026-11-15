@@ -15,24 +15,26 @@
 
 ## 5 分钟快速开始
 
-前提：Node `^22.19.0 || >=24.0.0`，已能运行 `npx @deepseek-ai/dsh`。
+前提：Node `^22.19.0 || >=24.0.0`，已能运行 `npx @deepseek-ai/dsh@latest`（DSH 当前只发布预发布版，裸 `npx @deepseek-ai/dsh` 会因 `@*` 匹配不到预发布版而报 ETARGET，命令务必带 `@latest`）。
 
 **第 1 步：安装插件**
 
 ```bash
-npx @deepseek-ai/dsh plugin --profile web add dsh-wewrite
+npx @deepseek-ai/dsh@latest plugin --profile web add dsh-wewrite
 ```
 
-装的是 npm 上的最新版（当前 `0.5.4`）。安装完成后如需卸载：`npx @deepseek-ai/dsh plugin --profile web remove dsh-wewrite`。
+装的是 npm 上的最新版（当前 `0.5.4`）。安装完成后如需卸载：`npx @deepseek-ai/dsh@latest plugin --profile web remove dsh-wewrite`。
 
 > 关于产物形态：`lib/` 构建产物不入库（`.gitignore` 自 2026-08-28 起忽略），发布时由 `prepublishOnly` 构建并打进 npm 包——包内含 `lib/` 与 `cordis.patch.yml`，所以上面的 npm 安装是装完即用的推荐路径。
 >
-> 若要从源码装某个 tag（`npx @deepseek-ai/dsh plugin --profile web add github:jerryjiao/dsh-wewrite#v0.5.4`），DSH 从 git 安装不会执行 build 脚本，需要在 pnpm 侧放行构建或先自行 `npm run build`，否则拿不到 `lib/`。
+> 若要从源码装某个 tag（`npx @deepseek-ai/dsh@latest plugin --profile web add github:jerryjiao/dsh-wewrite#v0.5.4`）：DSH 从 git 安装会以 `prepare` 脚本构建，但 pnpm 默认拦截依赖构建脚本——需在对应 profile 目录的 `pnpm-workspace.yaml` 里用 `allowBuilds` 放行本包（精确 key），或先自行 `npm run build` 再装，否则拿不到 `lib/`。
+>
+> DSH 0.2.x 还提供图形化「插件管理器」（设置 → 插件），可直接按 npm 包名 / Git 仓库 / 本地目录安装，不必敲命令。若某插件声明了与当前 DSH 不兼容的 `engines.dsh` 范围，安装会被拦下，需显式豁免：`dsh plugin --profile <name> allow-version <pkg>@<ver> --dsh-version <exact> --accept-risk`（本插件不声明该范围，无需豁免）。
 
 **第 2 步：启动 DSH Web**
 
 ```bash
-npx @deepseek-ai/dsh web
+npx @deepseek-ai/dsh@latest web
 ```
 
 打开 http://127.0.0.1:3080 ，会话视图环里会出现「wewrite 工作台」tab。
@@ -42,7 +44,7 @@ npx @deepseek-ai/dsh web
 模型不需要在本插件里配：文本生成直接用 DSH 原生的模型配置（`ctx.llm`）。你只需要在工作台「设置」页填：
 
 - 公众号 AppID + AppSecret（来自公众平台「设置与开发 → 基本配置」），保存后只存本地，界面回显掩码
-- 图片供应商 API Key（可选，不配则文章无图推进，不阻塞发布）
+- 图片供应商 API Key（可选；不配可无图成稿，但因缺封面无法推送草稿箱）
 
 填完点「连接测试」。通过即可进入下一步；如返回 errcode 40164，见 [FAQ](#faq) 的 IP 白名单条目。
 
@@ -109,9 +111,9 @@ RRULE 规则与下次运行时间人类可读展示（规则原文收进悬停�
 - **AI 选中改写**：编辑器里选中一段文字，浮条点「AI 改写」，一句话指令只重写选中段（四个快捷方向：更口语 / 精简一半 / 扩写细节 / 更有数据感），原位替换、Ctrl+Z 可撤销，全文其余部分不动。
 - **侧边栏直进**：不进任何会话，点侧边栏底部「打开写作台」即全屏铺开完整工作台，Esc 收起；会话内「写作台」tab 保留，双入口并存。
 - **Markdown 编辑器 + 微信预览**：CodeMirror 编辑器改稿，右侧实时微信预览（host 侧渲染，预览 HTML 与推送载荷字节一致，所见即所推）。三套排版主题：professional-clean / tech-dark / minimal-gray。
-- **质量门禁**：成稿先过门禁（内容质量校验 + 编号配图一致性校验），门禁未过会阻断默认推送路径；你可以改稿重过，或显式覆盖。
-- **RRULE 定时，默认进草稿箱**：RRULE 规则（如每个工作日 04:00）定时跑管线，产物恒定推草稿箱，运行历史完整可审计。错过计划时刻不补偿，下次启动时提示错过数。
-- **9 家图片供应商，gpt-image-2 优先**：openai（gpt-image-2）→ doubao → dashscope → jimeng → minimax → azure_openai → gemini → openrouter → replicate 的 fallback 链。单家失败自动降级下一家，产物标注实际使用的供应商；全部失败时无图推进，不阻塞成稿。缺省只配 openai 一家，其余按需在设置页增排。
+- **质量门禁**：成稿先过门禁（内容质量校验 + 编号配图一致性校验），门禁未过会阻断推送；改稿后需**重跑管线**让其通过门禁——没有「强制覆盖」路径。
+- **RRULE 定时，产出本地成稿**：RRULE 规则（如每个工作日 04:00）按时跑管线，产出留在本地的成稿，运行历史完整可审计——**不自动推送**，需在工作台或经 agent 工具手动推草稿箱。错过计划时刻不补偿（也不提示）。
+- **9 家图片供应商，gpt-image-2 优先**：openai（gpt-image-2）→ doubao → dashscope → jimeng → minimax → azure_openai → gemini → openrouter → replicate 的 fallback 链。单家失败自动降级下一家，产物标注实际使用的供应商；全部失败时无图推进、不阻塞成稿（但缺封面无法推送）。缺省只配 openai 一家，其余按需在设置页增排。
 - **模型走 DSH 原生配置**：不另建模型账号体系。管线文本步直接用宿主 `ctx.llm`（即 DSH 设置页里配的模型），也可对单次运行覆盖 provider/model。
 
 ## 架构
@@ -162,7 +164,7 @@ DSH Host（Node + Cordis）
 
 - 缺省链只含 openai（模型锁定 `gpt-image-2`，凭据引用 `WEWRITE_IMG_OPENAI`）。
 - 可增排其余 8 家（doubao / dashscope / jimeng / minimax / azure_openai / gemini / openrouter / replicate），每家可配专属 API Key、模型名与 base URL；顺序即 fallback 顺序。
-- 单图上限 10MB，单篇正文图上限 10 张。
+- 单图上限按 10MiB 的 base64 字符校验（约 7.5MB 原图），单篇正文图上限 10 张。
 
 **API 代理**
 
@@ -181,13 +183,13 @@ DSH Host（Node + Cordis）
 | 默认主题 | professional-clean | 三套：professional-clean / tech-dark / minimal-gray |
 | 默认图尺寸 | 1024x1024 | 可选 1024x1536 / 1536x1024 / 1344x768 / 768x1344 |
 | 运行历史上限 | 200 | 1–1000，超出自动修剪终态记录 |
-| Agent 工具 | 关 | 打开后可在 DSH Agent 会话里用 `wewrite_run` / `wewrite_push_draft` / `wewrite_list_schedules` 三个工具 |
+| Agent 工具 | 开 | `cordis.patch.yml` 预置 `agentToolsEnabled: true`（开箱即开，设置页可关）；开启后 Agent 会话可用 5 个工具：`wewrite_run` / `wewrite_rewrite` / `wewrite_list_articles` / `wewrite_suggest_topics` / `wewrite_push_draft`（后者需先武装推送审批） |
 | 调度轮询间隔 | 30 秒 | 宿主级配置项（cordis.patch.yml 层） |
 
 ## 安全声明
 
 - **默认只到草稿箱**：本插件的推送面只有 draft/add 族端点。freepublish / 群发调用路径在类型层不可达（调度目标 zod literal 直接拒绝 publish/freepublish/mass，测试套件另有源码树扫描双保险）。群发永远由你在公众平台后台人工执行。
-- **凭据只存本地**：AppSecret 与各 API Key 只经 DSH 凭据服务落 `~/.dsh` 本地存储，不进 git，不离开你的机器；插件自身无任何远端上报通道。
+- **凭据只存本地**：AppSecret 与各 API Key 只经 DSH 凭据服务落 `~/.dsh` 本地存储，不进 git；仅在调用对应目标服务（微信接口、你配置的图片厂商）时按需使用，插件自身无任何第三方上报通道。
 - **日志脱敏**：secret / access_token / API key 在日志、错误与运行历史中一律掩码（长值保留前 4 字符 + `****`，短值全掩）。
 - **无默认遥测**：不收集、不上报任何使用数据，无埋点。
 - **MIT 开源**：代码见 LICENSE。
@@ -203,7 +205,7 @@ DSH Host（Node + Cordis）
 
 **支持哪个 DSH 版本？装上没激活怎么办？**
 
-见[版本兼容表](#版本兼容表)。DSH 0.2 仍是 developer preview，处在 breaking changes 窗口，本插件做了 feature detection 防御（storage/connection 服务缺失时警告并降级，而非半死不活）。装上不激活时先确认 DSH 版本在支持列表内；安装输出若出现 "plain dependency" 字样，说明插件声明未被识别，属 DSH CLI 与本插件版本不匹配，请到 [Issues](https://github.com/jerryjiao/dsh-wewrite/issues) 反馈。
+见[版本兼容表](#版本兼容表)。DSH 0.2 仍是 developer preview，处在 breaking changes 窗口，本插件做了 feature detection 防御（storage/connection 服务缺失时警告并降级，而非半死不活）。装上不激活时先确认 DSH 版本在支持列表内；若安装被 `engines.dsh` 兼容门禁拦下，按提示用 `dsh plugin --profile <name> allow-version ... --accept-risk` 精确豁免（本插件不声明该范围，一般不会触发），仍无法解决请到 [Issues](https://github.com/jerryjiao/dsh-wewrite/issues) 反馈。
 
 **群发功能在哪？**
 
@@ -211,7 +213,7 @@ DSH Host（Node + Cordis）
 
 **管线失败会留下半成品草稿吗？**
 
-不会。推送是原子操作：任一环节失败即中止，草稿箱不会出现残稿；已完成的文章产物保留在本地，改好可重推。
+不会。推送失败即中止，草稿箱不会出现残稿（`draft/add` 是最后一步，失败绝不留下半成品）；已完成的文章产物保留在本地，改好可重推。注意前置的图片素材上传不回收，重复推送可能在公众号后台留下重复的永久素材。
 
 ## 版本兼容表
 
@@ -245,7 +247,7 @@ npm run build        # 产出 lib/（本地排查用；发布时由 prepublishOn
 
 ### Playwright（e2e 真机驱动）
 
-本仓库**不自带** playwright 安装（避免重复下载浏览器与依赖膨胀）。在 worktree 跑 e2e 真机驱动（`npm run test:e2e`）时，复用 workspace 主仓的安装，两种方式任选：
+e2e 用 `playwright`（列在 devDependencies）。克隆后 `npm install` 默认会顺带下载浏览器；若想复用 workspace 主仓的既有安装、避免重复下载，可 `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install`，再对 `npm run test:e2e` 用下面两种方式之一：
 
 ```bash
 # 方式一：NODE_PATH 指向 workspace 的 node_modules（runner 从那里解析 playwright）
@@ -271,11 +273,11 @@ NODE_PATH=/Users/mac/Documents/workspace/node_modules npm run test:e2e
 
 ## English
 
-**What.** dsh-wewrite is a plugin for DeepSeek Harness (DSH) that turns a WeChat official-account AI writing pipeline—topic, outline, draft, quality gates, render, images, draft box—into a local web workbench. Models and credentials stay yours: text generation uses your DSH model config, secrets never leave `~/.dsh`. Since v0.3: per-item AI digest for trending topics (fetches the linked article and summarizes it in Chinese, falls back to title-only), selection-based AI rewrite in the editor (rewrites only what you highlight, undoable), and a sidebar entry that opens the full workbench as an overlay—no session required.
+**What.** dsh-wewrite is a plugin for DeepSeek Harness (DSH) that turns a WeChat official-account AI writing pipeline—topic, outline, draft, quality gates, render, images, draft box—into a local web workbench. Models and credentials stay yours: text generation uses your DSH model config; secrets are stored in `~/.dsh` and only sent to the services they belong to (the WeChat API and any image providers you configure). Since v0.3: per-item AI digest for trending topics (fetches the linked article and summarizes it in Chinese, falls back to title-only), selection-based AI rewrite in the editor (rewrites only what you highlight, undoable), and a sidebar entry that opens the full workbench as an overlay—no session required.
 
-**Install.** `npx @deepseek-ai/dsh plugin --profile web add dsh-wewrite`, then `npx @deepseek-ai/dsh web` and open http://127.0.0.1:3080 . Fill in your official-account AppID/AppSecret in the workbench settings, run the connection test, pick a topic, and push your first draft. Requires DSH 0.2.x (developer preview) and Node ^22.19.0 || >=24.0.0.
+**Install.** `npx @deepseek-ai/dsh@latest plugin --profile web add dsh-wewrite`, then `npx @deepseek-ai/dsh@latest web` and open http://127.0.0.1:3080 . Fill in your official-account AppID/AppSecret in the workbench settings, run the connection test, pick a topic, and push your first draft. Requires DSH 0.2.x (developer preview) and Node ^22.19.0 || >=24.0.0.
 
-**Safety.** dsh-wewrite pushes to the draft box only; there is no code path for mass publishing (freepublish), by design. Credentials are stored locally via the DSH credentials service and masked in logs; no telemetry is collected. MIT licensed.
+**Safety.** dsh-wewrite pushes to the draft box only; there is no code path for mass publishing (freepublish), by design. Credentials are stored locally via the DSH credentials service, masked in logs, and only sent to their target services (WeChat API / configured image providers); no telemetry is collected. MIT licensed.
 
 ## License
 
