@@ -7,10 +7,13 @@ import { WeChatApiError, createWeChatClient } from '@/host/wechat/client';
  * AC-1（推送失败原子化无半成品）、media_id 回填。
  *
  * 本文件钉定 src/host/wechat/client.ts 消费面：
- * - createWeChatClient({ fetchImpl, getCredentials, getSettings, now? })
+ * - createWeChatClient({ fetchImpl, getCredentials, getSettings, now?, timeoutMs? })
  * - WeChatApiError{ errcode, classification, hint? }
- *   classification: 'IP_WHITELIST' | 'AUTH' | 'RATE_LIMIT' | 'SYSTEM' | 'UNKNOWN'
- * - access_token 有效期内缓存（expires_in），过期按注入 now 重取
+ *   classification: shared WECHAT_FAILURE_CLASSES 全集
+ *   （IP_WHITELIST/AUTH/PERMISSION/RATE_LIMIT/SYSTEM/TIMEOUT/NETWORK/UNKNOWN，见 wechat-diagnostics.test.ts）
+ * - access_token 有效期内缓存（expires_in），过期按注入 now 重取；
+ *   端点回 42001/40001 时清缓存换新 token 重发一次（仍失败才抛）
+ * - fetch 超时（timeoutMs，默认 20s）抛 TIMEOUT；非 JSON 响应转可读 SYSTEM 错误
  */
 
 const DIRECT_BASE = 'https://api.weixin.qq.com';

@@ -67,7 +67,7 @@ export function ScheduleForm({
       onClose={onCancel}
       title={initial?.id ? `改期：${initial.name}` : '定时到草稿箱'}
       closeLabel="取消"
-      description="到达计划时刻后自动跑管线并把成稿推进公众号草稿箱。"
+      description="到计划时刻自动跑管线；推送草稿箱要手动执行。"
       footer={
         <>
           <Button variant="ghost" size="sm" onClick={onCancel}>取消</Button>

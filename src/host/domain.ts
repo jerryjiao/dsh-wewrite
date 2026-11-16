@@ -122,7 +122,7 @@ export const ImageRecordSchema = z.strictObject({
 });
 export type ImageRecord = z.infer<typeof ImageRecordSchema>;
 
-// ── table：pushEvents（v0.5.6 推送留痕）────────────────────────────────────
+// ── table：push_events（v0.5.6 推送留痕；表名受平台 UNIT_NAME_RE 小写约束，禁驼峰）
 // 每次推草稿箱尝试落一条（成功与失败都记）：用户能复盘「上次为什么没进去」，
 // 我们才能度量「出稿 → 首次推草稿箱」的转化。字段对齐 shared PushEvent（v 为记录级演进位）。
 
@@ -177,7 +177,7 @@ export const domainSpec = {
     runs: { valueSchema: RunRecordSchema },
     schedules: { valueSchema: ScheduleRecordSchema },
     images: { valueSchema: ImageRecordSchema },
-    pushEvents: { valueSchema: PushEventRecordSchema },
+    push_events: { valueSchema: PushEventRecordSchema },
   },
 } as const;
 

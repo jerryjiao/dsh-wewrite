@@ -16,6 +16,8 @@ export interface ToastMessage {
   detail?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** 面板外网址（如 mp.weixin.qq.com）：无 onAction 时，动作按钮点击即新开浏览器标签。 */
+  openUrl?: string;
 }
 
 export interface ToastApi {
@@ -40,26 +42,37 @@ export function ToastHost({ messages, onDismiss }: { messages: readonly ToastMes
   if (messages.length === 0) return null;
   return (
     <div className="ww-toasts" role="status" aria-live="polite">
-      {messages.map((message) => (
-        <div key={message.id} className={`ww-toast ww-toast--${message.kind}`}>
-          <Icon
-            name={message.kind === 'success' ? 'circle-check' : message.kind === 'error' ? 'circle-alert' : 'sparkles'}
-            size={16}
-          />
-          <div className="ww-toast__body">
-            <p className="ww-toast__title">{message.title}</p>
-            {message.detail ? <p className="ww-toast__detail">{message.detail}</p> : null}
-          </div>
-          {message.actionLabel && message.onAction ? (
-            <button type="button" className="ww-toast__action" onClick={message.onAction}>
-              {message.actionLabel}
+      {messages.map((message) => {
+        // 解构拿 const 绑定：TS 对属性访问的收窄不跨函数边界，闭包里直接用 message.openUrl 过不了类型。
+        const { openUrl } = message;
+        const openExternal =
+          openUrl && !message.onAction
+            ? () => {
+                // noopener：新标签拿不到 opener，防目标页反向操作面板。
+                window.open(openUrl, '_blank', 'noopener');
+              }
+            : undefined;
+        return (
+          <div key={message.id} className={`ww-toast ww-toast--${message.kind}`}>
+            <Icon
+              name={message.kind === 'success' ? 'circle-check' : message.kind === 'error' ? 'circle-alert' : 'sparkles'}
+              size={16}
+            />
+            <div className="ww-toast__body">
+              <p className="ww-toast__title">{message.title}</p>
+              {message.detail ? <p className="ww-toast__detail">{message.detail}</p> : null}
+            </div>
+            {message.actionLabel && (message.onAction || openExternal) ? (
+              <button type="button" className="ww-toast__action" onClick={message.onAction ?? openExternal}>
+                {message.actionLabel}
+              </button>
+            ) : null}
+            <button type="button" className="ww-toast__close" aria-label="关闭提示" onClick={() => onDismiss(message.id)}>
+              <Icon name="x" size={16} />
             </button>
-          ) : null}
-          <button type="button" className="ww-toast__close" aria-label="关闭提示" onClick={() => onDismiss(message.id)}>
-            <Icon name="x" size={16} />
-          </button>
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

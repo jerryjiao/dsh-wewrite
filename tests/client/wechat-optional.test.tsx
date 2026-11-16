@@ -127,7 +127,7 @@ describe('编辑器页头：无凭据时推送改走配置引导', () => {
     await user.click(screen.getAllByRole('button', { name: '推草稿箱' })[0] as HTMLElement);
     const menu = screen.getByRole('menu');
     expect(within(menu).queryByRole('button', { name: '推草稿箱' })).toBeNull();
-    await user.click(within(menu).getByRole('button', { name: '配好公众号就能一键发' }));
+    await user.click(within(menu).getByRole('button', { name: '配好公众号后可推草稿箱' }));
     expect(onConfigureWechat).toHaveBeenCalledTimes(1);
     expect(onPush).not.toHaveBeenCalled();
   });
@@ -147,7 +147,7 @@ describe('编辑器页头：无凭据时定时推送同样改走配置引导', (
     const { onSchedule, onConfigureWechat } = renderHead(false);
     await user.click(screen.getAllByRole('button', { name: '推草稿箱' })[0] as HTMLElement);
     const menu = screen.getByRole('menu');
-    await user.click(within(menu).getByRole('button', { name: '配好公众号才能定时发' }));
+    await user.click(within(menu).getByRole('button', { name: '配好公众号后才能定时跑稿' }));
     expect(onConfigureWechat).toHaveBeenCalledTimes(1);
     expect(onSchedule).not.toHaveBeenCalled();
   });
@@ -156,7 +156,7 @@ describe('编辑器页头：无凭据时定时推送同样改走配置引导', (
     const { onSchedule, onConfigureWechat } = renderHead(true);
     await user.click(screen.getAllByRole('button', { name: '推草稿箱' })[0] as HTMLElement);
     const menu = screen.getByRole('menu');
-    await user.click(within(menu).getByRole('button', { name: '推草稿箱并定时…' }));
+    await user.click(within(menu).getByRole('button', { name: '定时跑稿（不自动推送）' }));
     expect(onSchedule).toHaveBeenCalledTimes(1);
     expect(onConfigureWechat).not.toHaveBeenCalled();
   });

@@ -431,7 +431,7 @@ export class WeWriteService {
   // ── 推送留痕（v0.5.6 转化度量）────────────────────────────────────────────
 
   private pushEventDeps(): PushEventDeps {
-    return { table: this.tables.pushEvents, now: this.nowFn };
+    return { table: this.tables.push_events, now: this.nowFn };
   }
 
   listPushEvents(query: { limit?: number; articleId?: string } = {}): PushEvent[] {

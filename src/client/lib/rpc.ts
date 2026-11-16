@@ -1,4 +1,4 @@
-import { RPC_CHANNEL } from '@/shared/contract';
+import { RPC_CHANNEL, type PushFailure } from '@/shared/contract';
 import type { ClientContext } from './context';
 
 /**
@@ -141,5 +141,68 @@ export function describeRpcFailure(error: unknown): FailureNotice {
         ipWhitelist: false,
       };
     }
+  }
+}
+
+/**
+ * 推送失败（数据面 {ok:false, failure}）→ 中文标题 + 出路 + 直达动作。
+ * 为什么独立于 describeRpcFailure：v0.5.6 起推送失败不再是 RPC 异常而是结构化返回值，
+ * classification/hint/egressIp/settingsTarget 都在 failure 里，按字段出文案才能到用户眼前；
+ * describeRpcFailure 保留给仍走异常路径的调用面（诊断等）。
+ */
+export interface PushFailureNotice {
+  /** 一句话失败标题（具体、可行动）。 */
+  title: string;
+  /** 出路/修复指引（宿主 failure.hint 原样带上）。 */
+  hint?: string;
+  /** true = UI 应给「去设置」直达动作（落点见 failure.settingsTarget）。 */
+  settingsNavigate?: boolean;
+  /** true = UI 可给「去公众号后台」外链（mp.weixin.qq.com：账号认证 / 加白名单）。 */
+  openBackend?: boolean;
+}
+
+export function describePushFailure(failure: PushFailure): PushFailureNotice {
+  // settingsTarget 是宿主决定好的「去哪个设置分组」；有它 UI 才给跳设置动作，避免空指向。
+  const settingsNavigate = failure.settingsTarget !== undefined;
+  switch (failure.reason) {
+    case 'article-not-found':
+      return { title: '文章不存在或已被删除。', hint: failure.hint };
+    case 'gates-not-passed':
+      return { title: '质量门禁未过，这篇稿还不能推。', hint: failure.hint };
+    case 'cover-missing':
+      return { title: '缺封面：微信草稿必须带封面。', hint: failure.hint, settingsNavigate };
+    case 'no-credentials':
+      return { title: '公众号还没连接。', hint: failure.hint, settingsNavigate: true };
+    case 'wechat-api':
+      return describeWeChatApiFailure(failure, settingsNavigate);
+  }
+}
+
+function describeWeChatApiFailure(failure: PushFailure, settingsNavigate: boolean): PushFailureNotice {
+  switch (failure.classification) {
+    case 'IP_WHITELIST': {
+      // 两条出路：设置里配代理（跳设置），或去公众号后台加白名单（外链）。
+      const ip = failure.egressIp;
+      return {
+        title: ip ? `出口 IP ${ip} 不在白名单。` : '出口 IP 不在白名单。',
+        hint: failure.hint,
+        settingsNavigate: true,
+        openBackend: true,
+      };
+    }
+    case 'PERMISSION':
+      // 48001：账号类型没有草稿箱权限，出路在公众号后台的认证，不在本机设置。
+      return { title: '公众号没有草稿箱权限。', hint: failure.hint, openBackend: true };
+    case 'AUTH':
+      // 连接失效：跳设置页重新连接测试。
+      return { title: '公众号连接失效。', hint: failure.hint, settingsNavigate: true };
+    case 'TIMEOUT':
+    case 'NETWORK':
+      return { title: '网络不通/超时，微信接口没有应答。', hint: failure.hint, settingsNavigate };
+    case 'RATE_LIMIT':
+      return { title: '触发微信接口限频，稍后再推。', hint: failure.hint };
+    default:
+      // SYSTEM / 未带分类：宿主 message 已是人话，透传兜底。
+      return { title: failure.message || '推送失败。', hint: failure.hint, settingsNavigate };
   }
 }

@@ -48,7 +48,8 @@ export default [
         (await card.getAttribute('class'))?.includes('ww-schedule-card--paused'),
         'disabled 排期卡应有 --paused 类',
       );
-      await expectTextContains(card, '发布目标：草稿箱（锁定）', '卡内应有发布目标锁定文案');
+      // v0.5.6：定时从不推送，文案明说（原「发布目标：草稿箱（锁定）」与事实矛盾）。
+    await expectTextContains(card, '到点自动跑稿；推送草稿箱需手动执行', '卡内应有「不自动推送」的事实文案');
     },
   },
   {

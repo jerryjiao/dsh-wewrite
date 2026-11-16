@@ -83,12 +83,14 @@ export function EditorHeadActions({
           </button>
         }
         items={[
-          { id: 'push', label: wechatReady ? '推草稿箱' : '配好公众号就能一键发', icon: <Icon name="send" size={16} /> },
-          { id: 'schedule', label: wechatReady ? '推草稿箱并定时…' : '配好公众号才能定时发', icon: <Icon name="calendar-clock" size={16} /> },
+          // 无凭据项只说「配好后能做什么」，不说「一键发」——推送只进草稿箱，群发在后台手动。
+          { id: 'push', label: wechatReady ? '推草稿箱' : '配好公众号后可推草稿箱', icon: <Icon name="send" size={16} /> },
+          // 「定时跑稿」如实描述行为：到点只跑管线，不自动推送（推送始终是手动动作）。
+          { id: 'schedule', label: wechatReady ? '定时跑稿（不自动推送）' : '配好公众号后才能定时跑稿', icon: <Icon name="calendar-clock" size={16} /> },
         ]}
         onSelect={(id) => {
           setPushMenuOpen(false);
-          // 无凭据时两项都改走配置引导：定时任务到点也要推草稿箱，建了必然失败。
+          // 无凭据时两项都改走配置引导（行为保持）：定时跑稿的终点是草稿箱，先配好凭据再建，避免建了推不出去。
           if (!wechatReady) {
             onConfigureWechat();
             return;

@@ -4,6 +4,7 @@ import type { ConfigView, CredentialsDescriptor } from '@/shared/contract';
 import type { WewriteRpc } from '../lib/rpc';
 import { describeRpcFailure } from '../lib/rpc';
 import { Icon } from '../components/Icon';
+import { PushHistorySection } from '../components/PushHistorySection';
 
 /**
  * 设置页分组内容区（DESIGN §9.6）：公众号 / API 代理 / 发布纪律（模型与图片组在 settings-models.tsx）。
@@ -84,6 +85,9 @@ export function WechatSection({ config, rpc, onSaved }: SectionProps) {
         </Button>
         <SaveState state={saveState} />
       </div>
+      {/* v0.5.6 留痕展示面：公众号区块下常驻「最近推送」。拆独立组件（PushHistorySection.tsx），
+          本文件保持 300 行内；加载失败由组件内部降级，不影响上方凭据配置。 */}
+      <PushHistorySection rpc={rpc} />
     </div>
   );
 }

@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
-import type { RunParams } from '@/shared/contract';
+import type { PushDraftResult, RunParams } from '@/shared/contract';
 import type { GateReportView } from '../components/GateReport';
 import { gateStatusForArticle } from '../lib/gate';
 import { countWords } from '../lib/format';
+import { pushOutcomeToToast } from '../lib/push-outcome';
 import { describeRpcFailure } from '../lib/rpc';
 import { articleStatusBadge, CodeChip, ErrorNote, SkeletonBlock, StatusBadge } from '../components/bits';
 import { ScheduleForm } from '../components/ScheduleForm';
@@ -13,6 +14,7 @@ import { PreviewCanvas } from '../components/editor/PreviewCanvas';
 import { StatusStrip } from '../components/editor/StatusStrip';
 import { EditorHeadActions } from '../components/editor/EditorHeadActions';
 import type { EditorView } from '../components/editor/EditorHeadActions';
+import { CoverControl } from '../components/editor/CoverControl';
 import { EditorSplitter, splitColumns } from '../components/editor/Splitter';
 import { useArticleDoc } from '../components/editor/useArticleDoc';
 import { GateOverlayPanel } from '../components/GateOverlayPanel';
@@ -88,9 +90,11 @@ export function EditorPanel({
     if (!article || pushing) return;
     setPushing(true);
     try {
-      await rpc.call<{ mediaId: string; thumbMediaId: string }>('wechat/pushDraft', { articleId: article.id });
-      toast.push({ kind: 'success', title: t('toast.pushed') });
-      await refreshSnapshot();
+      // v0.5.6：推送结果是数据面 union（失败不再抛 RPC 异常），分类/出路在 failure 里。
+      const result = await rpc.call<PushDraftResult>('wechat/pushDraft', { articleId: article.id });
+      // 数据面不再需要 describeRpcFailure 兜底；网络层异常仍走 catch 的通用文案。
+      toast.push(pushOutcomeToToast(result, { navigate: () => navigate({ kind: 'settings' }) }));
+      if (result.ok) await refreshSnapshot();
     } catch (error) {
       const failure = describeRpcFailure(error);
       toast.push({
@@ -121,7 +125,7 @@ export function EditorPanel({
       topicMode: 'fixed',
       topic: article.title,
       theme: article.theme,
-      imageCount: Math.min(10, article.bodyImageIds.length),
+      // 不传 imageCount：宿主缺省按 1 跑（DEFAULT_IMAGE_COUNT）→ 修复运行必产封面；此前传 0 会产出无封面稿，推草稿箱永远被门禁卡死。
     };
     await startGeneration(params, article.title);
     setFixing(false);
@@ -138,7 +142,7 @@ export function EditorPanel({
         params: { topicMode: 'fixed', topic: article.title, theme: article.theme },
         enabled: true,
       });
-      toast.push({ kind: 'success', title: '已排期', detail: '到达时刻后自动生成并推进草稿箱。' });
+      toast.push({ kind: 'success', title: '已排期', detail: '到点自动跑稿；推送草稿箱要手动执行。' });
       setScheduleOpen(false);
       await refreshSnapshot();
     } catch (error) {
@@ -149,11 +153,10 @@ export function EditorPanel({
   }
 
   function persistLocal(key: string, value: string): void {
+    // 持久化失败（隐私模式等）仅影响下次默认值，忽略即可。
     try {
       window.localStorage.setItem(key, value);
-    } catch {
-      /* 持久化失败仅影响下次默认值 */
-    }
+    } catch { /* noop */ }
   }
 
   function changeView(next: EditorView) {
@@ -209,6 +212,8 @@ export function EditorPanel({
           onConfigureWechat={() => navigate({ kind: 'settings' })}
         />
       </header>
+      {/* 封面控件（v0.5.6）：封面是推草稿箱硬门槛；放页头正下方不进单行页头（页头永不折行，横幅需要可读宽度） */}
+      <CoverControl article={article} rpc={rpc} toast={toast} onArticleChanged={doc.setArticle} />
 
       <div
         className={effectiveView === 'split' ? 'ww-editor-body ww-editor-body--split' : 'ww-editor-body'}
@@ -273,17 +278,15 @@ export function EditorPanel({
         onClose={() => setGateBlockOpen(false)}
         title="门禁未过"
         closeLabel="关闭"
-        description={`最近一次运行${gateStatus.label}。修改后再推，或显式选择「仍然推送」。`}
+        description={`最近一次运行${gateStatus.label}。修改后再推。`}
         footer={
           <>
-            <Button variant="ghost" size="sm" onClick={() => setGateBlockOpen(false)}>继续修改</Button>
-            <Button variant="ghost" size="sm" className="ww-danger-ghost" onClick={() => { setGateBlockOpen(false); void pushDraft(); }}>仍然推送</Button>
+            <Button variant="ghost" size="sm" onClick={() => setGateBlockOpen(false)}>取消</Button>
+            <Button variant="primary" size="sm" className="ww-btn-accent" onClick={() => { setGateBlockOpen(false); void runFix(); }}>重新生成并修复</Button>
           </>
         }
       >
-        <p className="ww-modal-note">
-          推送前可在 <CodeChip>门禁报告</CodeChip> 面板查看未过规则并逐项修复。
-        </p>
+        <p className="ww-modal-note">推送前可在 <CodeChip>门禁报告</CodeChip> 面板查看未过规则并逐项修复。</p>
       </Modal>
 
       <ScheduleForm

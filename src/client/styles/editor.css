@@ -351,3 +351,66 @@
   justify-content: space-between;
   gap: var(--ww-space-2);
 }
+
+/* ---------- 封面控件（v0.5.6）：页头正下方的封面行 ----------
+ * 封面是推草稿箱硬门槛：无封面时横幅警示（warn 语义色），有封面时缩略图 + 动作按钮。
+ * 独立成行而不进页头：页头是永不折行的单行容器（§页头），横幅文案需要可读宽度。 */
+
+.ww-cover {
+  display: flex;
+  align-items: center;
+  gap: var(--ww-space-3);
+  min-height: 40px;
+  padding: var(--ww-space-1) var(--ww-space-4);
+  border-bottom: var(--ww-border-width) solid var(--ww-border);
+  background: var(--ww-surface);
+  flex: none;
+}
+
+.ww-cover__banner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-1);
+  color: var(--ww-warn);
+  font-size: var(--ww-text-sm);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 缩略图/占位块同尺寸（公众号封面 2.35:1 的紧凑近似），占位块虚线框区别于真实图。 */
+.ww-cover__thumb {
+  width: 66px;
+  height: 28px;
+  object-fit: cover;
+  border: var(--ww-border-width) solid var(--ww-border);
+  border-radius: var(--ww-radius-sm);
+  flex: none;
+}
+
+.ww-cover__placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 66px;
+  height: 28px;
+  font-size: var(--ww-text-xs);
+  color: var(--ww-fg-caption);
+  border: var(--ww-border-width) dashed var(--ww-border);
+  border-radius: var(--ww-radius-sm);
+  flex: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.ww-cover__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ww-space-2);
+  margin-left: auto;
+  flex: none;
+}
+
+/* 文件选择 input 由按钮触发 click，不参与布局。 */
+.ww-cover__input { display: none; }

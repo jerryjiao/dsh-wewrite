@@ -10,7 +10,8 @@ import { useStore } from '../store';
 
 /**
  * 定时任务（DESIGN §9.5）：排队队列（ScheduleCard）+ 执行历史（trigger=schedule 的 run 时间线）。
- * ScheduleCard = RRULE 等宽原文 + 人类可读翻译双行；新建/改期走 ScheduleForm（目标恒草稿箱）。
+ * ScheduleCard = RRULE 等宽原文 + 人类可读翻译双行；新建/改期走 ScheduleForm。
+ * 事实口径：到点只跑管线（选题→成稿），推送草稿箱是用户手动动作，文案不得写成自动推送。
  */
 
 export function SchedulePanel() {
@@ -138,7 +139,8 @@ export function SchedulePanel() {
           <EmptyState
             icon={<Icon name="clock" size={20} />}
             subIcon="plus"
-            title="队列是空的。在编辑器里点「推草稿箱 ▾ → 定时」，或从选题中心创建每日选题任务。"
+            // 引导必须与真实菜单对得上（页头按钮文案是「推草稿箱 ▾」，菜单项是「定时跑稿（不自动推送）」），并说清推送要手动。
+            title="队列是空的。在编辑器页头「推草稿箱 ▾」菜单里选「定时跑稿（不自动推送）」，可从当前文章建任务；也可以直接新建定时。到点自动跑稿，推送草稿箱要手动执行。"
             action={
               <Button variant="outline" size="sm" icon={<Icon name="plus" size={16} />} onClick={() => setFormOpen(true)}>
                 新建定时
@@ -161,7 +163,8 @@ export function SchedulePanel() {
                     <p className="ww-schedule-card__human" title={schedule.rrule}>
                       {describeRrule(schedule.rrule)} · 下次 {formatDateTime(schedule.nextRunAt)}
                     </p>
-                    <p className="ww-schedule-card__target">发布目标：草稿箱（锁定）</p>
+                    {/* 契约里 publishTarget 仍是 'draft'（终态目标），但执行器只跑管线；文案按真实行为说。 */}
+                    <p className="ww-schedule-card__target">到点自动跑稿；推送草稿箱需手动执行</p>
                   </div>
                   <div className="ww-schedule-card__actions">
                     <Button variant="ghost" size="sm" icon={<Icon name={schedule.enabled ? 'pause' : 'play'} size={16} />} onClick={() => void toggle(schedule)} disabled={busyId === schedule.id}>

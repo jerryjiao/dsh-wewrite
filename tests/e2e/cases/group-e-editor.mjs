@@ -215,10 +215,18 @@ export default [
         timeout: 8000,
         msg: '门禁未过文章推草稿箱应弹阻断 Modal',
       });
-      await expectVisible(page.getByRole('button', { name: '继续修改' }).first(), { msg: '阻断 Modal 应提供「继续修改」' });
-      await expectVisible(page.getByRole('button', { name: '仍然推送' }).first(), { msg: '阻断 Modal 应提供显式「仍然推送」' });
+      // v0.5.6：后端门禁做成硬闸后「仍然推送」必败即骗人，Modal 改为
+      // 「重新生成并修复」（宿主缺省补封面重跑）+「取消」，不再提供必败出口。
+      await expectVisible(page.getByRole('button', { name: '重新生成并修复' }).first(), { msg: '阻断 Modal 应提供「重新生成并修复」' });
+      await expectVisible(page.getByRole('button', { name: '取消' }).first(), { msg: '阻断 Modal 应提供「取消」' });
+      assert.equal(await page.getByRole('button', { name: '仍然推送' }).count(), 0, '「仍然推送」应退役（负向——必败按钮不再提供）');
       assert.equal(await page.locator('.ww-toast--success').count(), 0, '阻断路径不应有 success toast（负向）');
-      await page.getByRole('button', { name: '继续修改' }).first().click();
+      await page.getByRole('button', { name: '取消' }).first().click();
+      // 「门禁未过」字样也出现在门禁 chip 等处，用 Modal 容器判关闭（title 只在对话框里）。
+      await pollUntil(
+        async () => (await page.locator('.ww-modal, [role="dialog"]').filter({ hasText: '门禁未过' }).count()) === 0,
+        { timeout: 4000, msg: '取消后阻断 Modal 应关闭（不泄漏到后续用例）' },
+      );
     },
   },
   {

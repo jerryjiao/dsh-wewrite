@@ -64,7 +64,7 @@ export interface DomainTables {
   readonly runs: KvTable<RunRecord>;
   readonly schedules: KvTable<ScheduleRecord>;
   readonly images: KvTable<ImageRecord>;
-  readonly pushEvents: KvTable<PushEventRecord>;
+  readonly push_events: KvTable<PushEventRecord>;
   readonly domain: StorageDomainHandle;
 }
 
@@ -74,7 +74,7 @@ export function openTables(domain: StorageDomainHandle): DomainTables {
     runs: typedTable<RunRecord>(domain, 'runs'),
     schedules: typedTable<ScheduleRecord>(domain, 'schedules'),
     images: typedTable<ImageRecord>(domain, 'images'),
-    pushEvents: typedTable<PushEventRecord>(domain, 'pushEvents'),
+    push_events: typedTable<PushEventRecord>(domain, 'push_events'),
     domain,
   };
 }
