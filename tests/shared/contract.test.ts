@@ -78,7 +78,7 @@ const runSummary = () => ({
 
 const configView = () => ({
   settings: {
-    wechatAppId: 'wx1234567890abcdef',
+    wechatAppId: 'wx_test_appid',
     wechatApiBaseUrl: 'https://api.weixin.qq.com',
     wechatAuthor: 'Jerry',
     defaultTheme: 'professional-clean',
