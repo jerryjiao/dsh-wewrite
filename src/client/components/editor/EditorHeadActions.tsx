@@ -7,6 +7,7 @@ import { ArticleManage } from './ArticleManage';
 /**
  * 编辑器页头右侧动作组（uiux-workbench-delta §1-7）：
  * [三视图分段] [⋯管理菜单（重命名/删除）] [推草稿箱 ▾ 主 CTA]。
+ * 公众号未配置时「推草稿箱」改为引导项（不报错）：选中即跳设置页配公众号，出稿不受影响。
  */
 
 export type EditorView = 'edit' | 'split' | 'preview';
@@ -28,6 +29,8 @@ export function EditorHeadActions({
   pushingLabel,
   onPush,
   onSchedule,
+  wechatReady,
+  onConfigureWechat,
 }: {
   view: EditorView;
   onViewChange: (view: EditorView) => void;
@@ -39,6 +42,9 @@ export function EditorHeadActions({
   pushingLabel: string;
   onPush: () => void;
   onSchedule: () => void;
+  /** 公众号凭据是否就绪（与 StartupCard 同判据）；false 时推送改走配置引导。 */
+  wechatReady: boolean;
+  onConfigureWechat: () => void;
 }) {
   const [pushMenuOpen, setPushMenuOpen] = useState(false);
   return (
@@ -77,11 +83,16 @@ export function EditorHeadActions({
           </button>
         }
         items={[
-          { id: 'push', label: '推草稿箱', icon: <Icon name="send" size={16} /> },
-          { id: 'schedule', label: '推草稿箱并定时…', icon: <Icon name="calendar-clock" size={16} /> },
+          { id: 'push', label: wechatReady ? '推草稿箱' : '配好公众号就能一键发', icon: <Icon name="send" size={16} /> },
+          { id: 'schedule', label: wechatReady ? '推草稿箱并定时…' : '配好公众号才能定时发', icon: <Icon name="calendar-clock" size={16} /> },
         ]}
         onSelect={(id) => {
           setPushMenuOpen(false);
+          // 无凭据时两项都改走配置引导：定时任务到点也要推草稿箱，建了必然失败。
+          if (!wechatReady) {
+            onConfigureWechat();
+            return;
+          }
           if (id === 'push') onPush();
           else onSchedule();
         }}

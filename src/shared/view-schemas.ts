@@ -10,6 +10,7 @@ import {
   LlmOverrideSchema,
   RUN_STATUSES,
   RunParamsSchema,
+  RunRetrySchema,
   SlugSchema,
 } from './schema-base';
 
@@ -71,6 +72,8 @@ export const RunSummarySchema = z.strictObject({
   startedAt: z.string(),
   finishedAt: z.string().optional(),
   error: z.strictObject({ code: z.string(), message: z.string() }).optional(),
+  /** 退避等待期的可见进度；不在等待期时缺省（界面据此判断要不要显示那一行）。 */
+  retry: RunRetrySchema.optional(),
 });
 export type RunSummary = z.infer<typeof RunSummarySchema>;
 
@@ -97,6 +100,7 @@ export const RunDetailSchema = z.strictObject({
   startedAt: z.string(),
   finishedAt: z.string().optional(),
   error: z.strictObject({ code: z.string(), message: z.string() }).optional(),
+  retry: RunRetrySchema.optional(),
   topic: z.string(),
   steps: z.array(StepViewSchema),
 });

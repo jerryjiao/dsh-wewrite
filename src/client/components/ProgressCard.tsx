@@ -1,7 +1,7 @@
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useStore } from '../store';
 import { Icon } from './Icon';
-import { PipelineStepper } from './PipelineStepper';
+import { PipelineStepper, runRetryText } from './PipelineStepper';
 
 /**
  * 右下角进度卡（ProgressCard，uiux-workbench-delta §1-5，L3 去全屏化）：
@@ -18,6 +18,8 @@ export function ProgressCard({ open, onCollapse }: { open: boolean; onCollapse: 
   // 终态语义（delta §1-5）：succeeded/cancelled/interrupted 交 Toast（卡消失）；
   // failed 保留卡片供「重试」，直到用户收起或重试产生新 run。
   const active = activeRun.status === 'queued' || activeRun.status === 'running';
+  // 退避等待期间给一行中文进度：用户在等 5/15/45 秒，没有这行会以为生成卡住了。
+  const retryText = runRetryText(activeRun);
   const failed = activeRun.status === 'failed';
   if (!active && !failed) return null;
 
@@ -43,6 +45,11 @@ export function ProgressCard({ open, onCollapse }: { open: boolean; onCollapse: 
         </button>
       </div>
       <div className="ww-progress-card__body">
+        {retryText ? (
+          <p className="ww-progress-card__retry" data-testid="ww-progress-card-retry" role="status">
+            {retryText}
+          </p>
+        ) : null}
         <PipelineStepper run={activeRun} topic={generation.topic} compact />
         {failed && activeRun.error ? <p className="ww-progress-card__error">{activeRun.error.message}</p> : null}
       </div>

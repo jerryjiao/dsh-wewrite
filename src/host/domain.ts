@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { ImageProviderConfigSchema, LlmOverrideSchema, RUN_STATUSES, RunParamsSchema } from '../shared/contract';
+import { ImageProviderConfigSchema, LlmOverrideSchema, RUN_STATUSES, RunParamsSchema, RunRetrySchema } from '../shared/contract';
 import { isValidTimeZone } from '../shared/contract';
 
 const SlugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, { message: 'slug 必须是 kebab-case' });
@@ -77,6 +77,8 @@ export const RunRecordSchema = z.strictObject({
   status: z.enum(RUN_STATUSES),
   steps: z.array(StepRecordSchema),
   error: z.strictObject({ code: z.string().min(1), message: z.string() }).optional(),
+  /** 退避等待期落库（界面据此显示「第 N/3 次重试」）；恢复扫描改 interrupted 时清掉，不留假进度。 */
+  retry: RunRetrySchema.optional(),
   summary: z.string().optional(),
   startedAt: z.string(),
   finishedAt: z.string().optional(),

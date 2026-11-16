@@ -9,9 +9,10 @@
 一个 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 插件：把一整套微信公众号 AI 写作管线（选题 → 大纲 → 成稿 → 质量门禁 → 排版渲染 → 配图 → 草稿箱）产品化。任何 DSH 用户一条命令安装，在本地 Web UI 里完成从选题到草稿箱的全流程。模型与凭据全部走你自己的账号，数据只落本地。
 
 - 官网：https://jerryjiao.github.io/dsh-wewrite/
-- 版本：v0.5.4
+- 版本：v0.5.5（以 [npm](https://www.npmjs.com/package/dsh-wewrite) 的 `latest` 与 [Releases](https://github.com/jerryjiao/dsh-wewrite/releases) 为准；第三方插件目录站抓的是 README 快照，可能滞后数天）
 - License：MIT
 - 适用 DSH：0.2.x（developer preview，见下方[版本兼容表](#版本兼容表)）
+- 公众号凭据是可选件：不填照样能跑完整条管线出稿，只在要推草稿箱时需要
 
 ## 5 分钟快速开始
 
@@ -23,11 +24,11 @@
 npx @deepseek-ai/dsh@latest plugin --profile web add dsh-wewrite
 ```
 
-装的是 npm 上的最新版（当前 `0.5.4`）。安装完成后如需卸载：`npx @deepseek-ai/dsh@latest plugin --profile web remove dsh-wewrite`。
+装的是 npm 上的最新版（当前 `0.5.5`）。安装完成后如需卸载：`npx @deepseek-ai/dsh@latest plugin --profile web remove dsh-wewrite`。
 
 > 关于产物形态：`lib/` 构建产物不入库（`.gitignore` 自 2026-08-28 起忽略），发布时由 `prepublishOnly` 构建并打进 npm 包——包内含 `lib/` 与 `cordis.patch.yml`，所以上面的 npm 安装是装完即用的推荐路径。
 >
-> 若要从源码装某个 tag（`npx @deepseek-ai/dsh@latest plugin --profile web add github:jerryjiao/dsh-wewrite#v0.5.4`）：DSH 从 git 安装会以 `prepare` 脚本构建，但 pnpm 默认拦截依赖构建脚本——需在对应 profile 目录的 `pnpm-workspace.yaml` 里用 `allowBuilds` 放行本包（精确 key），或先自行 `npm run build` 再装，否则拿不到 `lib/`。
+> 若要从源码装某个 tag（`npx @deepseek-ai/dsh@latest plugin --profile web add github:jerryjiao/dsh-wewrite#v0.5.5`）：DSH 从 git 安装会以 `prepare` 脚本构建，但 pnpm 默认拦截依赖构建脚本——需在对应 profile 目录的 `pnpm-workspace.yaml` 里用 `allowBuilds` 放行本包（精确 key），或先自行 `npm run build` 再装，否则拿不到 `lib/`。
 >
 > DSH 0.2.x 还提供图形化「插件管理器」（设置 → 插件），可直接按 npm 包名 / Git 仓库 / 本地目录安装，不必敲命令。若某插件声明了与当前 DSH 不兼容的 `engines.dsh` 范围，安装会被拦下，需显式豁免：`dsh plugin --profile <name> allow-version <pkg>@<ver> --dsh-version <exact> --accept-risk`（本插件不声明该范围，无需豁免）。
 
@@ -39,18 +40,20 @@ npx @deepseek-ai/dsh@latest web
 
 打开 http://127.0.0.1:3080 ，会话视图环里会出现「wewrite 工作台」tab。
 
-**第 3 步：配置凭据**
+**第 3 步：出第一篇（不需要公众号）**
 
-模型不需要在本插件里配：文本生成直接用 DSH 原生的模型配置（`ctx.llm`）。你只需要在工作台「设置」页填：
+「选题」面板选一条热榜（内置 Hacker News，可配自定义聚合源），点开条目先看一眼 AI 速览（抓原文后的中文要点总结，抓不到则给标题解读），合适就点「写这个」，或直接输入固定主题。管线自动执行六步（选题 → 大纲 → 成稿 → 门禁 → 渲染 → 配图），进度实时可见。完成后在编辑器里改稿——选中任意一段点「AI 改写」下一句指令即可局部重写（Ctrl+Z 可撤销），右侧微信预览与最终推送产物字节一致。
+
+到这一步稿子已经落在本地工作区，全程不碰微信接口：没填任何公众号信息也能一条龙跑完。
+
+**第 4 步：要推草稿箱时再配公众号**
+
+模型不需要在本插件里配：文本生成直接用 DSH 原生的模型配置（`ctx.llm`）。只有想把稿子推进草稿箱时，才需要去工作台「设置」页填：
 
 - 公众号 AppID + AppSecret（来自公众平台「设置与开发 → 基本配置」），保存后只存本地，界面回显掩码
 - 图片供应商 API Key（可选；不配可无图成稿，但因缺封面无法推送草稿箱）
 
-填完点「连接测试」。通过即可进入下一步；如返回 errcode 40164，见 [FAQ](#faq) 的 IP 白名单条目。
-
-**第 4 步：出第一篇**
-
-「选题」面板选一条热榜（内置 Hacker News，可配自定义聚合源），点开条目先看一眼 AI 速览（抓原文后的中文要点总结，抓不到则给标题解读），合适就点「写这个」，或直接输入固定主题。管线自动执行六步（选题 → 大纲 → 成稿 → 门禁 → 渲染 → 配图），进度实时可见。完成后在编辑器里改稿——选中任意一段点「AI 改写」下一句指令即可局部重写（Ctrl+Z 可撤销），右侧微信预览与最终推送产物字节一致。确认后点「推草稿箱」，到微信公众平台后台「内容与互动 → 图文素材」里查看草稿。群发请你在公众平台后台人工执行（本插件没有任何群发调用路径，见[安全声明](#安全声明)）。
+填完点「连接测试」；如返回 errcode 40164，见 [FAQ](#faq) 的 IP 白名单条目。通过后回编辑器点「推草稿箱」，到微信公众平台后台「内容与互动 → 图文素材」里查看草稿。群发请你在公众平台后台人工执行（本插件没有任何群发调用路径，见[安全声明](#安全声明)）。
 
 ## 一步步用起来
 
@@ -72,7 +75,7 @@ npx @deepseek-ai/dsh@latest web
 
 <p><img src="assets/screenshots/01-workbench.png" alt="写作工作区界面：左栏文章列表（搜索、状态筛选、门禁标记、新文章入口），主区编辑器默认载入最近一篇，顶部为写作/选题/定时导航与设置入口" width="720"></p>
 
-打开即工作区：左栏是你的全部文章（状态点 + 门禁标记 + 筛选搜索），主区直接进入最近一篇的编辑器——选文章、改稿一步到位，不再有「列表页 → 下钻」两跳。零文章时主区是启动卡（输入主题开写 / 去选题中心 / 先配置凭据）。
+打开即工作区：左栏是你的全部文章（状态点 + 门禁标记 + 筛选搜索），主区直接进入最近一篇的编辑器——选文章、改稿一步到位，不再有「列表页 → 下钻」两跳。零文章时主区是启动卡（输入主题开写 / 去选题中心挑热榜 / 不连公众号也能出稿，随时可配）。
 
 **选题中心**
 
@@ -196,6 +199,10 @@ DSH Host（Node + Cordis）
 
 ## FAQ
 
+**我没有公众号，能先跑起来吗？**
+
+能。选题、大纲、成稿、门禁、渲染、配图这六步不碰微信接口，不填任何公众号信息也能跑完，成稿落在本地工作区。公众号 AppID / AppSecret 只在要推草稿箱时才需要：设置页填好、点「连接测试」通过后，回编辑器推即进草稿箱。
+
 **推送报 errcode 40164（invalid ip，不在白名单）怎么办？**
 
 这是微信侧约束：调用服务端接口的出口 IP 必须在公众号白名单里。点设置页「连接测试」，诊断会显示当前出口 IP 与分类指引。两条出路：
@@ -219,14 +226,15 @@ DSH Host（Node + Cordis）
 
 | dsh-wewrite | DSH | Node | React | 状态 |
 |---|---|---|---|---|
-| v0.5.4（当前） | 0.2.x（developer preview，首个对齐 0.2.2 的版本） | ^22.19.0 \|\| >=24.0.0 | 18（宿主提供，peer） | 已验证（2026-11-15：lint / typecheck / 699 单测 / build 全绿） |
+| v0.5.5（当前） | 0.2.x（developer preview，首个对齐 0.2.2 的版本） | ^22.19.0 \|\| >=24.0.0 | 18（宿主提供，peer） | 已验证（2026-11-16：lint / typecheck / 725 单测 / build 全绿；e2e 真机 fresh 16 · demo 37 · live 8 全过） |
+| v0.5.4 | 0.2.x | ^22.19.0 \|\| >=24.0.0 | 18（宿主提供，peer） | 已验证（2026-11-15：lint / typecheck / 699 单测 / build 全绿） |
 | v0.1.0 – v0.4.0 | 0.1.x developer preview（2026-08-13 发布） | ^22.19.0 \|\| >=24.0.0 | 18（宿主提供，peer） | 已验证（2026-08 基线） |
 
 DSH 0.2 是 developer preview，不承诺 API 稳定；DSH 升级后如插件失活，优先检查本表并升级插件版本。
 
 ## Roadmap
 
-- 已交付：v0.2.0 工作区化重设计（左栏文章列表 + 编辑器三视图 + 门禁右侧滑出）、v0.2.1 顶栏降级与细节打磨、v0.3 逐条 AI 速览 + 侧边栏直进 + AI 选中改写 + 全局视觉精修、v0.4 对话框直写入口、v0.5 适配 DSH 0.2.x
+- 已交付：v0.5.5「不连公众号也能用」把可选件做成正式路径（启动卡/设置页/推送入口不再把没公众号当欠作业）、模型供应商失败退避重试（限流/超时/网络自动退避 5s·15s·45s 并在界面显示倒计时，密钥错/额度耗尽立刻停并指路），v0.2.0 工作区化重设计（左栏文章列表 + 编辑器三视图 + 门禁右侧滑出）、v0.2.1 顶栏降级与细节打磨、v0.3 逐条 AI 速览 + 侧边栏直进 + AI 选中改写 + 全局视觉精修、v0.4 对话框直写入口、v0.5 适配 DSH 0.2.x
 - 评估中
   - freepublish 显式 opt-in（默认关，逐次确认）
   - 多公众号账号（账号切换/凭据集）
@@ -236,7 +244,7 @@ DSH 0.2 是 developer preview，不承诺 API 稳定；DSH 升级后如插件失
 
 ```bash
 npm install          # 独立克隆直接装（无 install 钩子）
-npm test             # 699 个测试（vitest）
+npm test             # 725 个测试（vitest）
 npm run lint         # eslint
 npm run typecheck    # tsc --noEmit
 npm run check:p0     # 视觉门禁扫描（emoji/渐变/占位文案）
@@ -275,7 +283,7 @@ NODE_PATH=/Users/mac/Documents/workspace/node_modules npm run test:e2e
 
 **What.** dsh-wewrite is a plugin for DeepSeek Harness (DSH) that turns a WeChat official-account AI writing pipeline—topic, outline, draft, quality gates, render, images, draft box—into a local web workbench. Models and credentials stay yours: text generation uses your DSH model config; secrets are stored in `~/.dsh` and only sent to the services they belong to (the WeChat API and any image providers you configure). Since v0.3: per-item AI digest for trending topics (fetches the linked article and summarizes it in Chinese, falls back to title-only), selection-based AI rewrite in the editor (rewrites only what you highlight, undoable), and a sidebar entry that opens the full workbench as an overlay—no session required.
 
-**Install.** `npx @deepseek-ai/dsh@latest plugin --profile web add dsh-wewrite`, then `npx @deepseek-ai/dsh@latest web` and open http://127.0.0.1:3080 . Fill in your official-account AppID/AppSecret in the workbench settings, run the connection test, pick a topic, and push your first draft. Requires DSH 0.2.x (developer preview) and Node ^22.19.0 || >=24.0.0.
+**Install.** `npx @deepseek-ai/dsh@latest plugin --profile web add dsh-wewrite`, then `npx @deepseek-ai/dsh@latest web` and open http://127.0.0.1:3080 . Pick a topic and the pipeline runs: topic, outline, draft, quality gates, render, images. You get a finished article locally without a WeChat account — nothing in that path calls the WeChat API. Add your AppID/AppSecret under settings, run the connection test, then push the draft when you actually want it in the draft box. Requires DSH 0.2.x (developer preview) and Node ^22.19.0 || >=24.0.0.
 
 **Safety.** dsh-wewrite pushes to the draft box only; there is no code path for mass publishing (freepublish), by design. Credentials are stored locally via the DSH credentials service, masked in logs, and only sent to their target services (WeChat API / configured image providers); no telemetry is collected. MIT licensed.
 

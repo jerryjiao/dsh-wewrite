@@ -37,7 +37,7 @@ export function ConfiguredBadge({ descriptor }: { descriptor: CredentialsDescrip
   );
 }
 
-/** 公众号接入：AppID/Secret/作者名（代理与测试在 API 代理组，避免重复表单）。 */
+/** 公众号接入（可选）：AppID/Secret/作者名；只有要推草稿箱才需要，不配不影响出稿（代理与测试在 API 代理组）。 */
 export function WechatSection({ config, rpc, onSaved }: SectionProps) {
   const [appId, setAppId] = useState(config.settings.wechatAppId);
   const [author, setAuthor] = useState(config.settings.wechatAuthor);
@@ -61,7 +61,10 @@ export function WechatSection({ config, rpc, onSaved }: SectionProps) {
 
   return (
     <div className="ww-settings__section">
-      <h3 className="ww-settings__h">公众号接入</h3>
+      <h3 className="ww-settings__h">公众号接入（可选）</h3>
+      <p className="ww-field__note" data-testid="ww-wechat-guide">
+        可选：只有要推到公众号草稿箱才需要。不配不影响出稿。配好公众号就能一键发。
+      </p>
       <label className="ww-field">
         <span className="ww-field__label">AppID</span>
         <Input value={appId} onChange={(event) => setAppId(event.target.value)} aria-label="公众号 AppID" />

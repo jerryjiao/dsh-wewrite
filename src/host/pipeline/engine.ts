@@ -6,122 +6,21 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { RunParams } from '../../shared/contract';
 import type { RunRecord, StepRecord } from '../domain';
-import { draftUserPrompt, outlineUserPrompt, pipelineSystemPrompt, streamLlmText, stripOuterFence, type PipelineLlm } from './llm';
-import { findInventedUrls, isSourceUrlVisible } from './steps/gates';
+import { PipelineStepError, PIPELINE_ABORT } from './errors';
+import { TERMINAL_STATUSES } from './prune';
+import { briefUserText, generateDraft, generateOutline, type TextStepDeps } from './steps/text';
+import { PIPELINE_STEP_NAMES, type PipelineDeps, type PipelineEngine, type PipelineStepName, type StartOptions } from './types';
 
+export { PipelineStepError } from './errors';
+export { pruneTerminalRuns } from './prune';
+export * from './types';
 export type { LlmStreamOptions, PipelineLlm, PipelineLlmChunk } from './llm';
-
-export const PIPELINE_STEP_NAMES = ['topic', 'outline', 'draft', 'gates', 'render', 'images'] as const;
-export type PipelineStepName = (typeof PIPELINE_STEP_NAMES)[number];
-
-export interface RunStore {
-  put(run: RunRecord): void;
-  get(runId: string): RunRecord | undefined;
-  update(runId: string, patch: (run: RunRecord) => RunRecord): void;
-  all(): RunRecord[];
-}
-
-export interface TopicSource {
-  fetch(limit: number): Promise<readonly { title: string; url: string; source: string; rank: number }[]>;
-}
-
-export interface GatesRunner {
-  run(input: {
-    markdown: string;
-    sources?: readonly string[];
-    userText?: readonly string[];
-    outlineSkeleton?: readonly string[];
-  }): Promise<{ passed: boolean; report: unknown }>;
-}
-
-export interface Renderer {
-  convert(input: { markdown: string; theme?: string }): string;
-}
-
-export interface ImagesGenerator {
-  /** articleId 为 render 步落库的文章 id（供 ImageRecord 溯源与回绑）。 */
-  generate(input: { count: number; articleId?: string }): Promise<{ coverImageId?: string; bodyImageIds: string[] }>;
-}
-
-export interface PipelineDeps {
-  readonly llm: PipelineLlm;
-  readonly store: RunStore;
-  readonly topicSource?: TopicSource;
-  readonly gates: GatesRunner;
-  readonly renderer: Renderer;
-  readonly images: ImagesGenerator;
-  readonly now?: () => Date;
-  /** 渲染完成后回调（service 层把成稿落 article 记录）；返回文章 id 供后续回绑。 */
-  readonly onProduced?: (output: { markdown: string; runId: string }) => Promise<string | void>;
-  /** images 步完成后回调（封面/正文图回写文章，P0-1：推送核心流绑定链）。 */
-  readonly onImagesBound?: (output: {
-    readonly articleId: string;
-    readonly coverImageId?: string;
-    readonly bodyImageIds: readonly string[];
-  }) => Promise<void>;
-}
-
-export interface StartOptions {
-  readonly trigger: 'manual' | 'schedule';
-  readonly params: RunParams;
-  readonly scheduleId?: string;
-  readonly articleId?: string;
-  readonly signal?: AbortSignal;
-}
-
-export interface PipelineEngine {
-  start(opts: StartOptions): Promise<string>;
-  /** 立即取 runId，终态 promise 由调用方决定是否等待（RPC run/start 语义）。 */
-  begin(opts: StartOptions): { runId: string; done: Promise<string> };
-  cancel(runId: string): boolean;
-  /** chat-integration M1：等指定 run 到终态并 resolve RunRecord；未知 runId → undefined（不挂起不抛错）。 */
-  awaitDone(runId: string): Promise<RunRecord | undefined>;
-  resumeInterrupted(): Promise<number>;
-}
-
-export class PipelineStepError extends Error {
-  constructor(
-    readonly code: string,
-    message: string,
-    readonly details?: unknown,
-  ) {
-    super(message);
-    this.name = 'PipelineStepError';
-  }
-}
-
-/** 终态集合（修剪与恢复扫描共用）。 */
-const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled', 'interrupted']);
-
-/** draft 自愈与 gates 来源门禁共用的用户原文（其中的 URL 视为已授权）。 */
-function briefUserText(topic: string, brief: RunParams['brief']): string[] {
-  return [
-    topic,
-    ...(brief?.title ? [brief.title] : []),
-    ...(brief?.approach ? [brief.approach] : []),
-    ...(brief?.outline ?? []),
-  ];
-}
-
-/** 修剪 run 历史（Spec §6 runs 约束）：活跃记录全保留，终态记录按完成时间新→旧截取 limit 条。 */
-export function pruneTerminalRuns(runs: readonly RunRecord[], limit: number): RunRecord[] {
-  const active = runs.filter((run) => !TERMINAL_STATUSES.has(run.status));
-  const terminal = runs
-    .filter((run) => TERMINAL_STATUSES.has(run.status))
-    .sort((left, right) => Date.parse(right.finishedAt ?? right.startedAt) - Date.parse(left.finishedAt ?? left.startedAt));
-  return [...active, ...terminal.slice(0, Math.max(0, limit))];
-}
 
 export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
   const nowIso = () => (deps.now ? deps.now().toISOString() : new Date().toISOString());
   const controllers = new Map<string, AbortController>();
   const completionWaiters = new Map<string, Set<(record: RunRecord | undefined) => void>>();
-  const ABORT_SENTINEL = Symbol('wewrite-abort');
-  function throwAborted(): never {
-    throw ABORT_SENTINEL;
-  }
 
   function patchStep(runId: string, name: PipelineStepName, patch: Partial<StepRecord>): void {
     deps.store.update(runId, (run) => ({
@@ -130,16 +29,27 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
     }));
   }
 
-  /** LLM 步的供应商/模型（GenerateOptions 必填）：service 已把 settings.llmDefault 合并进 params.llm。 */
-  function resolveLlmCall(params: RunParams): { provider: string; model: string } {
-    const merged = (params.llm ?? {}) as { provider?: string; model?: string };
-    if (!merged.provider || !merged.model) {
-      throw new PipelineStepError(
-        'llm-not-configured',
-        '模型服务未配置：请在 设置 → 模型服务 选择供应商与模型后再运行管线',
-      );
-    }
-    return { provider: merged.provider, model: merged.model };
+  /** 清掉退避字段：等待结束、成功、失败都要清——残留会让界面在跑完之后还显示「重试中」。 */
+  function clearRetry(runId: string): void {
+    deps.store.update(runId, (run) => {
+      if (!run.retry) return run;
+      const next: RunRecord = { ...run };
+      delete next.retry;
+      return next;
+    });
+  }
+
+  /** LLM 文本步的退避进度回调：等待期落库 run.retry，界面据此显示「第 N/3 次重试」。 */
+  function textDeps(stepName: PipelineStepName, signal: AbortSignal, runId: string): TextStepDeps {
+    return {
+      llm: deps.llm,
+      signal,
+      now: () => (deps.now ? deps.now() : new Date()),
+      onRetryWait: (notice) => {
+        deps.store.update(runId, (run) => ({ ...run, retry: { step: stepName, ...notice } }));
+      },
+      onRetryEnd: () => clearRetry(runId),
+    };
   }
 
   async function execute(runId: string, opts: StartOptions, signal: AbortSignal): Promise<void> {
@@ -183,78 +93,13 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
             topic = params.topic;
           }
         } else if (stepName === 'outline') {
-          const llmCall = resolveLlmCall(params);
-          // v0.5 骨架绑：brief.outline 给定时，大纲步为「校验+补洞」模式——给定节名
-          // 必须原样出现在 LLM 输出里；首轮遗漏带反馈重试一次，仍遗漏即步骤失败。
-          const skeleton = params.brief?.outline?.length ? params.brief.outline : undefined;
-          let retryMissing: readonly string[] | undefined;
-          let outlineText = '';
-          for (let attempt = 0; ; attempt += 1) {
-            const outcome = await streamLlmText(
-              deps.llm,
-              {
-                purpose: 'wewrite-pipeline',
-                system: pipelineSystemPrompt(),
-                user: outlineUserPrompt(topic, params.brief, retryMissing),
-                ...llmCall,
-              },
-              signal,
-            );
-            if (outcome.status === 'aborted') throwAborted();
-            if (outcome.status === 'error') throw new PipelineStepError(outcome.code, outcome.message);
-            outlineText = stripOuterFence(outcome.text);
-            if (!skeleton) break;
-            const missing = skeleton.filter((section) => !outlineText.includes(section));
-            if (!missing.length) break;
-            if (attempt >= 1) {
-              throw new PipelineStepError(
-                'outline-skeleton-violated',
-                `大纲未原样保留用户给定节：${missing.map((section) => `「${section}」`).join('、')}`,
-              );
-            }
-            retryMissing = missing;
-          }
-          outline = outlineText;
+          const { text, skeletonApplied } = await generateOutline(textDeps(stepName, signal, runId), { params, topic });
+          outline = text;
           patchStep(runId, stepName, {
-            metrics: { chars: outline.length, ...(skeleton ? { skeletonPreserved: true } : {}) },
+            metrics: { chars: outline.length, ...(skeletonApplied ? { skeletonPreserved: true } : {}) },
           });
         } else if (stepName === 'draft') {
-          const llmCall = resolveLlmCall(params);
-          // v0.5 draft 层自愈：outline 守住的大纲可能被成稿改写、来源可能被写成链接语法、
-          // 正文可能编造 URL——先带反馈重写一次；仍不合规交 gates 终检拦（单一强制执行点）。
-          const skeleton = params.brief?.outline?.length ? params.brief.outline : undefined;
-          const briefSources = params.brief?.sources?.length ? params.brief.sources : undefined;
-          const userText = briefUserText(topic, params.brief);
-          let retryMissing: readonly string[] | undefined;
-          let retryInvisible: readonly string[] | undefined;
-          let retryInvented: readonly string[] | undefined;
-          let draftText = '';
-          for (let attempt = 0; ; attempt += 1) {
-            const outcome = await streamLlmText(
-              deps.llm,
-              {
-                purpose: 'wewrite-pipeline',
-                system: pipelineSystemPrompt(),
-                user: draftUserPrompt(topic, outline, params.brief, retryMissing, retryInvisible, retryInvented),
-                ...llmCall,
-              },
-              signal,
-            );
-            if (outcome.status === 'aborted') throwAborted();
-            if (outcome.status === 'error') throw new PipelineStepError(outcome.code, outcome.message);
-            draftText = stripOuterFence(outcome.text);
-            if (!skeleton && !briefSources) break;
-            const missing = skeleton ? skeleton.filter((section) => !draftText.includes(section)) : [];
-            const invisible = briefSources
-              ? briefSources.filter((url) => !isSourceUrlVisible(draftText, url))
-              : [];
-            const invented = briefSources ? findInventedUrls(draftText, briefSources, userText) : [];
-            if ((!missing.length && !invisible.length && !invented.length) || attempt >= 1) break;
-            retryMissing = missing.length ? missing : undefined;
-            retryInvisible = invisible.length ? invisible : undefined;
-            retryInvented = invented.length ? invented : undefined;
-          }
-          draft = draftText;
+          draft = await generateDraft(textDeps(stepName, signal, runId), { params, topic, outline });
           patchStep(runId, stepName, { metrics: { chars: draft.length } });
         } else if (stepName === 'gates') {
           const brief = params.brief;
@@ -310,7 +155,7 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
         }
         patchStep(runId, stepName, { status: 'succeeded', finishedAt: nowIso() });
       } catch (thrown) {
-        if (thrown === ABORT_SENTINEL || signal.aborted) {
+        if (thrown === PIPELINE_ABORT || signal.aborted) {
           patchStep(runId, stepName, { status: 'cancelled', finishedAt: nowIso() });
           runStatus = 'cancelled';
           break;
@@ -332,6 +177,7 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
       }
     }
 
+    clearRetry(runId);
     finishRun(runStatus, runError);
     controllers.delete(runId);
   }
@@ -394,7 +240,13 @@ export function createPipelineEngine(deps: PipelineDeps): PipelineEngine {
       let recovered = 0;
       for (const run of deps.store.all()) {
         if (run.status !== 'running' && run.status !== 'queued') continue;
-        deps.store.update(run.id, (current) => ({ ...current, status: 'interrupted', finishedAt: nowIso() }));
+        // 崩溃恢复：状态改成 interrupted 时同时清掉退避字段——那是上一个进程留下的等待进度，
+        // 留着会让重启后的界面显示「正在重试」而实际没有任何重试在发生。
+        deps.store.update(run.id, (current) => {
+          const next: RunRecord = { ...current, status: 'interrupted', finishedAt: nowIso() };
+          delete next.retry;
+          return next;
+        });
         recovered += 1;
       }
       return recovered;

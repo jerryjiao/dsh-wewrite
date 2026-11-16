@@ -47,6 +47,17 @@
 .ww-stage__error p { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-danger); display: flex; align-items: center; gap: var(--ww-space-2); flex-wrap: wrap; }
 
 .ww-stepper__fallback { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-fg-tertiary); }
+/* v0.5.5 §③：退避重试是「还在跑」不是失败，用中性信息色 + sunken 底，
+ * 不与下方 ww-stage__error 的失败红抢语义。 */
+.ww-stepper__retry {
+  margin: 0;
+  padding: var(--ww-space-2) var(--ww-space-3);
+  font-size: var(--ww-text-sm);
+  line-height: 1.5;
+  color: var(--ww-fg-secondary);
+  background: var(--ww-surface-sunken);
+  border-radius: var(--ww-radius-sm);
+}
 .ww-stepper__foot { display: flex; gap: var(--ww-space-2); justify-content: flex-end; }
 
 .ww-generation-modal__pending { margin: 0; color: var(--ww-fg-secondary); }

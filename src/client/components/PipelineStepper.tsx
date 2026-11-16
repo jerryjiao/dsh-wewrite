@@ -22,6 +22,19 @@ const STAGES: ReadonlyArray<{ name: string; label: string }> = [
   { name: 'images', label: '配图生成' },
 ];
 
+/**
+ * 退避等待的中文进度标题（一行）：界面要知道「现在在等」而不是「卡住了」。
+ * 为什么用 waitMs 而不是 tick 倒计时：notBefore 是宿主时钟算出的绝对时刻，客户端每秒
+ * 重算会引入与宿主时钟的偏差与额外订阅；这里只给相对时长，够用且不会显示错时间。
+ */
+export function runRetryText(run: RunSummary): string | undefined {
+  const retry = run.retry;
+  if (!retry) return undefined;
+  const stage = STAGES.find((item) => item.name === retry.step)?.label ?? retry.step;
+  const seconds = Math.max(1, Math.ceil(retry.waitMs / 1000));
+  return `${stage}：模型服务暂时不可用（${retry.code}），第 ${retry.attempt}/${retry.maxAttempts} 次重试将在 ${seconds} 秒后开始`;
+}
+
 export function PipelineStepper({
   run,
   topic,
@@ -40,8 +53,10 @@ export function PipelineStepper({
   compact?: boolean;
 }) {
   const failed = run.status === 'failed';
+  const retryText = runRetryText(run);
 
   if (compact) {
+    // compact 档不渲染退避行：ProgressCard 已在卡体顶部给出同一行，重复显示会像两个状态。
     return (
       <div className="ww-stepper ww-stepper--compact">
         <ol className="ww-stepper__list">
@@ -80,6 +95,7 @@ export function PipelineStepper({
           </li>
         ))}
       </ol>
+      {retryText ? <p className="ww-stepper__retry">{retryText}</p> : null}
       {run.status === 'running' || run.status === 'queued' ? (
         <p className="ww-stepper__fallback">阶段明细随 run 记录回传；当前以整体状态跟踪。</p>
       ) : null}

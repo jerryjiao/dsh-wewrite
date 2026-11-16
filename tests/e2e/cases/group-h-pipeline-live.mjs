@@ -9,6 +9,8 @@
  * 状态着色——「六步按序推进/步级失败」不可观察，AC-9 的 DOM 等价断言改为：
  * run 终态 succeeded + 编辑器 StatusStrip「图 0 张」（无图推进）。
  * 执行预算：单次管线实测 72s，轮询上限 240s（R6）；H05 取消即停（token 最小化）。
+ * v0.5.5 起文本步带退避重试（5s/15s/45s，合计 65s + 最多 4 次调用），故 H01/H06 的
+ * 「等到终态」预算放宽到 420s——240s 会把「供应商限流 + 正常退避」误判成超时（实测踩过）。
  */
 import {
   assert,
@@ -95,7 +97,7 @@ export default [
       // 文章行会提前满足（四轮实锤：旧行命中时本轮 run 仍在进行，dot 消失断言假挂）。
       await pollUntil(
         async () => (await page.locator(LOC.progressDot).count()) === 0,
-        { timeout: 240000, interval: 3000, msg: '240s 内管线未完成（进度点未消失=run 仍运行）' },
+        { timeout: 420000, interval: 3000, msg: '420s 内管线未完成（进度点未消失=run 仍运行；含退避重试预算）' },
       );
       await pollUntil(
         async () => (await page.locator(LOC.railList).getByText(topic, { exact: false }).count()) > 0,
@@ -296,7 +298,7 @@ export default [
           detail = unwrap(await callPluginRpc('run/detail', { runId: started.runId }));
           return ['succeeded', 'failed', 'cancelled', 'interrupted'].includes(detail?.status) ? true : null;
         },
-        { timeout: 240000, interval: 4000, msg: '240s 内 brief 真跑未到终态' },
+        { timeout: 420000, interval: 4000, msg: '420s 内 brief 真跑未到终态（含退避重试预算）' },
       );
       assert.equal(detail.status, 'succeeded', `brief 真跑终态应为 succeeded（error=${JSON.stringify(detail.error)}）`);
       const gatesStep = (detail.steps ?? []).find((step) => step.name === 'gates');

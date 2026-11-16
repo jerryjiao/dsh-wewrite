@@ -11,6 +11,19 @@ const relayDocUrl = `${REPO_URL}/blob/main/tools/wechat-relay/README.md`;
     <div class="faq-list">
       <details class="faq-item">
         <summary>
+          <span>我没有公众号，能先跑起来吗？</span>
+          <Icon name="chevron-down" size={16} class="faq-chev" />
+        </summary>
+        <div class="faq-answer">
+          <p>
+            能。选题、大纲、成稿、门禁、渲染、配图这六步不碰微信接口，不填任何公众号信息也能跑完，成稿落在本地工作区。公众号 AppID /
+            AppSecret 只在你要推草稿箱时才需要——那时去设置页填好、点连接测试，再回编辑器推。
+          </p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>
           <span>推送报 errcode 40164（不在 IP 白名单）怎么办？</span>
           <Icon name="chevron-down" size={16} class="faq-chev" />
         </summary>

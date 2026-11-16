@@ -21,9 +21,8 @@ import { useStore } from '../store';
 
 /**
  * 编辑器（DESIGN §9.4 + uiux-workbench-delta §1-6/§1-7）：v0.2 起嵌入工作区主区。
- * 页头单行（rail toggle/下拉 + 标题 + 状态 | 三视图分段 + ⋯管理 + 推草稿箱 ▾ CTA）
- * → 主区三视图（仅编辑/双栏可拖/仅预览缩放档）→ StatusStrip（含门禁 chip 入口）
- * + GateOverlayPanel 右缘滑出（非模态）。保存状态唯一出口 = StatusStrip 右侧。
+ * 页头单行（rail toggle/下拉 + 标题 + 状态 | 三视图分段 + ⋯管理 + 推草稿箱 ▾ CTA）→ 主区三视图（仅编辑/双栏可拖/仅预览缩放档）
+ * → StatusStrip（含门禁 chip 入口）+ GateOverlayPanel 右缘滑出（非模态）。保存状态唯一出口 = StatusStrip 右侧。
  */
 
 const VIEW_STORAGE_KEY = 'ww.editor.view';
@@ -72,13 +71,18 @@ export function EditorPanel({
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [fixing, setFixing] = useState(false);
 
-  // 契约 v0.1 RunSummary 无 gates 步明细——分数/规则型报告待契约扩展后接入（组件已就绪）。
-  const gateReport: GateReportView | undefined = undefined;
+  const gateReport: GateReportView | undefined = undefined; // 契约 v0.1 RunSummary 无 gates 步明细，分数/规则型报告待扩展后接入
 
   const gateStatus = useMemo(() => {
     const runs = snapshot.status === 'ready' ? snapshot.data.runs : [];
     return gateStatusForArticle(runs, { id: articleId, lastRunId: article?.lastRunId });
   }, [snapshot, articleId, article]);
+
+  // 公众号凭据就绪判据与 StartupCard 一致；未就绪只拦推送、不影响出稿。
+  const wechatReady =
+    snapshot.status === 'ready' &&
+    (snapshot.data.config.credentials['WEWRITE_WECHAT_SECRET']?.configured ?? false) &&
+    snapshot.data.config.settings.wechatAppId.length > 0;
 
   async function pushDraft() {
     if (!article || pushing) return;
@@ -172,16 +176,13 @@ export function EditorPanel({
 
   if (!article) {
     return (
-      <div className="ww-editor-page ww-editor-page--padded" aria-busy="true">
-        <SkeletonBlock lines={6} />
-      </div>
+      <div className="ww-editor-page ww-editor-page--padded" aria-busy="true"><SkeletonBlock lines={6} /></div>
     );
   }
 
   const badge = articleStatusBadge(article.status);
   const model = snapshot.status === 'ready' ? snapshot.data.config.settings.llmDefault.model : undefined;
   const author = snapshot.status === 'ready' ? snapshot.data.config.settings.wechatAuthor : '公众号';
-  const today = new Date().toLocaleDateString('zh-Hans-CN', { month: 'long', day: 'numeric' });
   // 窄态回落：split 不可用，仅编辑（delta §1-7）。
   const effectiveView: EditorView = narrow && view === 'split' ? 'edit' : view;
 
@@ -204,6 +205,8 @@ export function EditorPanel({
           pushingLabel={t('action.pushing')}
           onPush={requestPush}
           onSchedule={() => setScheduleOpen(true)}
+          wechatReady={wechatReady}
+          onConfigureWechat={() => navigate({ kind: 'settings' })}
         />
       </header>
 
@@ -220,7 +223,7 @@ export function EditorPanel({
             theme={doc.theme}
             onThemeChange={doc.setTheme}
             author={author}
-            today={today}
+            today={new Date().toLocaleDateString('zh-Hans-CN', { month: 'long', day: 'numeric' })}
             zoom={zoom}
             onZoomChange={setZoom}
           />
@@ -274,9 +277,7 @@ export function EditorPanel({
         footer={
           <>
             <Button variant="ghost" size="sm" onClick={() => setGateBlockOpen(false)}>继续修改</Button>
-            <Button variant="ghost" size="sm" className="ww-danger-ghost" onClick={() => { setGateBlockOpen(false); void pushDraft(); }}>
-              仍然推送
-            </Button>
+            <Button variant="ghost" size="sm" className="ww-danger-ghost" onClick={() => { setGateBlockOpen(false); void pushDraft(); }}>仍然推送</Button>
           </>
         }
       >

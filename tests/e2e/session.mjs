@@ -50,10 +50,55 @@ export async function domIs(locator, { timeout = 8000 } = {}) {
   }
 }
 
+/**
+ * 入口 URL 必须「现读现验」：0.2.2 起根地址无 token 直接 401，而 fresh 相位每次都重启
+ * 宿主、换一个新 token；startHost 是等端口就绪就返回的，日志里那行 `dsh web: …?token=`
+ * 可能还没落到文件，于是紧跟着读到的仍是上一个（已被 kill 的）宿主的 token → 401 空文本页。
+ * 原来这一步表现为「写作台 tab 未找到 + 页面可点文本一片空白」，看着像插件坏了。
+ * 这里轮询日志直到拿到一个真的能 200 的入口 URL（不打印 URL，避免 token 进日志）。
+ */
+async function resolveEntryUrl(timeout = 30_000) {
+  const deadline = Date.now() + timeout;
+  let last = BASE;
+  while (Date.now() < deadline) {
+    const url = readHostWebUrl();
+    if (url !== BASE) {
+      last = url;
+      try {
+        const res = await fetch(url, { redirect: 'manual' });
+        if (res.status === 200) return url;
+      } catch {
+        // 宿主还没监听，继续等
+      }
+    }
+    await sleep(500);
+  }
+  return last;
+}
+
 /** 穿越失败时 dump 页面可点文本，辅助排查宿主 DOM 变化（capture 脚本先例） */
 async function dumpClickable(page) {
   const texts = await page.locator('button, [role=tab], a').allInnerTexts().catch(() => []);
   console.error('[openPanel 排查] 页面可点文本：', texts.slice(0, 40).join(' | '));
+}
+
+/**
+ * 0.2.2 的 web shell 是纯客户端渲染：index.html 的 body 初始为空，等 JS 启动后才有 DOM。
+ * fresh 相位每次都是冷启宿主（新 token、缓存空），首屏实测能超过固定 3s；原来写死
+ * sleep(3000) 会让后续所有 tab 探测都跑在空 body 上，于是整批用例以「写作台 tab 未找到」
+ * 集体失败，而且 dump 出来是一片空白——看起来像插件坏了，其实是测试没等页面画出来。
+ * 这里改成轮询「出现任意可点元素」作为骨架已绘制的信号，最多等 45s。
+ */
+async function waitForShell(page, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const painted = await page
+      .evaluate(() => document.querySelectorAll('button, [role=tab], a').length > 0)
+      .catch(() => false);
+    if (painted) return true;
+    await sleep(500);
+  }
+  return false;
 }
 
 /**
@@ -68,14 +113,15 @@ async function dumpClickable(page) {
 export async function openPanel(page) {
   // 1) 首页 + onboarding 向导（新 profile localStorage 为空时可能弹）
   // 0.2.2 起根地址无 token 返回 401 纯文本，入口必须用宿主日志里打印的 token URL。
-  const entryUrl = readHostWebUrl();
+  const entryUrl = await resolveEntryUrl();
   try {
     await page.goto(entryUrl, { waitUntil: 'domcontentloaded' });
   } catch (err) {
     // Playwright 的导航错误会带 URL——抹掉 token 再上抛，避免日志泄 token
     throw new Error(`首页打开失败：${String(err.message).replace(entryUrl, '<host>')}`);
   }
-  await sleep(3000);
+  await waitForShell(page);
+  await sleep(1000);
   for (const label of ['Continue', '继续']) {
     const btn = page.getByRole('button', { name: label, exact: true }).first();
     if (await domIs(btn, { timeout: 1000 })) {

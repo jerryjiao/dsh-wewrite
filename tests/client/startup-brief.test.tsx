@@ -88,3 +88,18 @@ describe('StartupCard：更多信息折叠区（v0.5）', () => {
     expect('brief' in params).toBe(false);
   });
 });
+
+describe('StartupCard：公众号是可选步骤（不配也能出稿）', () => {
+  it('未配置凭据 → 卡底只说「随时可配」，不是「先配置」前置要求', async () => {
+    render(<StartupCard />);
+    const helper = screen.getByTestId('ww-startup-alt-settings');
+    expect(helper.textContent).toContain('不连公众号也能出稿，随时可配');
+    expect(helper.textContent).not.toContain('先配置');
+  });
+
+  it('点卡底 helper → 跳设置页（配公众号属可选配置，不拦出稿）', async () => {
+    render(<StartupCard />);
+    await user.click(screen.getByTestId('ww-startup-alt-settings'));
+    expect(mocks.navigate).toHaveBeenCalledWith({ kind: 'settings' });
+  });
+});

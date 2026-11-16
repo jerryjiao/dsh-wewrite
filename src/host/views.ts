@@ -42,6 +42,7 @@ export function runToSummary(record: RunRecord): RunSummary {
     startedAt: record.startedAt,
     ...(record.finishedAt ? { finishedAt: record.finishedAt } : {}),
     ...(record.error ? { error: { code: record.error.code, message: record.error.message } } : {}),
+    ...(record.retry ? { retry: record.retry } : {}),
   };
 }
 

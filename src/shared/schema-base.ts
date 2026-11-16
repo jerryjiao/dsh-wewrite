@@ -65,3 +65,24 @@ export type RunParams = z.infer<typeof RunParamsSchema>;
 
 export const ARTICLE_STATUSES = ['editing', 'rendered', 'pushed', 'failed'] as const;
 export const RUN_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'cancelled', 'interrupted'] as const;
+
+/**
+ * 退避重试的可见进度（真机 29% 的 run 死在 RATE_LIMIT，等待期最长 45 秒）。
+ * 为什么进契约：这 45 秒里界面上不能是一片空白——用户要知道「在等」而不是「卡死」；
+ * 放在 schema-base 是因为 run 记录（domain）与 run 视图（view-schemas）都要用它。
+ */
+export const RunRetrySchema = z.strictObject({
+  /** 正在重试的步骤名（topic/outline/draft/gates/render/images）。 */
+  step: z.string().min(1),
+  /** 归一化前的原始失败码（RATE_LIMIT、TIMEOUT、AUTH…），便于排查对照供应商文档。 */
+  code: z.string().min(1),
+  /** 第几次重试，从 1 开始（1 就表示第一次重试前的等待）。 */
+  attempt: z.number().int().min(1),
+  /** 允许的重试次数上限（当前策略 3）。 */
+  maxAttempts: z.number().int().min(1),
+  /** 本次等待时长（毫秒）。 */
+  waitMs: z.number().int().min(0),
+  /** 等待结束时刻（ISO8601）——界面据此说「N 秒后」，不用自己算开始时间。 */
+  notBefore: z.iso.datetime(),
+});
+export type RunRetry = z.infer<typeof RunRetrySchema>;

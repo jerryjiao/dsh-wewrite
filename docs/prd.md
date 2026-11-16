@@ -282,7 +282,7 @@ RICE 口径：Reach=受影响用户占比（1-10）；Impact=单用户影响（0
 | no-build | 交付预构建产物，不依赖 install 时 prepare 脚本——避免用户手动加 `allowBuilds` 的信任门槛（FACTS 已核实该机制） |
 | 插件声明 | 必须声明 `dsh.bundle`，否则装而不活（CLI 警告 plain dependency） |
 | 版本兼容声明 | README 明示「支持 DSH v0.1.x developer preview（2026-08-13 发布）」+ 兼容表；DSH v0.1 处于 breaking changes 预期窗口，插件做 feature detection 防御 |
-| README 结构 | 是什么（一句话）/ 5 分钟快速开始（装→配凭据→出一篇）/ 配置说明（凭据、供应商、代理、热榜源）/ 安全声明（草稿箱默认、凭据本地、日志脱敏、无默认遥测）/ FAQ（IP 白名单 errcode 40164 专条，吸收竞品差评教训）/ 版本兼容表 / Roadmap（v0.2: freepublish opt-in、多账号、数据回流） |
+| README 结构 | 是什么（一句话）/ 5 分钟快速开始（装→出稿→要发再配公众号）/ 配置说明（凭据、供应商、代理、热榜源）/ 安全声明（草稿箱默认、凭据本地、日志脱敏、无默认遥测）/ FAQ（IP 白名单 errcode 40164 专条，吸收竞品差评教训）/ 版本兼容表 / Roadmap（v0.2: freepublish opt-in、多账号、数据回流） |
 | 生态收录 | 发布后向 `AdamPlatin123/awesome-dsh-plugins` 的 PLUGINS.md 提 PR（遵守其约定：repo 名即插件名、`dsh-external/*` scope 思路对齐、打 `dsh-plugin` topic）；并争取官方 `deepseek-ai/awesome-deepseek-agent` 收录 |
 | 命名空间 | 不占用 `@deepseek-ai/*` 保留命名空间 |
 | 文档语言 | README 中文为主（目标用户中文市场）+ 英文简版段落 |

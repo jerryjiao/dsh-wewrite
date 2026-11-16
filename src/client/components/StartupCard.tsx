@@ -8,7 +8,8 @@ import { Icon } from './Icon';
 /**
  * 启动卡（StartupCard，uiux-workbench-delta §1-4，L4）：零文章时工作区主区唯一大卡。
  * 主题输入 + 「开始写作」accent CTA + 次级入口「去选题中心挑热榜」；
- * 未配置公众号凭据时追加卡底 helper「先配置公众号凭据」（可见路径 ≤2）。
+ * 未配置公众号凭据时追加卡底 helper「不连公众号也能出稿，随时可配」——配公众号是可选步骤，
+ * 只为推草稿箱；不配不影响出稿（可见路径 ≤2）。
  * 空输入 CTA 不 disabled（点击/Enter 聚焦输入框）；提交后就地转进度，不整页跳走。
  * snapshot.articles ≥ 1 后本卡不再渲染（退位条件由 WorkbenchPanel 控制）。
  * inputRef：窄态空库时由 WorkbenchPanel 传入——ww-rail-select「新文章」引导聚焦本输入框（A04）。
@@ -224,7 +225,7 @@ export function StartupCard({ inputRef: externalInputRef }: { inputRef?: RefObje
           data-testid="ww-startup-alt-settings"
           onClick={() => navigate({ kind: 'settings' })}
         >
-          <Icon name="settings" size={12} /> 先配置公众号凭据
+          <Icon name="settings" size={12} /> 不连公众号也能出稿，随时可配
         </button>
       ) : null}
     </section>

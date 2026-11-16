@@ -1,0 +1,51 @@
+name: 装完跑通了吗
+description: 反馈安装与首次出稿的实际情况——跑通了，或者卡在哪一步
+title: '[首次上手] '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢反馈。这张表单只问四件事，填完就能帮我定位问题。
+        公众号是可选件：不填也能跑完整条管线出稿，只有推草稿箱才需要它。
+
+  - type: input
+    id: dsh-version
+    attributes:
+      label: DSH 版本
+      description: 运行 `npx @deepseek-ai/dsh@latest --version` 得到的结果。
+      placeholder: 例如 0.2.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: wechat-configured
+    attributes:
+      label: 是否配了公众号
+      description: 工作台设置页里有没有填 AppID / AppSecret。
+      options:
+        - 没配
+        - 配了
+    validations:
+      required: true
+
+  - type: dropdown
+    id: blocked-at
+    attributes:
+      label: 卡在哪一步
+      options:
+        - 装不上
+        - 打不开工作台
+        - 跑到一半失败
+        - 出了稿
+        - 推到草稿箱了
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么
+      description: 报错原文、卡住时的界面截图、你敲的命令，有多少贴多少。插件版本（`npm ls dsh-wewrite`）知道的话也写上。
+      placeholder: 我敲了什么 → 界面显示了什么 → 我期望什么
+    validations:
+      required: true

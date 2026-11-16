@@ -175,14 +175,15 @@
   align-self: flex-start;
   margin-top: var(--ww-space-2);
   padding: 0;
-  /* §D4 W4：warn 文字 on 白底 ≈2.2:1 不达标——文字降 secondary（≈4.9:1），
-   * 警示语义由 icon 保 --ww-warn 承载（形状+颜色冗余：icon 警示、文字可读） */
+  /* v0.5.5：这句话从「必须先配凭据」改成「不配也能出稿，想发再配」，
+   * 语义是可选件而非警告，故 icon 不再用 --ww-warn（警示黄会读成"有问题"），
+   * 与文字同色同权（secondary ≈4.9:1）。 */
   color: var(--ww-fg-secondary);
   background: none;
   border: none;
   cursor: pointer;
 }
 
-.ww-startup__helper svg { color: var(--ww-warn); }
+.ww-startup__helper svg { color: currentColor; }
 
 .ww-startup__helper:hover { text-decoration: underline; }

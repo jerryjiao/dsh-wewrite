@@ -59,6 +59,14 @@
 .ww-progress-card__collapse:hover { color: var(--ww-fg); background: var(--ww-interactive-hover); }
 
 .ww-progress-card__body { display: flex; flex-direction: column; gap: var(--ww-space-2); }
+/* v0.5.5 §③：浮层卡片窄，退避文案一整句会很长，允许折行别让它撑破右边界。 */
+.ww-progress-card__retry {
+  margin: 0;
+  font-size: var(--ww-text-xs);
+  line-height: 1.5;
+  color: var(--ww-fg-secondary);
+  overflow-wrap: anywhere;
+}
 .ww-progress-card__error { margin: 0; font-size: var(--ww-text-sm); color: var(--ww-danger); }
 .ww-progress-card__foot { display: flex; gap: var(--ww-space-2); justify-content: flex-end; }
 
