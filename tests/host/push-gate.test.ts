@@ -166,14 +166,17 @@ describe('AC-7 推送闸门：service 层（qa-test-plan §10-2 补齐）', () =
     await service.setConfig({ wechatAppId: 'wx_test_appid' });
     await service.setCredential('WEWRITE_WECHAT_SECRET', WECHAT_SECRET);
 
+    // v0.5.6：不传 imageCount → 宿主缺省 1（产封面）；paramsSnapshot 应记下缺省值。
     const { runId } = service.startRun({
       trigger: 'manual',
-      params: { topicMode: 'fixed', topic: '管线门禁与推送', theme: 'professional-clean', imageCount: 1, llm: { provider: 'zhipu', model: 'glm-4.5-flash' } },
+      params: { topicMode: 'fixed', topic: '管线门禁与推送', theme: 'professional-clean', llm: { provider: 'zhipu', model: 'glm-4.5-flash' } },
     });
     await waitForTerminal(service, runId);
 
     const run = service.listRuns().find((entry) => entry.id === runId);
     expect(run?.status).toBe('succeeded');
+    const snapshot = (domain.table('runs').get(runId) as { paramsSnapshot: { imageCount?: number } }).paramsSnapshot;
+    expect(snapshot.imageCount).toBe(1);
     const gatesStep = (domain.table('runs').get(runId) as { steps: { name: string; status: string }[] }).steps.find(
       (step) => step.name === 'gates',
     );
