@@ -66,7 +66,7 @@ export function makeFakeService(overrides: FakeServiceOverrides = {}) {
       (vi.fn(async (input: { text: string }) => ({ text: `改写后：${input.text}` })) as unknown as FakeServiceOverrides['rewriteText']),
     pushArticleDraft:
       overrides.pushArticleDraft ??
-      (vi.fn(async (): Promise<{ mediaId: string; thumbMediaId: string }> => ({ mediaId: 'MEDIA_ab12cd', thumbMediaId: 'THUMB_1' })) as unknown as FakeServiceOverrides['pushArticleDraft']),
+      (vi.fn(async () => ({ ok: true as const, mediaId: 'MEDIA_ab12cd', thumbMediaId: 'THUMB_1' })) as unknown as FakeServiceOverrides['pushArticleDraft']),
     listArticles:
       overrides.listArticles ??
       (vi.fn(() =>

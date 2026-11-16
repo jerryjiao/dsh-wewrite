@@ -73,6 +73,8 @@ describe('信封宿主下的真实推送链路', () => {
     });
 
     await service.setCredential('WEWRITE_WECHAT_SECRET', WECHAT_SECRET);
+    // v0.5.6：appId 也必须已配置，否则推送在凭据闸门短路（真实语义：空 appId 不该打到微信）。
+    await service.setConfig({ wechatAppId: 'wx_envelope_appid' });
 
     const article = ArticleRecordSchema.parse({
       v: 1, id: 'art_env_push', slug: 'env-push', title: '信封宿主推送验证', digest: '摘要',
@@ -90,6 +92,7 @@ describe('信封宿主下的真实推送链路', () => {
 
     const result = await service.pushArticleDraft(article.id);
 
+    if (!result.ok) throw new Error(`推送应成功：${result.failure.message}`);
     expect(result.mediaId).toBe('DRAFT_OK');
     expect(result.thumbMediaId).toBe('THUMB_OK');
     const tokenCall = fetch.log.find((entry) => entry.url.includes('/cgi-bin/token'));

@@ -67,6 +67,87 @@ export const ARTICLE_STATUSES = ['editing', 'rendered', 'pushed', 'failed'] as c
 export const RUN_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'cancelled', 'interrupted'] as const;
 
 /**
+ * 管线缺省配图数（v0.5.6 激活口径）：封面是推草稿箱的硬门槛，缺省必须产封面。
+ * 0 仍是合法显式值（无图成稿），但调用方不传时不再等于 0——那是「能出稿、永远推不了」的死路。
+ */
+export const DEFAULT_IMAGE_COUNT = 1;
+
+/**
+ * 微信失败分类（host diagnostics 与 client 文案的唯一枚举真源）：
+ * 之前 host 侧算出来的分类到不了界面，用户只看到 errcode 原文，四类引导文案形同不存在。
+ */
+export const WECHAT_FAILURE_CLASSES = [
+  'IP_WHITELIST',
+  'AUTH',
+  'PERMISSION',
+  'RATE_LIMIT',
+  'SYSTEM',
+  'TIMEOUT',
+  'NETWORK',
+  'UNKNOWN',
+] as const;
+export const WeChatFailureClassSchema = z.enum(WECHAT_FAILURE_CLASSES);
+export type WeChatFailureClass = z.infer<typeof WeChatFailureClassSchema>;
+
+/** 推送失败原因（host 判定，client 直接按此选文案与直达动作）。 */
+export const PUSH_FAILURE_REASONS = [
+  'article-not-found',
+  'gates-not-passed',
+  'cover-missing',
+  'no-credentials',
+  'wechat-api',
+] as const;
+
+/** 失败后该把用户送到哪个设置分组（避免「去设置」三个字丢了落点）。 */
+export const SETTINGS_TARGETS = ['wechat', 'image', 'proxy'] as const;
+
+export const PushFailureSchema = z.strictObject({
+  reason: z.enum(PUSH_FAILURE_REASONS),
+  /** 一句话人话（不含内部错误码前缀，直接可展示）。 */
+  message: z.string().min(1),
+  /** 出路指引：说清去哪、改什么。 */
+  hint: z.string().min(1).optional(),
+  errcode: z.number().int().optional(),
+  classification: WeChatFailureClassSchema.optional(),
+  /** 40164 时微信回显的出口 IP。 */
+  egressIp: z.string().optional(),
+  settingsTarget: z.enum(SETTINGS_TARGETS).optional(),
+});
+export type PushFailure = z.infer<typeof PushFailureSchema>;
+
+/**
+ * 推草稿箱结果（v0.5.6）：失败不再是 RPC 异常，而是结构化返回值。
+ * 为什么改：宿主 RPC 错误信封只放得下 message，errcode/classification/hint 在中途全丢，
+ * 前端写了四类文案却永远不触发；改成数据面才能让「出口 IP 不在白名单」这类话真正到用户眼前。
+ */
+export const PushDraftResultSchema = z.discriminatedUnion('ok', [
+  z.strictObject({
+    ok: z.literal(true),
+    mediaId: z.string().min(1),
+    thumbMediaId: z.string().min(1),
+  }),
+  z.strictObject({ ok: z.literal(false), failure: PushFailureSchema }),
+]);
+export type PushDraftResult = z.infer<typeof PushDraftResultSchema>;
+
+/** 一次推送尝试的留痕（成功与失败都记，转化度量与用户复盘都靠它）。 */
+export const PushEventSchema = z.strictObject({
+  id: z.string().min(1),
+  articleId: z.string().min(1),
+  articleTitle: z.string(),
+  occurredAt: z.iso.datetime(),
+  durationMs: z.number().int().min(0),
+  ok: z.boolean(),
+  /** 失败时的原因分类（成功时缺省）。 */
+  reason: z.enum(PUSH_FAILURE_REASONS).optional(),
+  message: z.string(),
+  errcode: z.number().int().optional(),
+  classification: WeChatFailureClassSchema.optional(),
+  mediaId: z.string().optional(),
+});
+export type PushEvent = z.infer<typeof PushEventSchema>;
+
+/**
  * 退避重试的可见进度（真机 29% 的 run 死在 RATE_LIMIT，等待期最长 45 秒）。
  * 为什么进契约：这 45 秒里界面上不能是一片空白——用户要知道「在等」而不是「卡死」；
  * 放在 schema-base 是因为 run 记录（domain）与 run 视图（view-schemas）都要用它。

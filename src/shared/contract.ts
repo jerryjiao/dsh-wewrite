@@ -8,6 +8,8 @@
 import { z } from 'zod';
 import {
   CredentialRefSchema,
+  PushDraftResultSchema,
+  PushEventSchema,
   IMAGE_SIZES,
   ImageProviderConfigSchema,
   LlmOverrideSchema,
@@ -60,7 +62,11 @@ export const RPC_ENDPOINTS = [
   'credentials/describe',
   'llm/options',
   'wechat/pushDraft',
+  'wechat/pushEvents',
   'wechat/diagnose',
+  'image/generateCover',
+  'image/bindCover',
+  'image/coverPreview',
 ] as const;
 
 export type RpcEndpoint = (typeof RPC_ENDPOINTS)[number];
@@ -197,7 +203,12 @@ export const rpcContract: Record<string, { readonly request: z.ZodType; readonly
   },
   'wechat/pushDraft': {
     request: z.strictObject({ articleId: z.string().min(1) }),
-    response: z.strictObject({ mediaId: z.string().min(1), thumbMediaId: z.string().min(1) }),
+    // v0.5.6：失败改走数据面（结构化 failure），不再靠 RPC 异常——错误分类/出路才有机会到界面。
+    response: PushDraftResultSchema,
+  },
+  'wechat/pushEvents': {
+    request: z.strictObject({ limit: z.number().int().min(1).max(50).optional(), articleId: z.string().min(1).optional() }),
+    response: z.array(PushEventSchema),
   },
   'wechat/diagnose': {
     request: EmptyRequest,
@@ -206,6 +217,28 @@ export const rpcContract: Record<string, { readonly request: z.ZodType; readonly
       ipWhitelisted: z.boolean().optional(),
       errcode: z.number().optional(),
       hint: z.string().min(1),
+    }),
+  },
+  // ── 封面（v0.5.6）：封面是推送硬门槛，必须能在应用内看到、换掉、补上 ──────────
+  'image/generateCover': {
+    request: z.strictObject({ articleId: z.string().min(1) }),
+    response: ArticleDetailSchema,
+  },
+  'image/bindCover': {
+    request: z.strictObject({
+      articleId: z.string().min(1),
+      /** 上传封面：base64（不含 data: 前缀）。上限与 ImageRecord 一致（10MiB 字符）。 */
+      base64: z.string().min(1).max(10 * 1024 * 1024),
+      mime: z.string().regex(/^image\/(png|jpeg|jpg|webp)$/, '只支持 png/jpeg/webp'),
+    }),
+    response: ArticleDetailSchema,
+  },
+  'image/coverPreview': {
+    request: z.strictObject({ articleId: z.string().min(1) }),
+    response: z.strictObject({
+      base64: z.string().min(1),
+      mime: z.string(),
+      bytes: z.number().int().min(0),
     }),
   },
 } as const;

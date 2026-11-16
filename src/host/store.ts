@@ -3,7 +3,7 @@
  * RunStore 契约是同步读（F16 内存快照语义）——domain 写异步入队（先镜像后落盘，顺序保序）。
  */
 
-import type { ArticleRecord, ImageRecord, RunRecord, ScheduleRecord } from './domain';
+import type { ArticleRecord, ImageRecord, PushEventRecord, RunRecord, ScheduleRecord } from './domain';
 import { GlobalStateSchema } from './domain';
 import type { RunStore } from './pipeline/engine';
 import type { HostLogger, KvTable, StorageDomainHandle } from './platform';
@@ -64,6 +64,7 @@ export interface DomainTables {
   readonly runs: KvTable<RunRecord>;
   readonly schedules: KvTable<ScheduleRecord>;
   readonly images: KvTable<ImageRecord>;
+  readonly pushEvents: KvTable<PushEventRecord>;
   readonly domain: StorageDomainHandle;
 }
 
@@ -73,6 +74,7 @@ export function openTables(domain: StorageDomainHandle): DomainTables {
     runs: typedTable<RunRecord>(domain, 'runs'),
     schedules: typedTable<ScheduleRecord>(domain, 'schedules'),
     images: typedTable<ImageRecord>(domain, 'images'),
+    pushEvents: typedTable<PushEventRecord>(domain, 'pushEvents'),
     domain,
   };
 }

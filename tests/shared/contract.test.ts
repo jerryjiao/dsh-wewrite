@@ -128,7 +128,11 @@ const EXPECTED_ENDPOINTS = [
   'credentials/describe',
   'llm/options',
   'wechat/pushDraft',
+  'wechat/pushEvents',
   'wechat/diagnose',
+  'image/generateCover',
+  'image/bindCover',
+  'image/coverPreview',
 ] as const;
 
 describe('RPC 通道常量（Spec §5 头部 + 架构 F13）', () => {
@@ -146,10 +150,10 @@ describe('RPC 通道常量（Spec §5 头部 + 架构 F13）', () => {
     expect(CONTRACT_VERSION).toBe(1);
   });
 
-  it('端点全集精确等于 20 基础 + v0.3 增补 2 + chat 增补 run/detail = 23，无增无减（AC-M2-01）', () => {
+  it('端点全集精确等于 20 基础 + v0.3 增补 2 + chat 增补 run/detail + v0.5.6 增补 4 = 27，无增无减（AC-M2-01）', () => {
     expect([...RPC_ENDPOINTS].sort()).toEqual([...EXPECTED_ENDPOINTS].sort());
     expect(Object.keys(rpcContract).sort()).toEqual([...EXPECTED_ENDPOINTS].sort());
-    expect(EXPECTED_ENDPOINTS.length).toBe(23);
+    expect(EXPECTED_ENDPOINTS.length).toBe(27);
   });
 
   it('每个端点同时具备 request 与 response schema', () => {
@@ -466,11 +470,46 @@ const CASES: EndpointCase[] = [
   },
   {
     endpoint: 'wechat/pushDraft',
-    name: 'wechat/pushDraft：articleId，返回 mediaId+thumbMediaId',
+    name: 'wechat/pushDraft：articleId，成功/失败均为数据面 union（v0.5.6）',
     validRequests: [{ articleId: 'art_1' }],
     invalidRequests: [{}, { articleId: '' }, { articleId: 'art_1', force: true }],
-    validResponse: { mediaId: 'MEDIA_1', thumbMediaId: 'THUMB_1' },
+    validResponse: { ok: true, mediaId: 'MEDIA_1', thumbMediaId: 'THUMB_1' },
     invalidResponse: { mediaId: 'MEDIA_1' },
+  },
+  {
+    endpoint: 'wechat/pushEvents',
+    name: 'wechat/pushEvents：推送留痕列表（limit≤50，可按文章过滤）',
+    validRequests: [{}, { limit: 20 }, { limit: 50, articleId: 'art_1' }],
+    invalidRequests: [{ limit: 0 }, { limit: 51 }],
+    validResponse: [
+      { id: 'push_1', articleId: 'art_1', articleTitle: '标题', occurredAt: '2026-11-16T14:00:00.000Z', durationMs: 3200, ok: true, message: '已进草稿箱', mediaId: 'MEDIA_1' },
+      { id: 'push_2', articleId: 'art_1', articleTitle: '标题', occurredAt: '2026-11-16T13:00:00.000Z', durationMs: 1200, ok: false, message: '缺少封面图', reason: 'cover-missing', classification: 'UNKNOWN' },
+    ],
+    invalidResponse: [{ id: 'push_3', articleId: 'art_1', articleTitle: '标题', occurredAt: 'nope', durationMs: 1, ok: true, message: 'x' }],
+  },
+  {
+    endpoint: 'image/generateCover',
+    name: 'image/generateCover：articleId，回整篇详情（封面已绑定）',
+    validRequests: [{ articleId: 'art_1' }],
+    invalidRequests: [{}, { articleId: '' }],
+    validResponse: articleDetail(),
+    invalidResponse: { ...articleDetail(), coverImageId: 42 },
+  },
+  {
+    endpoint: 'image/bindCover',
+    name: 'image/bindCover：上传封面（base64+mime），回整篇详情',
+    validRequests: [{ articleId: 'art_1', base64: 'aGVsbG8=', mime: 'image/png' }],
+    invalidRequests: [{ articleId: 'art_1', base64: '', mime: 'image/png' }, { articleId: 'art_1', base64: 'aGVsbG8=', mime: 'image/gif' }, {}],
+    validResponse: articleDetail(),
+    invalidResponse: { ...articleDetail(), markdown: undefined },
+  },
+  {
+    endpoint: 'image/coverPreview',
+    name: 'image/coverPreview：articleId，回封面 base64 预览',
+    validRequests: [{ articleId: 'art_1' }],
+    invalidRequests: [{}, { articleId: '' }],
+    validResponse: { base64: 'aGVsbG8=', mime: 'image/png', bytes: 5 },
+    invalidResponse: { base64: '', mime: 'image/png', bytes: 5 },
   },
   {
     endpoint: 'wechat/diagnose',
@@ -761,5 +800,36 @@ describe('RunParamsSchema：启动 brief（v0.5 变密度输入）', () => {
       params: { topicMode: 'fixed', topic: 'Workers 冷启动', brief: { title: '冷启动的真实数字' } },
     });
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe('wechat/pushDraft 数据面 union（v0.5.6 错误可视化）', () => {
+  const schema = rpcContract['wechat/pushDraft'].response;
+
+  it('失败分支：errcode/classification/hint/egressIp/settingsTarget 全字段合法', () => {
+    const parsed = schema.safeParse({
+      ok: false,
+      failure: {
+        reason: 'wechat-api',
+        message: '微信 API 错误 40164：invalid ip 1.2.3.4',
+        errcode: 40164,
+        classification: 'IP_WHITELIST',
+        hint: '把出口 IP 加入白名单，或配置代理',
+        egressIp: '1.2.3.4',
+        settingsTarget: 'proxy',
+      },
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('失败分支：最小形状（只带 reason+message）也合法', () => {
+    expect(schema.safeParse({ ok: false, failure: { reason: 'cover-missing', message: '缺少封面图' } }).success).toBe(true);
+  });
+
+  it('非法 reason / 缺 message / ok:true 缺 mediaId → 拒绝', () => {
+    expect(schema.safeParse({ ok: false, failure: { reason: 'not-a-reason', message: 'x' } }).success).toBe(false);
+    expect(schema.safeParse({ ok: false, failure: { reason: 'cover-missing' } }).success).toBe(false);
+    expect(schema.safeParse({ ok: true, mediaId: 'MEDIA_1' }).success).toBe(false);
+    expect(schema.safeParse({ ok: false }).success).toBe(false);
   });
 });

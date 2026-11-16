@@ -145,6 +145,11 @@ export function buildPushTool(service: WeWriteService, approval: PushApprovalHan
         } catch {
           title = articleId;
         }
+        // v0.5.6：推送结果是结构化数据面——失败不再抛异常，按 failure 回工具错误（保留分类与出路）。
+        if (!result.ok) {
+          const parts = [result.failure.message, result.failure.hint].filter((part): part is string => Boolean(part));
+          return toolError(result.failure.reason, parts.join(' '));
+        }
         return { ok: true, mediaId: result.mediaId, thumbMediaId: result.thumbMediaId, articleId, title };
       } catch (error) {
         const { code, message } = errorToCodeMessage(error, 'push-failed');

@@ -83,8 +83,8 @@ describe('domainSpec（单一 domain dsh_wewrite v1，ADR-0005）', () => {
     expect(domainSpec.version).toBe(1);
   });
 
-  it('表集合精确为 articles/runs/schedules/images 四表（无增无减）', () => {
-    expect(Object.keys(domainSpec.tables).sort()).toEqual(['articles', 'images', 'runs', 'schedules']);
+  it('表集合精确为 articles/runs/schedules/images/pushEvents 五表（无增无减；pushEvents 为 v0.5.6 推送留痕）', () => {
+    expect(Object.keys(domainSpec.tables).sort()).toEqual(['articles', 'images', 'pushEvents', 'runs', 'schedules']);
   });
 
   it('global 槽用平台契约键 schema+initial（valueSchema 键会被平台忽略→二启崩溃，2026-08-19 实测）', () => {

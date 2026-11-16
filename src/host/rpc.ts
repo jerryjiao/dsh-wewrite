@@ -32,6 +32,9 @@ interface RpcPayload {
   readonly name?: string;
   readonly rrule?: string;
   readonly timeZone?: string;
+  /** 上传封面（image/bindCover）：base64 载荷与 mime。 */
+  readonly base64?: string;
+  readonly mime?: string;
 }
 
 async function dispatch(service: WeWriteService, endpoint: RpcEndpoint, payload: RpcPayload): Promise<unknown> {
@@ -109,8 +112,23 @@ async function dispatch(service: WeWriteService, endpoint: RpcEndpoint, payload:
       return service.listLlmOptions();
     case 'wechat/pushDraft':
       return service.pushArticleDraft(String(payload.articleId));
+    case 'wechat/pushEvents':
+      return service.listPushEvents({
+        ...(payload.limit ? { limit: Number(payload.limit) } : {}),
+        ...(payload.articleId ? { articleId: String(payload.articleId) } : {}),
+      });
     case 'wechat/diagnose':
       return service.diagnoseWeChat();
+    case 'image/generateCover':
+      return service.generateCover(String(payload.articleId));
+    case 'image/bindCover':
+      return service.bindCover({
+        articleId: String(payload.articleId),
+        base64: String(payload.base64),
+        mime: String(payload.mime),
+      });
+    case 'image/coverPreview':
+      return service.coverPreview(String(payload.articleId));
     default:
       throw new Error(`未知端点：${endpoint satisfies never}`);
   }

@@ -122,6 +122,26 @@ export const ImageRecordSchema = z.strictObject({
 });
 export type ImageRecord = z.infer<typeof ImageRecordSchema>;
 
+// ── table：pushEvents（v0.5.6 推送留痕）────────────────────────────────────
+// 每次推草稿箱尝试落一条（成功与失败都记）：用户能复盘「上次为什么没进去」，
+// 我们才能度量「出稿 → 首次推草稿箱」的转化。字段对齐 shared PushEvent（v 为记录级演进位）。
+
+export const PushEventRecordSchema = z.strictObject({
+  v: z.number().int().min(1),
+  id: z.string().min(1),
+  articleId: z.string().min(1),
+  articleTitle: z.string(),
+  occurredAt: z.iso.datetime(),
+  durationMs: z.number().int().min(0),
+  ok: z.boolean(),
+  reason: z.string().min(1).optional(),
+  message: z.string(),
+  errcode: z.number().int().optional(),
+  classification: z.string().min(1).optional(),
+  mediaId: z.string().optional(),
+});
+export type PushEventRecord = z.infer<typeof PushEventRecordSchema>;
+
 // ── global：复合状态（settings + 调度 occurrence claim 键）─────────────────
 
 export const GlobalStateSchema = z.strictObject({
@@ -157,6 +177,7 @@ export const domainSpec = {
     runs: { valueSchema: RunRecordSchema },
     schedules: { valueSchema: ScheduleRecordSchema },
     images: { valueSchema: ImageRecordSchema },
+    pushEvents: { valueSchema: PushEventRecordSchema },
   },
 } as const;
 

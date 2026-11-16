@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { WeWriteService } from '@/host/service';
-import { WewriteServiceError } from '@/host/service-errors';
 import { ArticleRecordSchema, ImageRecordSchema } from '@/host/domain';
 import type { ArticleRecord, ImageRecord } from '@/host/domain';
 import { MemoryDomain, json, makeCredentials, makeFetch, makeLlm, silentLogger, type Route } from './service-harness';
@@ -63,6 +62,9 @@ async function makeService(routes: Route[], domain = new MemoryDomain()) {
     now: () => FIXED_NOW,
     logger: silentLogger,
   });
+  // v0.5.6 起 pushArticleDraft 在凭据缺失时短路（不再把空 appId/secret 发给微信）——测试链路补齐凭据。
+  await service.setConfig({ wechatAppId: 'wx_test_appid' });
+  await service.setCredential('WEWRITE_WECHAT_SECRET', WECHAT_SECRET);
   return { service, domain, credentials, llm, fetch };
 }
 
@@ -110,17 +112,9 @@ async function waitForTerminal(service: WeWriteService, runId: string, deadlineM
   }
 }
 
-async function rejectCode(promise: Promise<unknown>): Promise<string> {
-  try {
-    await promise;
-  } catch (error) {
-    if (error instanceof WewriteServiceError) return error.code;
-    if (error instanceof Error && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
-      return (error as { code: string }).code;
-    }
-    return `non-coded-error:${error instanceof Error ? error.message : String(error)}`;
-  }
-  return 'no-error-thrown';
+/** v0.5.6：推送失败不再是异常，而是 {ok:false,failure}——取 reason 做断言。 */
+function failureReasonOf(outcome: { ok: boolean; failure?: { reason: string } }): string {
+  return outcome.ok ? 'no-failure' : (outcome.failure?.reason ?? 'no-reason');
 }
 
 describe('AC-7 推送闸门：service 层（qa-test-plan §10-2 补齐）', () => {
@@ -134,7 +128,7 @@ describe('AC-7 推送闸门：service 层（qa-test-plan §10-2 补齐）', () =
       theme: 'professional-clean',
     });
 
-    const code = await rejectCode(service.pushArticleDraft(saved.id));
+    const code = failureReasonOf(await service.pushArticleDraft(saved.id));
 
     expect(code).toBe('gates-not-passed');
     expect(fetch.log.length).toBe(0);
@@ -145,7 +139,7 @@ describe('AC-7 推送闸门：service 层（qa-test-plan §10-2 补齐）', () =
     const article = seedArticle(domain, { id: 'art_gate_failed', status: 'failed' });
     const { service, fetch } = await makeService(wechatOkRoutes, domain);
 
-    const code = await rejectCode(service.pushArticleDraft(article.id));
+    const code = failureReasonOf(await service.pushArticleDraft(article.id));
 
     expect(code).toBe('gates-not-passed');
     expect(fetch.log.length).toBe(0);
@@ -159,7 +153,8 @@ describe('AC-7 推送闸门：service 层（qa-test-plan §10-2 补齐）', () =
 
     const result = await service.pushArticleDraft('art_gate_ok');
 
-    expect(result).toEqual({ mediaId: 'DRAFT_OK', thumbMediaId: 'THUMB_OK' });
+    // v0.5.6：成功分支带 ok:true（数据面 union）；失败分支为 {ok:false, failure}。
+    expect(result).toEqual({ ok: true, mediaId: 'DRAFT_OK', thumbMediaId: 'THUMB_OK' });
     const detail = service.getArticle('art_gate_ok');
     expect(detail.status).toBe('pushed');
     expect(detail.wechatMediaId).toBe('DRAFT_OK');
@@ -192,20 +187,24 @@ describe('AC-7 推送闸门：service 层（qa-test-plan §10-2 补齐）', () =
     // 管线产出封面后（imageCount=1，images 步产 cover+正文图），文章应绑定封面并推送成功。
     expect(detail.coverImageId).toBeDefined();
     const pushed = await service.pushArticleDraft(articles[0].id);
+    if (!pushed.ok) throw new Error(`推送应成功：${pushed.failure.message}`);
     expect(pushed.mediaId).toBe('DRAFT_OK');
     expect(service.getArticle(articles[0].id).status).toBe('pushed');
   });
 });
 
 describe('AC-1 service 层补齐：推送失败不误标 pushed（qa-test-plan §5 AC-1 行登记项）', () => {
-  it('draft/add 返回 errcode：推送抛错，文章保持 rendered、无 mediaId 残留', async () => {
+  it('draft/add 返回 errcode：推送返回结构化失败，文章保持 rendered、无 mediaId 残留', async () => {
     const domain = new MemoryDomain();
     seedCover(domain, 'art_push_fail');
     seedArticle(domain, { id: 'art_push_fail', status: 'rendered', coverImageId: 'img_seed_cover' });
     const { service } = await makeService(draftFailRoutes, domain);
 
-    const code = await rejectCode(service.pushArticleDraft('art_push_fail'));
-    expect(code).not.toBe('no-error-thrown');
+    const outcome = await service.pushArticleDraft('art_push_fail');
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) throw new Error('unreachable');
+    expect(outcome.failure.reason).toBe('wechat-api');
+    expect(outcome.failure.errcode).toBeTypeOf('number');
 
     const detail = service.getArticle('art_push_fail');
     expect(detail.status).toBe('rendered');

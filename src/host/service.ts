@@ -1,6 +1,6 @@
 /** WeWriteService（架构 §3）：host 级唯一服务；写操作串行化。重活已拆 images/wechat-flow/articles-store/schedules-store/views。 */
 
-import { CONTRACT_VERSION, type ArticleDetail, type ArticleListItem, type ConfigView, type HotspotDigestItem, type HotspotItem, type HotspotItemDigest, type RunDetail, type RunParams, type RunSummary, type ScheduleViewModel, type SnapshotResponse } from '../shared/contract';
+import { CONTRACT_VERSION, DEFAULT_IMAGE_COUNT, type ArticleDetail, type ArticleListItem, type ConfigView, type HotspotDigestItem, type HotspotItem, type HotspotItemDigest, type RunDetail, type RunParams, type PushDraftResult, type PushEvent, type RunSummary, type ScheduleViewModel, type SnapshotResponse } from '../shared/contract';
 import { CREDENTIAL_REFS, DEFAULT_IMAGE_PROVIDER_CHAIN } from '../shared/image-provider-ids';
 import { convertArticle } from '../render/convert';
 import { SettingsRecordSchema, type RunRecord } from './domain';
@@ -15,6 +15,8 @@ import { createCallRunBindings, type CallRunBindings } from './call-run-bindings
 import { createSchedulerService } from './scheduler/service';
 import { createDomainRunStore, openTables, parseGlobalState, type DomainTables, type GlobalState } from './store';
 import { createImagesGenerator } from './images';
+import { bindUploadedCover, generateCover, readCoverPreview, type CoverDeps } from './cover';
+import { listPushEvents as listPushEventViews, type PushEventDeps } from './push-events';
 import { ArticleStore } from './articles-store';
 import { ScheduleStore } from './schedules-store';
 import { diagnoseWeChat, pushArticleDraft, type WeChatFlowDeps } from './wechat-flow';
@@ -58,6 +60,7 @@ export class WeWriteService {
   /** callId→runId 内存映射（M2 运行卡 callId 兜底链；有界 FIFO，dispose 清空）+ AC-M1-12 单一真源闸门。 */
   private readonly callBindings: CallRunBindings;
   private readonly agentToolsGate: AgentToolsGate;
+  private readonly imagesGenerator: ReturnType<typeof createImagesGenerator>;
 
   private constructor(private readonly deps: ServiceDeps) {
     this.tables = openTables(deps.domain);
@@ -80,21 +83,22 @@ export class WeWriteService {
       nowIso: () => this.nowIso(),
       startRun: (schedule) => this.startRun({ trigger: 'schedule', params: schedule.params, scheduleId: schedule.id }),
     });
+    this.imagesGenerator = createImagesGenerator({
+      getSettings: () => this.settings,
+      resolveCredential: (ref) => Promise.resolve(deps.credentials.resolve(ref)).then(unwrapCredential),
+      now: this.nowFn,
+      ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
+      persist: async (records) => {
+        for (const record of records) await this.tables.images.put(record.id, record);
+      },
+    });
     this.engine = createPipelineEngine({
       llm: deps.llm as unknown as import('./pipeline/llm').PipelineLlm,
       store: this.runStore,
       gates: qualityGatesRunner,
       renderer: { convert: ({ markdown, theme }) => convertArticle({ markdown, theme }) },
       topicSource: { fetch: async (limit: number) => [...(await this.fetchHotspots(limit))] },
-      images: createImagesGenerator({
-        getSettings: () => this.settings,
-        resolveCredential: (ref) => Promise.resolve(deps.credentials.resolve(ref)).then(unwrapCredential),
-        now: this.nowFn,
-        ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
-        persist: async (records) => {
-          for (const record of records) await this.tables.images.put(record.id, record);
-        },
-      }),
+      images: this.imagesGenerator,
       onProduced: ({ markdown, runId }) => this.articles.persistProduced(markdown, runId),
       onImagesBound: ({ articleId, coverImageId, bodyImageIds }) =>
         this.articles.bindImages(articleId, { coverImageId, bodyImageIds }),
@@ -224,7 +228,13 @@ export class WeWriteService {
 
   startRun(input: { trigger: 'manual' | 'schedule'; params: RunParams; articleId?: string; scheduleId?: string }): { runId: string } {
     // settings.llmDefault 解析进 params.llm（本次显式覆盖优先）——paramsSnapshot 记录实际用的供应商/模型。
-    const params: RunParams = { ...input.params, llm: { ...this.state.settings.llmDefault, ...(input.params.llm ?? {}) } };
+    // v0.5.6：不传 imageCount 时缺省产封面（DEFAULT_IMAGE_COUNT=1）——缺封面就永远推不了草稿箱。
+    // 显式传 0 仍然尊重（无图成稿），只是不再是「什么都不填」的默认结果。
+    const params: RunParams = {
+      ...input.params,
+      imageCount: input.params.imageCount ?? DEFAULT_IMAGE_COUNT,
+      llm: { ...this.state.settings.llmDefault, ...(input.params.llm ?? {}) },
+    };
     const { runId, done } = this.engine.begin({
       trigger: input.trigger,
       params,
@@ -379,15 +389,53 @@ export class WeWriteService {
       },
       serialize: <T,>(operation: () => Promise<T>) => this.serialize(operation),
       now: this.nowFn,
+      events: this.pushEventDeps(),
     };
   }
 
-  async pushArticleDraft(articleId: string): Promise<{ mediaId: string; thumbMediaId: string }> {
+  async pushArticleDraft(articleId: string): Promise<PushDraftResult> {
     return pushArticleDraft(this.weChatFlowDeps(), articleId);
   }
 
   async diagnoseWeChat(): Promise<DiagnoseResult> {
     return diagnoseWeChat(this.weChatFlowDeps());
+  }
+
+  // ── 封面（v0.5.6）：推送硬门槛的可操作补位 ─────────────────────────────────
+
+  private coverDeps(): CoverDeps {
+    return {
+      articles: this.tables.articles,
+      images: this.tables.images,
+      generateImages: (input) => this.imagesGenerator.generate(input),
+      bindImages: (articleId, bound) => this.articles.bindImages(articleId, bound),
+      serialize: <T,>(operation: () => Promise<T>) => this.serialize(operation),
+      now: this.nowFn,
+    };
+  }
+
+  async generateCover(articleId: string): Promise<ArticleDetail> {
+    const record = await generateCover(this.coverDeps(), articleId);
+    return this.articles.get(record.id);
+  }
+
+  async bindCover(input: { articleId: string; base64: string; mime: string }): Promise<ArticleDetail> {
+    const record = await bindUploadedCover(this.coverDeps(), input);
+    return this.articles.get(record.id);
+  }
+
+  coverPreview(articleId: string): { base64: string; mime: string; bytes: number } {
+    return readCoverPreview(this.coverDeps(), articleId);
+  }
+
+  // ── 推送留痕（v0.5.6 转化度量）────────────────────────────────────────────
+
+  private pushEventDeps(): PushEventDeps {
+    return { table: this.tables.pushEvents, now: this.nowFn };
+  }
+
+  listPushEvents(query: { limit?: number; articleId?: string } = {}): PushEvent[] {
+    return listPushEventViews(this.pushEventDeps(), query);
   }
 
   startScheduler(): void { this.scheduler.start(); }
