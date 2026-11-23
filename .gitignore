@@ -25,7 +25,7 @@ tests/e2e/artifacts/
 .mimosa/
 
 # 构建产物：发布时由 prepublishOnly 自动构建（2026-08-28 起 dist 不再 committed）
-lib/
+/lib/
 
 # npm pack 产物
 *.tgz
