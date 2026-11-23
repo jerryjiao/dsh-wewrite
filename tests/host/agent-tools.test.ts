@@ -319,35 +319,117 @@ describe('工具定义形状（Spec §5 工具面 5 个 / AC-M1-01 描述边界�
     expect(pushDescription).toContain('不群发');
   });
 
-  it('AC-M1-03: run 参数面 = topic(必填)/image_count/theme + v0.5 brief 四字段（title/approach/outline/sources 全可选），键集精确', () => {
-    const parameters = byName('wewrite_run').parameters as Record<string, { required?: boolean; type?: string }>;
-    expect(Object.keys(parameters).sort()).toEqual(['approach', 'image_count', 'outline', 'sources', 'theme', 'title', 'topic']);
-    expect(parameters.topic?.required).toBe(true);
-    expect(parameters.image_count?.required).toBeFalsy();
-    expect(parameters.theme?.required).toBeFalsy();
-    expect(parameters.title?.required).toBeFalsy();
-    expect(parameters.approach?.required).toBeFalsy();
-    expect(parameters.outline?.required).toBeFalsy();
-    expect(parameters.sources?.required).toBeFalsy();
+  it('AC-M1-03: run 参数面 = topic(必填)/image_count/theme + v0.5 brief 四字段（title/approach/outline/sources 全可选），标准 object-root JSON Schema', () => {
+    const parameters = byName('wewrite_run').parameters as {
+      type?: string;
+      properties?: Record<string, Record<string, unknown>>;
+      required?: string[];
+    };
+    expect(parameters.type).toBe('object');
+    expect(Object.keys(parameters.properties ?? {}).sort()).toEqual(['approach', 'image_count', 'outline', 'sources', 'theme', 'title', 'topic']);
+    expect(parameters.required).toEqual(['topic']);
+    for (const [key, property] of Object.entries(parameters.properties ?? {})) {
+      expect(property, `run.${key} 不得内联 required`).not.toHaveProperty('required');
+    }
   });
 
-  it('Spec §5: rewrite 参数 text/instruction 必填 + title 可选；push 仅 article_id 必填；list 仅 limit 可选；suggest 仅 count 可选', () => {
-    const rewrite = byName('wewrite_rewrite').parameters as Record<string, { required?: boolean }>;
-    expect(Object.keys(rewrite).sort()).toEqual(['instruction', 'text', 'title']);
-    expect(rewrite.text?.required).toBe(true);
-    expect(rewrite.instruction?.required).toBe(true);
+  it('Spec §5: rewrite 参数 text/instruction 必填 + title 可选；push 仅 article_id 必填；list 仅 limit 可选；suggest 仅 count 可选（标准 JSON Schema）', () => {
+    const rewrite = byName('wewrite_rewrite').parameters as { type?: string; properties?: Record<string, unknown>; required?: string[] };
+    expect(rewrite.type).toBe('object');
+    expect(Object.keys(rewrite.properties ?? {}).sort()).toEqual(['instruction', 'text', 'title']);
+    expect(rewrite.required).toEqual(['text', 'instruction']);
 
-    const push = byName('wewrite_push_draft').parameters as Record<string, { required?: boolean }>;
-    expect(Object.keys(push)).toEqual(['article_id']);
-    expect(push.article_id?.required).toBe(true);
+    const push = byName('wewrite_push_draft').parameters as { type?: string; properties?: Record<string, unknown>; required?: string[] };
+    expect(push.type).toBe('object');
+    expect(Object.keys(push.properties ?? {})).toEqual(['article_id']);
+    expect(push.required).toEqual(['article_id']);
 
-    const list = byName('wewrite_list_articles').parameters as Record<string, { required?: boolean }>;
-    expect(Object.keys(list)).toEqual(['limit']);
-    expect(list.limit?.required).toBeFalsy();
+    const list = byName('wewrite_list_articles').parameters as { type?: string; properties?: Record<string, unknown>; required?: string[] };
+    expect(list.type).toBe('object');
+    expect(Object.keys(list.properties ?? {})).toEqual(['limit']);
+    expect(list.required ?? []).toEqual([]);
 
-    const suggest = byName('wewrite_suggest_topics').parameters as Record<string, { required?: boolean }>;
-    expect(Object.keys(suggest)).toEqual(['count']);
-    expect(suggest.count?.required).toBeFalsy();
+    const suggest = byName('wewrite_suggest_topics').parameters as { type?: string; properties?: Record<string, unknown>; required?: string[] };
+    expect(suggest.type).toBe('object');
+    expect(Object.keys(suggest.properties ?? {})).toEqual(['count']);
+    expect(suggest.required ?? []).toEqual([]);
+
+    for (const name of Object.keys(TIMEOUTS)) {
+      const properties = (byName(name).parameters as { properties?: Record<string, Record<string, unknown>> }).properties ?? {};
+      for (const [key, property] of Object.entries(properties)) {
+        expect(property, `${name}.${key} 不得内联 required`).not.toHaveProperty('required');
+      }
+    }
+  });
+
+  it('Issue #4 回归：全部 5 工具的 parameters 与 output.schema 符合标准 object-root JSON Schema（杜绝顶层 title 对象与属性内联 required）', () => {
+    const ALLOWED_KEYWORDS = new Set([
+      'type', 'oneOf', 'properties', 'required', 'additionalProperties',
+      'items', 'enum', 'const', 'description', 'title', 'default', 'examples',
+    ]);
+    const SCALAR_TYPES = new Set(['object', 'array', 'string', 'number', 'integer', 'boolean', 'null']);
+
+    function assertValidJsonSchemaNode(node: unknown, path: string): void {
+      expect(typeof node === 'object' && node !== null && !Array.isArray(node), `${path} 必须是对象`).toBe(true);
+      const record = node as Record<string, unknown>;
+      for (const key of Object.keys(record)) {
+        expect(ALLOWED_KEYWORDS.has(key), `${path}.${key} 不是合法 JSON Schema 关键字`).toBe(true);
+      }
+      if ('title' in record) {
+        expect(typeof record.title, `${path}.title 必须是 string（metaschema 校验）`).toBe('string');
+      }
+      if ('description' in record) {
+        expect(typeof record.description, `${path}.description 必须是 string`).toBe('string');
+      }
+      if ('type' in record) {
+        expect(typeof record.type === 'string' && SCALAR_TYPES.has(record.type), `${path}.type 必须是合法 JSON Schema 类型`).toBe(true);
+      }
+      if ('required' in record) {
+        expect(record.type, `${path}.required 只能挂在 type:"object" 节点上`).toBe('object');
+        expect(Array.isArray(record.required), `${path}.required 必须是字符串数组`).toBe(true);
+        const props = (record.properties ?? {}) as Record<string, unknown>;
+        for (const reqKey of record.required as unknown[]) {
+          expect(typeof reqKey, `${path}.required 元素必须是 string`).toBe('string');
+          expect(Object.hasOwn(props, reqKey as string), `${path}.required 含未声明属性 ${String(reqKey)}`).toBe(true);
+        }
+      }
+      if ('properties' in record) {
+        expect(record.type, `${path}.properties 只能挂在 type:"object" 节点上`).toBe('object');
+        expect(typeof record.properties === 'object' && record.properties !== null && !Array.isArray(record.properties), `${path}.properties 必须是对象`).toBe(true);
+        for (const [propKey, propSchema] of Object.entries(record.properties as Record<string, unknown>)) {
+          assertValidJsonSchemaNode(propSchema, `${path}.properties.${propKey}`);
+        }
+      }
+      if ('items' in record) {
+        expect(record.type, `${path}.items 只能挂在 type:"array" 节点上`).toBe('array');
+        assertValidJsonSchemaNode(record.items, `${path}.items`);
+      }
+    }
+
+    function assertValidObjectRootSchema(schema: unknown, label: string): void {
+      assertValidJsonSchemaNode(schema, label);
+      const root = schema as Record<string, unknown>;
+      expect(root.type, `${label}.type 必须是 "object"`).toBe('object');
+      expect(typeof root.properties === 'object' && root.properties !== null, `${label}.properties 必须存在`).toBe(true);
+      expect(JSON.parse(JSON.stringify(root)), `${label} 必须无损 JSON 序列化`).toEqual(root);
+    }
+
+    for (const name of Object.keys(TIMEOUTS)) {
+      const definition = byName(name) as { parameters: unknown; output: { schema: unknown } };
+      assertValidObjectRootSchema(definition.parameters, `${name}.parameters`);
+      assertValidObjectRootSchema(definition.output.schema, `${name}.output.schema`);
+    }
+
+    // 负向自证：旧的 defineTool 属性映射 DSL（如 Issue #4 报错的 wewrite_rewrite 顶层 title 对象）必然被拦截
+    expect(() =>
+      assertValidObjectRootSchema(
+        {
+          text: { type: 'string', required: true, description: '原文' },
+          title: { type: 'string', description: '所属文章标题（可选，帮助模型理解语境）' },
+        },
+        'legacy_dsl',
+      ),
+    ).toThrow();
   });
 
   it('勘误 2/architecture §4.1: 每个定义都带 output（object-root schema + 纯函数 render）', () => {

@@ -18,9 +18,7 @@ export function buildListTool(service: WeWriteService): WewriteToolDefinition {
     name: 'wewrite_list_articles',
     description: '查询 WeWrite 文章库的轻量清单（id、标题、状态、摘要、更新时间），用于选择 article_id 做后续推送或引用。不返回全文。',
     timeoutMs: 15000,
-    parameters: {
-      limit: { type: 'integer', description: `返回条数（1-${LIMIT_MAX}，默认 ${LIMIT_DEFAULT}，按更新时间新→旧）` },
-    },
+    parameters: jsonSchema({ limit: { type: 'integer', description: `返回条数（1-${LIMIT_MAX}，默认 ${LIMIT_DEFAULT}，按更新时间新→旧）` } }),
     output: {
       schema: jsonSchema({ articles: { type: 'array' } }, ['articles']),
       render: (_args, value) => {

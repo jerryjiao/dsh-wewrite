@@ -5,7 +5,12 @@
 
 import type { TextBlock, ToolCallView, ToolResultView } from '../platform';
 
-/** object-root JsonSchemaNode 构造（canonical value 形状声明）。 */
+/**
+ * object-root raw JSON Schema 构造（canonical value 形状声明）。
+ * 同时用于工具 `parameters` 与 `output.schema`：宿主的 tools.register(definition)
+ * 把 parameters 原样透传给 provider 当 function.parameters（不经过 defineTool DSL 编译），
+ * 所以 parameters 必须是标准 JSON Schema（Issue #4：误用属性映射 DSL 导致顶层 title 变对象、对话 400）。
+ */
 export function jsonSchema(
   properties: Record<string, Record<string, unknown>>,
   required: readonly string[] = [],

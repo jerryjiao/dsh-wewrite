@@ -145,23 +145,28 @@ export function buildRunTool(service: WeWriteService): WewriteToolDefinition {
       + '把用户在对话里给出的标题/总体思路/大纲/参考链接蒸馏进 title/approach/outline/sources 对应参数（分层硬约束：标题与思路照办、大纲节名原样保留、给定来源必须以可见 URL 引用且不得编造其他来源）。'
       + '用户只给一句话主题时不追问、直接运行。仅在用户明确表达写作意图时调用；返回值只进草稿相关流程，本插件不群发。',
     timeoutMs: 600000,
-    parameters: {
-      topic: { type: 'string', required: true, description: '文章主题（固定选题模式，必填非空）' },
-      title: { type: 'string', description: '可选：用户已定的文章标题（硬约束，成稿直接采用，≤64 字）——用户明确给出标题时才传' },
-      approach: { type: 'string', description: '可选：总体思路/核心主张（硬约束，全文围绕展开不偏离）——用户表达了写作思路时才传' },
-      outline: {
-        type: 'array',
-        items: { type: 'string' },
-        description: '可选：用户给定的大纲节名数组（骨架约束：节名原样保留顺序不变，管线可补节）',
+    // parameters 走 object-root raw JSON Schema（Issue #4：宿主直接透传给 provider，
+    // 不能用 defineTool 属性映射 DSL）
+    parameters: jsonSchema(
+      {
+        topic: { type: 'string', description: '文章主题（固定选题模式，必填非空）' },
+        title: { type: 'string', description: '可选：用户已定的文章标题（硬约束，成稿直接采用，≤64 字）——用户明确给出标题时才传' },
+        approach: { type: 'string', description: '可选：总体思路/核心主张（硬约束，全文围绕展开不偏离）——用户表达了写作思路时才传' },
+        outline: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '可选：用户给定的大纲节名数组（骨架约束：节名原样保留顺序不变，管线可补节）',
+        },
+        sources: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '可选：用户提供的参考来源 URL 数组（硬约束：正文以可见 URL 文本引用，不得编造未提供的 URL）',
+        },
+        image_count: { type: 'integer', description: '正文配图数量 0-10，默认 0（默认零图片成本）' },
+        theme: { type: 'string', description: '排版主题（可选，缺省用设置页默认主题）' },
       },
-      sources: {
-        type: 'array',
-        items: { type: 'string' },
-        description: '可选：用户提供的参考来源 URL 数组（硬约束：正文以可见 URL 文本引用，不得编造未提供的 URL）',
-      },
-      image_count: { type: 'integer', description: '正文配图数量 0-10，默认 0（默认零图片成本）' },
-      theme: { type: 'string', description: '排版主题（可选，缺省用设置页默认主题）' },
-    },
+      ['topic'],
+    ),
     output: {
       schema: jsonSchema(
         {

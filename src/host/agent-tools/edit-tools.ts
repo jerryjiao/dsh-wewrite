@@ -37,11 +37,14 @@ export function buildRewriteTool(service: WeWriteService): WewriteToolDefinition
     name: 'wewrite_rewrite',
     description: 'AI 改写一段文字（保持原意，按 instruction 调整风格），返回改写后全文。适合对文章段落做口语化、缩写、换角度等精修。',
     timeoutMs: 60000,
-    parameters: {
-      text: { type: 'string', required: true, description: '要改写的原文（1-8000 字）' },
-      instruction: { type: 'string', required: true, description: '改写要求（1-200 字，如「更口语一点」）' },
-      title: { type: 'string', description: '所属文章标题（可选，帮助模型理解语境）' },
-    },
+    parameters: jsonSchema(
+      {
+        text: { type: 'string', description: '要改写的原文（1-8000 字）' },
+        instruction: { type: 'string', description: '改写要求（1-200 字，如「更口语一点」）' },
+        title: { type: 'string', description: '所属文章标题（可选，帮助模型理解语境）' },
+      },
+      ['text', 'instruction'],
+    ),
     output: {
       schema: jsonSchema({ ok: { type: 'boolean' }, text: { type: 'string' }, error: { type: 'object' } }, ['ok']),
       render: (_args, value) => {
@@ -98,9 +101,7 @@ export function buildPushTool(service: WeWriteService, approval: PushApprovalHan
       '把一篇已渲染的文章推送到微信公众号草稿箱（只进草稿箱，不群发；群发永远由号主在公众平台后台人工执行）。'
       + '调用前会弹出确认面板（含文章标题与门禁结论），未经确认不会发起任何微信 API 调用。article_id 可先用 wewrite_list_articles 查询。',
     timeoutMs: 120000,
-    parameters: {
-      article_id: { type: 'string', required: true, description: '文章 ID（wewrite_list_articles 可查）' },
-    },
+    parameters: jsonSchema({ article_id: { type: 'string', description: '文章 ID（wewrite_list_articles 可查）' } }, ['article_id']),
     output: {
       schema: jsonSchema(
         { ok: { type: 'boolean' }, mediaId: { type: 'string' }, thumbMediaId: { type: 'string' }, articleId: { type: 'string' }, title: { type: 'string' }, error: { type: 'object' } },

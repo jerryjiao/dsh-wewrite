@@ -24,9 +24,7 @@ export function buildSuggestTopicsTool(service: WeWriteService): WewriteToolDefi
       '从热榜抓取候选选题（默认 3 条，上限 5 条）并逐条生成一句话 AI 速览，供用户挑一个再启动写作管线。'
       + '仅在用户表达「不知道写什么 / 给我推荐选题」类意图时调用；呈现候选后等用户选定，不要擅自直接开跑管线。',
     timeoutMs: 60000,
-    parameters: {
-      count: { type: 'integer', description: `候选数量 1-${COUNT_MAX}，默认 ${COUNT_DEFAULT}` },
-    },
+    parameters: jsonSchema({ count: { type: 'integer', description: `候选数量 1-${COUNT_MAX}，默认 ${COUNT_DEFAULT}` } }),
     output: {
       schema: jsonSchema({ ok: { type: 'boolean' }, topics: { type: 'array' }, error: { type: 'object' } }, ['ok', 'topics']),
       render: (_args, value) => {

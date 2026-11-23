@@ -155,6 +155,7 @@ export interface WewriteToolOutputDefinition {
 export interface WewriteToolDefinition {
   readonly name: string;
   readonly description: string;
+  /** 必须是 object-root raw JSON Schema（宿主原样透传给 provider；禁用 defineTool 属性映射 DSL）。 */
   readonly parameters: Record<string, unknown>;
   readonly output: WewriteToolOutputDefinition;
   readonly timeoutMs?: number;
